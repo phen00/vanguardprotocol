@@ -654,6 +654,14 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
   .tb.pulse { bottom: 128px; right: max(162px, calc(env(safe-area-inset-right, 0px) + 150px)); width: 46px; height: 46px; }
   .objhud { top: 4px; width: min(340px, 44vw); padding: 5px 10px 6px; } .objhud b { font-size: 13px; }
 }
+.hb-wlbar { position: absolute; left: 12px; right: 18px; bottom: 4px; height: 3px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+.hb-wlbar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); border-radius: 3px; background: linear-gradient(90deg, #c9a24a, #ffe08a); box-shadow: 0 0 6px rgba(255,220,130,.6); transition: transform .3s ease-out; }
+.hb-l::after { bottom: -3px; }
+.gswl { display: flex; align-items: center; gap: 8px; margin-top: 4px; font: 10px var(--mono); color: var(--muted); }
+.gswl b { font: 700 11px var(--display); color: #ffe08a; letter-spacing: .06em; }
+.gswlbar { position: relative; width: 140px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; }
+.gswlbar i { position: absolute; inset: 0; transform-origin: left; border-radius: 4px; background: linear-gradient(90deg, #c9a24a, #ffe08a); }
+.scope.thermal::after { content: ''; position: absolute; left: 50%; top: 50%; width: var(--d); height: var(--d); transform: translate(-50%, -50%); border-radius: 50%; background: rgba(60,255,190,.14); mix-blend-mode: screen; }
 </style>
 
 <div id="game">
@@ -680,6 +688,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
       <img class="hb-gun" id="hbGun" alt="">
       <div class="hb-ammo"><div class="hb-mag" id="ammo">30</div><div class="hb-res" id="ammoRes">210</div></div>
       <div class="hb-name" id="wName">VK-9 Carbine</div>
+      <div class="hb-wlbar"><i id="hbWl"></i></div>
     </div>
     <div class="hb-m" id="vitals">
       <svg class="arcs" viewBox="0 0 440 126" aria-hidden="true">
@@ -824,7 +833,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
     <div class="lpanel gsmith" id="detailView" hidden>
       <div class="gshead">
         <button class="link" id="detailBack" type="button">← Armory</button>
-        <div class="gstitle"><span class="wc" id="pvCls"></span><span class="pvname" id="pvName"></span><span class="pvstate" id="pvState"></span></div>
+        <div class="gstitle"><span class="wc" id="pvCls"></span><span class="pvname" id="pvName"></span><span class="pvstate" id="pvState"></span><span class="gswl"><b id="gsWlN">Lv 1</b><span class="gswlbar"><i id="gsWlF"></i></span><small id="gsWlX"></small></span></div>
         <button class="go" id="equipBtn" type="button">Equip</button>
       </div>
       <div class="gsmain">
@@ -1648,7 +1657,7 @@ const glass = new T.MeshBasicMaterial({ color: 0xffc070, transparent: true, opac
 // Every option carries stat modifiers (m): dmg, rate (shot interval), recoil, spread, range, ads (aim speed),
 // move, mag (extra rounds), reload, plus flags for the flash hider and suppressor.
 const OPT_IRON = { id: 'iron', name: 'Iron sights', desc: 'Factory sights', lvl: 1, m: {} };
-const OPT_HOLO = lvl => ({ id: 'holo', name: 'Holo sight', desc: 'Amber ring, clear picture', lvl, m: { ads: 0.97 } });
+const OPT_HOLO = lvl => ({ id: 'holo', name: 'Holo sight', desc: 'Amber ring, clear picture', lvl, base: 'holo', m: { ads: 0.97 } });
 const MUZZLES = [
   { id: 'none', name: 'Bare muzzle', desc: 'Nothing fitted', lvl: 1, m: {} },
   { id: 'comp', name: 'Compensator', desc: 'Ports push the muzzle down', lvl: 8, m: { recoil: 0.8, ads: 0.97 } },
@@ -1673,13 +1682,60 @@ const GRIPS_UB = [
 ];
 const ATT = {
   vk9: {
-    optic: [OPT_IRON, { id: 'acog', name: '2× Combat scope', desc: 'Medium zoom', lvl: 1, m: { ads: 0.9 } }, OPT_HOLO(3)],
-    muzzle: MUZZLES, barrel: BARRELS,
-    mag: [{ id: 'std', name: 'Standard cell', desc: '40 rounds', lvl: 1, m: {} },
-      { id: 'fast', name: 'Quick-swap cell', desc: 'Vents much faster', lvl: 15, m: { reload: 0.72 } },
-      { id: 'ext', name: 'Extended cell', desc: '+12 rounds', lvl: 19, m: { mag: 12, reload: 1.1, ads: 0.96 } },
-      { id: 'drum', name: 'Heat-sink drum', desc: '+30 rounds, heavy', lvl: 28, m: { mag: 30, reload: 1.3, ads: 0.86, move: 0.96 } }],
-    stock: STOCKS, grip: GRIPS_UB
+    optic: [
+      { id: 'iron', name: 'Iron sights', desc: 'Peep ring and hooded post', wl: 1, m: {} },
+      { id: 'reflex', name: 'Kestrel reflex', desc: 'Tiny open dot sight, barely any weight', wl: 2, base: 'holo', fov: 48, m: { ads: 1.0 } },
+      { id: 'holo', name: 'Vanta holo', desc: 'Amber ring, wide window', wl: 4, base: 'holo', fov: 44, m: { ads: 0.97 } },
+      { id: 'prism', name: 'Halcyon 1.5× prism', desc: 'Compact etched prism, slight zoom', wl: 8, base: 'acog', fov: 52, zoom: 1.5, m: { ads: 0.94 } },
+      { id: 'acog', name: 'Ridgeline 2× scope', desc: 'Medium-range combat scope', wl: 12, base: 'acog', fov: 58, zoom: 2, m: { ads: 0.9 } },
+      { id: 'hybrid', name: 'Longwatch 3× hybrid', desc: 'Long tube scope for lanes', wl: 18, base: 'acog', fov: 62, zoom: 3, m: { ads: 0.84, move: 0.98 } },
+      { id: 'thermal', name: 'Pyre thermal 3.5×', desc: 'Heat-tinted lens that cuts through fog', wl: 26, base: 'acog', fov: 62, zoom: 3.5, thermal: 1, m: { ads: 0.8, move: 0.97 } }
+    ],
+    muzzle: [
+      { id: 'none', name: 'Bare muzzle', desc: 'Nothing fitted', wl: 1, m: {} },
+      { id: 'flash', name: 'Pronghorn flash hider', desc: 'No muzzle flash, a little steadier', wl: 3, m: { recoil: 0.93, flash: 1 } },
+      { id: 'comp', name: 'Gale compensator', desc: 'Ports push the muzzle down', wl: 6, m: { recoil: 0.82, ads: 0.97 } },
+      { id: 'brake', name: 'Anvil muzzle brake', desc: 'Huge kick reduction, loud and slow to aim', wl: 10, m: { recoil: 0.72, ads: 0.92, spread: 1.06 } },
+      { id: 'tport', name: 'Spire tactical port', desc: 'Tightens the spread', wl: 14, m: { spread: 0.84, recoil: 0.96 } },
+      { id: 'supp', name: 'Whisper suppressor', desc: 'Quiet shots that carry further', wl: 20, m: { range: 1.12, spread: 0.92, ads: 0.9, quiet: 1 } },
+      { id: 'hsupp', name: 'Monolith suppressor', desc: 'Heavy can: quiet, steady, long reach', wl: 28, m: { range: 1.22, recoil: 0.88, ads: 0.84, move: 0.97, quiet: 1 } }
+    ],
+    barrel: [
+      { id: 'std', name: 'Factory 16" barrel', desc: 'Balanced', wl: 1, m: {} },
+      { id: 'short', name: 'Viper 11" CQB', desc: 'Quick to aim, light on your feet', wl: 4, m: { ads: 1.15, move: 1.04, range: 0.85, spread: 1.12 } },
+      { id: 'fluted', name: 'Gossamer fluted', desc: 'Lightened barrel, faster handling', wl: 8, m: { ads: 1.07, move: 1.02, recoil: 1.04 } },
+      { id: 'long', name: 'Ranger 20" barrel', desc: 'Hits harder and holds together at range', wl: 13, m: { dmg: 1.12, range: 1.2, spread: 0.8, ads: 0.9, move: 0.97 } },
+      { id: 'heavy', name: 'Bulwark bull barrel', desc: 'Thick barrel soaks recoil, heavy to swing', wl: 17, m: { recoil: 0.84, range: 1.1, ads: 0.86, move: 0.96 } },
+      { id: 'integ', name: 'Hush integral', desc: 'Built-in suppression, shorter reach', wl: 22, m: { quiet: 1, range: 0.9, flash: 1 } },
+      { id: 'ovc', name: 'Overclock coil barrel', desc: 'Heat-coil rounds: more damage, more kick', wl: 29, m: { dmg: 1.18, recoil: 1.12, range: 1.08 } }
+    ],
+    mag: [
+      { id: 'std', name: 'Standard cell', desc: '40 rounds', wl: 1, m: {} },
+      { id: 'fast', name: 'Quick-swap cell', desc: 'Vents much faster', wl: 5, m: { reload: 0.72 } },
+      { id: 'ext', name: 'Extended cell', desc: '+12 rounds', wl: 9, m: { mag: 12, reload: 1.1, ads: 0.96 } },
+      { id: 'cool', name: 'Cryo-cooled cell', desc: 'Runs cold: faster fire rate', wl: 15, m: { rate: 0.9, mag: -5 } },
+      { id: 'twin', name: 'Twin-stack cell', desc: '+8 rounds, quick vents', wl: 19, m: { mag: 8, reload: 0.85, ads: 0.97 } },
+      { id: 'drum', name: 'Heat-sink drum', desc: '+30 rounds, heavy', wl: 24, m: { mag: 30, reload: 1.3, ads: 0.86, move: 0.96 } },
+      { id: 'ovc', name: 'Overcharged cell', desc: 'Hotter rounds hit harder, fewer of them', wl: 30, m: { dmg: 1.12, mag: -10, reload: 1.05 } }
+    ],
+    stock: [
+      { id: 'std', name: 'Standard stock', desc: 'Balanced', wl: 1, m: {} },
+      { id: 'light', name: 'Skeleton stock', desc: 'Faster handling, more kick', wl: 3, m: { ads: 1.1, move: 1.04, recoil: 1.12 } },
+      { id: 'fold', name: 'Folding stock', desc: 'Folded tight for snap aiming', wl: 7, m: { ads: 1.16, move: 1.05, recoil: 1.2 } },
+      { id: 'tac', name: 'Tactical stock', desc: 'Adjustable, slightly steadier', wl: 11, m: { recoil: 0.93, ads: 1.02 } },
+      { id: 'heavy', name: 'Padded stock', desc: 'Soaks up recoil, slower to raise', wl: 16, m: { recoil: 0.84, ads: 0.92, move: 0.97 } },
+      { id: 'mark', name: 'Marksman stock', desc: 'Cheek riser and long pad: rock steady', wl: 21, m: { recoil: 0.78, spread: 0.92, ads: 0.86, move: 0.95 } },
+      { id: 'none', name: 'No stock', desc: 'Fastest handling, wild recoil', wl: 27, m: { ads: 1.24, move: 1.07, recoil: 1.35 } }
+    ],
+    grip: [
+      { id: 'none', name: 'No grip', desc: 'Clean handguard', wl: 1, m: {} },
+      { id: 'stubby', name: 'Stub grip', desc: 'Tighter hip fire', wl: 2, m: { spread: 0.85, recoil: 0.94 } },
+      { id: 'vert', name: 'Vertical grip', desc: 'Tames vertical kick', wl: 6, m: { recoil: 0.86, ads: 0.96 } },
+      { id: 'angled', name: 'Angled grip', desc: 'Snappier aim', wl: 10, m: { ads: 1.1, recoil: 0.95 } },
+      { id: 'stop', name: 'Hand stop', desc: 'Small lip: steady aim, light', wl: 14, m: { recoil: 0.92, move: 1.01 } },
+      { id: 'ranger', name: 'Ranger foregrip', desc: 'Long grip for long fights', wl: 19, m: { recoil: 0.84, spread: 0.92, ads: 0.93 } },
+      { id: 'bipod', name: 'Folded bipod', desc: 'Heavy, but the steadiest you can get', wl: 25, m: { recoil: 0.76, ads: 0.88, move: 0.96 } }
+    ]
   },
   hail: {
     optic: [OPT_IRON, OPT_HOLO(8)],
@@ -1703,6 +1759,9 @@ const ATT = {
   }
 };
 const SLOT_NAMES = { optic: 'Optic', muzzle: 'Muzzle', barrel: 'Barrel', mag: 'Magazine', stock: 'Stock', grip: 'Underbarrel' };
+// every option unlocks at a weapon level (wl); older entries used player levels, scale those down
+for (const A of Object.values(ATT)) for (const list of Object.values(A)) for (const o of list) if (o.wl === undefined) o.wl = Math.max(1, Math.round((o.lvl || 1) * 0.9));
+
 // fill in defaults; old saves had the long barrel as a muzzle option
 function normAtt(id, att = {}) {
   const A = ATT[id], out = {};
@@ -1739,19 +1798,27 @@ function holoSight(B, railY, z, glowMat) {
 // swap the physical parts on a weapon model: barrel length, muzzle device, magazine, stock, underbarrel grip
 function applyAttVisuals(g, id, A, R, B, C, muzzle) {
   const dk = gm, lt = gl, y = R.barrelY;
-  if (A.barrel === 'long' || A.barrel === 'short') {
-    const dz = A.barrel === 'long' ? (id === 'breaker' ? -0.16 : -0.14) : (id === 'breaker' ? 0.2 : 0.07);
+  if (['long', 'short', 'heavy', 'ovc', 'integ', 'fluted'].includes(A.barrel)) {
+    const dz = { long: id === 'breaker' ? -0.16 : -0.14, short: id === 'breaker' ? 0.2 : 0.07, heavy: -0.08, ovc: -0.1, integ: -0.06, fluted: -0.03 }[A.barrel];
     for (const t of R.tips) t.position.z += dz;
     const len0 = Math.abs(muzzle - R.barrelZ0);
     const sc = Math.max(0.2, (len0 - dz) / len0); R.barrel.scale.z = sc;   // cylinder length runs along z after the rotation
     R.barrel.position.z = R.barrelZ0 + (R.barrel.position.z - R.barrelZ0) * sc;
     if (A.barrel === 'long' && id !== 'breaker') B(R.barrelR * 2.6, R.barrelR * 2.6, 0.08, 0, y, muzzle - 0.02, dk);   // gas block on the extension
     muzzle += dz;
+    const L = Math.abs(muzzle - R.barrelZ0), mid = (muzzle + R.barrelZ0) / 2;
+    if (A.barrel === 'heavy') { R.barrel.visible = false; C(R.barrelR * 1.9, R.barrelR * 1.9, L, 0, y, mid, dk); }
+    if (A.barrel === 'fluted') for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; B(0.004, 0.004, L * 0.7, Math.cos(a) * R.barrelR * 1.05, y + Math.sin(a) * R.barrelR * 1.05, mid, lt); }
+    if (A.barrel === 'integ') { R.barrel.visible = false; C(R.barrelR * 2.3, R.barrelR * 2.3, L, 0, y, mid, dk); for (let i = 0; i < 5; i++) C(R.barrelR * 2.45, R.barrelR * 2.45, 0.012, 0, y, R.barrelZ0 - L * (0.15 + i * 0.17), lt); }
+    if (A.barrel === 'ovc') { for (let i = 0; i < 6; i++) { const r = new T.Mesh(new T.TorusGeometry(R.barrelR * 1.6, 0.004, 4, 12), glowCyan); r.position.set(0, y, R.barrelZ0 - L * (0.12 + i * 0.14)); g.add(r); } }
   }
   const m = A.muzzle;
   if (m === 'comp') { B(0.036, 0.036, 0.08, 0, y, muzzle - 0.04); B(0.038, 0.006, 0.05, 0, y + 0.02, muzzle - 0.04, glow); muzzle -= 0.08; }
   if (m === 'flash') { C(0.02, 0.022, 0.07, 0, y, muzzle - 0.035); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; B(0.006, 0.006, 0.04, Math.cos(a) * 0.016, y + Math.sin(a) * 0.016, muzzle - 0.09, dk); } muzzle -= 0.11; }
   if (m === 'supp') { const r = id === 'breaker' ? 0.034 : 0.026; C(r, r, 0.22, 0, y, muzzle - 0.11, dk); C(r * 1.08, r * 1.08, 0.02, 0, y, muzzle - 0.02, lt); C(r * 1.08, r * 1.08, 0.02, 0, y, muzzle - 0.2, lt); muzzle -= 0.22; }
+  if (m === 'brake') { B(0.05, 0.034, 0.07, 0, y, muzzle - 0.035, dk); for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) B(0.008, 0.024, 0.01, sx * 0.026, y, muzzle - 0.015 - i * 0.02, lt); muzzle -= 0.07; }
+  if (m === 'tport') { C(0.018, 0.018, 0.06, 0, y, muzzle - 0.03, dk); for (let i = 0; i < 3; i++) B(0.03, 0.004, 0.006, 0, y + 0.018, muzzle - 0.012 - i * 0.017, glow); muzzle -= 0.06; }
+  if (m === 'hsupp') { const r = 0.032; C(r, r, 0.3, 0, y, muzzle - 0.15, dk); for (const z of [0.02, 0.1, 0.2, 0.28]) C(r * 1.08, r * 1.08, 0.016, 0, y, muzzle - z, lt); muzzle -= 0.3; }
   if (m === 'choke') { C(0.026, 0.024, 0.06, 0, y, muzzle - 0.03, lt); muzzle -= 0.06; }
   if (m === 'wide') { C(0.024, 0.034, 0.06, 0, y, muzzle - 0.03, lt); B(0.07, 0.006, 0.05, 0, y, muzzle - 0.03, dk); muzzle -= 0.06; }
   // magazine
@@ -1764,12 +1831,18 @@ function applyAttVisuals(g, id, A, R, B, C, muzzle) {
       const d = new T.Mesh(new T.CylinderGeometry(0.075, 0.075, 0.06, 14), dk); d.rotation.z = Math.PI / 2; d.position.set(0, R.magTop - 0.1, R.magZ - 0.01); g.add(d);
       const cap = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 0.064, 14), lt); cap.rotation.z = Math.PI / 2; cap.position.copy(d.position); g.add(cap);
       R.mag = null;
+    } else if (A.mag === 'cool') { B(0.046, 0.08, 0.074, 0, R.magTop - 0.07, R.magZ, lt); B(0.048, 0.012, 0.03, 0, R.magTop - 0.05, R.magZ + 0.02, glowCyan); B(0.048, 0.012, 0.03, 0, R.magTop - 0.09, R.magZ + 0.02, glowCyan);
+    } else if (A.mag === 'twin') { R.mag.position.x = -0.022; const c2 = R.mag.clone(); c2.position.x = 0.022; g.add(c2); B(0.09, 0.012, 0.03, 0, R.magTop - 0.1, R.magZ, lt);
+    } else if (A.mag === 'ovc') { R.mag.scale.y = 0.8; R.mag.position.y = R.magTop * 0.2; B(0.046, 0.03, 0.074, 0, R.magTop - 0.05, R.magZ, glowRed);
     } else if (A.mag === 'fast') { B(0.03, 0.02, 0.012, 0, R.magTop - 0.15, R.magZ + 0.045, glowCyan); B(0.044, 0.025, 0.074, 0, R.magTop - 0.06, R.magZ, lt); }
   }
   // stock
   if (R.stock && A.stock && A.stock !== 'std') {
     for (const c of R.stock.children) c.visible = false;
     if (A.stock === 'light') { B(0.012, 0.012, 0.24, 0, 0.02, 0.27, dk); B(0.012, 0.012, 0.24, 0, -0.05, 0.26, dk, -0.18); B(0.04, 0.1, 0.016, 0, -0.015, 0.38, dk); }
+    if (A.stock === 'fold') { B(0.014, 0.05, 0.16, 0.042, -0.02, 0.1, dk); B(0.014, 0.12, 0.02, 0.042, -0.04, 0.02, lt); }
+    if (A.stock === 'tac') { B(0.024, 0.024, 0.2, 0, 0.0, 0.26, dk); B(0.05, 0.06, 0.1, 0, -0.01, 0.34, lt); B(0.06, 0.12, 0.022, 0, -0.025, 0.4, dk); B(0.02, 0.03, 0.04, 0, -0.06, 0.32, dk); }
+    if (A.stock === 'mark') { B(0.05, 0.09, 0.28, 0, -0.015, 0.31, dk, 0.03); B(0.042, 0.03, 0.12, 0, 0.05, 0.31, lt); B(0.064, 0.14, 0.03, 0, -0.025, 0.46, lt); B(0.03, 0.04, 0.04, 0, -0.09, 0.42, dk); }
     if (A.stock === 'heavy') { B(0.056, 0.085, 0.24, 0, -0.01, 0.3, dk, 0.04); B(0.05, 0.03, 0.14, 0, 0.045, 0.3, lt); B(0.066, 0.13, 0.04, 0, -0.02, 0.43, lt); }
   }
   // underbarrel grip, just ahead of the support hand
@@ -1778,6 +1851,9 @@ function applyAttVisuals(g, id, A, R, B, C, muzzle) {
     if (A.grip === 'vert') { B(0.03, 0.095, 0.034, 0, gy - 0.05, gz, dk); B(0.034, 0.012, 0.038, 0, gy - 0.1, gz, lt); }
     if (A.grip === 'angled') B(0.03, 0.035, 0.1, 0, gy - 0.02, gz + 0.02, dk, 0.45);
     if (A.grip === 'stubby') B(0.03, 0.05, 0.032, 0, gy - 0.025, gz, dk);
+    if (A.grip === 'stop') B(0.026, 0.028, 0.02, 0, gy - 0.014, gz - 0.06, dk, -0.3);
+    if (A.grip === 'ranger') { B(0.032, 0.13, 0.036, 0, gy - 0.065, gz, dk, 0.12); B(0.036, 0.012, 0.04, 0, gy - 0.13, gz + 0.008, lt); }
+    if (A.grip === 'bipod') { B(0.04, 0.03, 0.05, 0, gy - 0.015, gz, dk); for (const sx of [-1, 1]) B(0.01, 0.01, 0.16, sx * 0.012, gy - 0.035, gz + 0.075, lt); }
   }
   return muzzle;
 }
@@ -1836,11 +1912,24 @@ function makeGun(id, att = {}) {
       B(0.05, 0.016, 0.1, 0, 0.11, -0.1); B(0.007, 0.06, 0.01, 0.027, 0.145, -0.13); B(0.007, 0.06, 0.01, -0.027, 0.145, -0.13);
       B(0.06, 0.008, 0.01, 0, 0.175, -0.13); B(0.05, 0.048, 0.003, 0, 0.145, -0.13, glass); sightY = 0.145;
     }
+    if (op === 'reflex') {
+      B(0.036, 0.012, 0.05, 0, 0.11, -0.1); B(0.006, 0.03, 0.01, 0.017, 0.13, -0.11); B(0.006, 0.03, 0.01, -0.017, 0.13, -0.11);
+      B(0.04, 0.006, 0.012, 0, 0.147, -0.11); B(0.032, 0.03, 0.003, 0, 0.13, -0.11, glass); B(0.003, 0.003, 0.003, 0, 0.13, -0.112, glowRed); sightY = 0.13;
+    }
+    if (op === 'prism') {
+      B(0.042, 0.03, 0.09, 0, 0.115, -0.1); B(0.05, 0.04, 0.06, 0, 0.145, -0.1); C(0.02, 0.02, 0.02, 0, 0.145, -0.04); C(0.024, 0.024, 0.004, 0, 0.145, -0.135, glass); sightY = 0.145;
+    }
+    if (op === 'hybrid' || op === 'thermal') {
+      B(0.04, 0.02, 0.14, 0, 0.11, -0.1); C(0.024, 0.024, 0.24, 0, 0.152, -0.11); C(0.024, 0.034, 0.06, 0, 0.152, -0.25); C(0.03, 0.024, 0.04, 0, 0.152, 0.03);
+      C(0.032, 0.032, 0.004, 0, 0.152, -0.282, op === 'thermal' ? new T.MeshBasicMaterial({ color: 0x40e0c0, transparent: true, opacity: 0.55 }) : glass);
+      B(0.012, 0.02, 0.03, 0.03, 0.152, -0.12, op === 'thermal' ? glowCyan : gm); if (op === 'thermal') B(0.03, 0.03, 0.05, -0.03, 0.135, -0.06, gm);
+      sightY = 0.152;
+    }
     if (op === 'acog') {
       B(0.04, 0.024, 0.1, 0, 0.112, -0.1); C(0.022, 0.022, 0.15, 0, 0.15, -0.1); C(0.022, 0.03, 0.045, 0, 0.15, -0.195);
       C(0.026, 0.022, 0.026, 0, 0.15, -0.012); C(0.027, 0.027, 0.004, 0, 0.15, -0.219, glass); B(0.01, 0.018, 0.026, 0, 0.18, -0.1, glow); sightY = 0.15;
     }
-    g.userData.adsZ = op === 'acog' ? -0.3 : op === 'iron' ? -0.16 : -0.38;
+    g.userData.adsZ = { acog: -0.3, prism: -0.3, hybrid: -0.26, thermal: -0.26, iron: -0.16, reflex: -0.36 }[op] || -0.38;
   } else if (id === 'hail') {
     // Hailstorm: compact SMG. Square-shouldered receiver with a sloped nose, straight box magazine,
     // skeletal folding stock, cyan heat lines. A sleek, futuristic take on the classic boxy SMG.
@@ -2072,7 +2161,7 @@ function equipViewmodel(id, att) {
   if (gunModel) gun.remove(gunModel);
   gunModel = makeGun(id, att); gun.add(gunModel); attachHands(gunModel, id);
   flash.position.set(0, 0.01, gunModel.userData.muzzle - 0.06);
-  GUN_ADS = new T.Vector3(0, -gunModel.userData.sightY - (id === 'breaker' || id === 'hail' || (att.optic === 'iron' && id === 'vk9') ? 0 : 0.012), gunModel.userData.adsZ || (att.optic === 'acog' ? -0.26 : -0.34));
+  GUN_ADS = new T.Vector3(0, -gunModel.userData.sightY - (id === 'breaker' || id === 'hail' || ((att.optic || 'iron') === 'iron' && id === 'vk9') ? 0 : 0.012), gunModel.userData.adsZ || (att.optic === 'acog' ? -0.26 : -0.34));
 }
 equipViewmodel('vk9', {});
 
@@ -2953,6 +3042,29 @@ let callsign = 'Operator';
 try { callsign = (localStorage.getItem('kessa-name') || 'Operator').slice(0, 16) || 'Operator'; } catch (e) {}
 let prog = { level: 1, xp: 0 };
 try { const p = JSON.parse(localStorage.getItem('kessa-prog')); if (p && p.level) prog = p; } catch (e) {}
+// ---------- weapon levels: each gun earns XP from its own kills ----------
+const WMAX = 30;
+const wNeed = l => 1200 + 450 * (l - 1);
+if (!prog.wpn) prog.wpn = {};
+const wprog = id => prog.wpn[id] || (prog.wpn[id] = { lvl: 1, xp: 0 });
+function gainWeaponXP(id, amount) {
+  if (!ATT[id]) return;
+  const w = wprog(id); if (w.lvl >= WMAX) return;
+  w.xp += amount;
+  while (w.lvl < WMAX && w.xp >= wNeed(w.lvl)) {
+    w.xp -= wNeed(w.lvl); w.lvl++;
+    const lv = w.lvl, got = [];
+    for (const [slot, list] of Object.entries(ATT[id])) for (const o of list) if (o.wl === lv) got.push(o.name);
+    setTimeout(() => { banner(`${weaponById('primary', id).name} · Level ${lv}`, got.length ? 'Unlocked: ' + got.join(', ') : 'Weapon level up', 2.8); SFX.level(); }, 1200);
+  }
+  updateWeaponBar();
+}
+function updateWeaponBar() {
+  const id = loadout.primary, w = wprog(id), el = $('hbWl'); if (!el) return;
+  el.style.transform = `scaleX(${w.lvl >= WMAX ? 1 : Math.min(1, w.xp / wNeed(w.lvl))})`;
+  const nm = weaponById('primary', id).name; $('wName').textContent = `${nm} · Lv ${w.lvl}`;
+}
+const optLocked = (id, o) => wprog(id).lvl < o.wl;
 const xpNeed = l => Math.round(2000 + 600 * (l - 1) + 25 * (l - 1) ** 2);
 // ---------- Soldier talents ----------
 // Three branches climb from the bottom: Gunner (weapon handling), Survivor (shields and cover),
@@ -3006,6 +3118,7 @@ function updateXpBar() {
 }
 function gainXP(amount, label, gold) {
   S.xp += amount; prog.xp += amount;
+  if (S.running) gainWeaponXP(loadout.primary, amount);
   const tal = prog.tal;
   if (tal.earned < TALENTS.length) {
     tal.xp += amount;
@@ -3176,6 +3289,7 @@ function hud() {
   const scoped = S.running && GS.optic === 'acog' && P.ads > 0.85;
   ui.scope.hidden = !scoped;
   if (scoped) ui.scope.style.setProperty('--d', scopeD() + 'px');
+  ui.scope.classList.toggle('thermal', !!GS.thermal);
   ui.holo.hidden = !(S.running && GS.optic === 'holo' && P.ads > 0.7);
   ui.cross.style.opacity = P.ads > 0.5 ? 0 : 1;
   ui.cross.style.setProperty('--g', ((P.bloom || 0) * 9 + Math.min(6, Math.hypot(input.mx, input.my) * 6 + (P.onGround ? 0 : 5))).toFixed(1) + 'px');
@@ -3504,9 +3618,10 @@ function applyLoadoutBase() {
   const id = loadout.primary, att = normAtt(id, attOf(id));
   equipViewmodel(id, att);
   Object.assign(GS, WSTATS[id] || WSTATS.vk9);
-  GS.optic = att.optic || 'iron';
-  GS.fov = id === 'vk9' ? { iron: 46, holo: 44, acog: 58 }[GS.optic] : GS.optic === 'holo' ? 50 : 54;
-  GS.sens = GS.optic === 'acog' ? 0.55 : id === 'vk9' ? 0.45 : 0.4;
+  const oo = (ATT[id] && ATT[id].optic.find(o => o.id === att.optic)) || {};
+  GS.optic = oo.base || 'iron'; GS.opticId = att.optic || 'iron'; GS.zoom = oo.zoom || 2; GS.thermal = !!oo.thermal;
+  GS.fov = oo.fov || (id === 'vk9' ? 46 : GS.optic === 'holo' ? 50 : 54);
+  GS.sens = GS.optic === 'acog' ? 0.5 + 0.03 * GS.zoom : id === 'vk9' ? 0.45 : 0.4;
   GS.spreadMul = id === 'hail' ? 0.75 : 1;
   const M_ = attMods(id, att);
   GS.dmg *= M_.dmg; GS.rate *= M_.rate; GS.recoil *= M_.recoil; GS.kick *= Math.sqrt(M_.recoil);
@@ -3723,6 +3838,7 @@ function renderDetail() {
   state.textContent = ps.locked ? `Locked · Reach level ${pw.lvl}` : !pw.live ? 'In development' : equipped ? 'Equipped' : 'Available';
   state.classList.toggle('lock', ps.locked);
   const A = ATT[pw.id];
+  { const w = wprog(pw.id), max = w.lvl >= WMAX; $('gsWlN').textContent = `Weapon level ${w.lvl}`; $('gsWlF').style.transform = `scaleX(${max ? 1 : w.xp / wNeed(w.lvl)})`; $('gsWlX').textContent = max ? 'Max level' : `${w.xp.toLocaleString()} / ${wNeed(w.lvl).toLocaleString()}`; document.querySelector('.gswl').hidden = !A; }
   if (A && !A[gsSlot]) gsSlot = Object.keys(A)[0];
   // slot tags placed around the weapon
   const tags = $('gsTags'); tags.innerHTML = '';
@@ -3761,10 +3877,10 @@ function renderGsOptions(pw, ps) {
   const h = document.createElement('h3'); h.innerHTML = `<small>Attachment slot</small>${SLOT_NAMES[gsSlot]}`; box.append(h);
   const cur = normAtt(pw.id, attOf(pw.id))[gsSlot];
   for (const o of A[gsSlot]) {
-    const locked = prog.level < o.lvl, on = cur === o.id;
+    const locked = optLocked(pw.id, o), on = cur === o.id;
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'gopt' + (on ? ' on' : '') + (locked ? ' off' : '');
-    b.innerHTML = `<b>${o.name}</b><span>${o.desc}</span><em>${locked ? 'Unlocks at level ' + o.lvl : on ? 'Equipped' : 'Available'}</em>`;
+    b.innerHTML = `<b>${o.name}</b><span>${o.desc}</span><em>${locked ? 'Weapon level ' + o.wl : on ? 'Equipped' : 'Available'}</em>`;
     b.addEventListener('mouseenter', () => { gsHover = o.id; renderGsStats(pw); });
     b.addEventListener('mouseleave', () => { gsHover = null; renderGsStats(pw); });
     b.addEventListener('click', () => {
@@ -4011,12 +4127,14 @@ function renderMenu(dt) {
 const scopeCam = new T.PerspectiveCamera(20, 1, 0.1, 400);
 const scopeD = () => Math.round(Math.min(W, H) * 0.5);
 function renderScopeLens() {
-  const D = scopeD(), x = Math.round(W / 2 - D / 2), y = Math.round(H / 2 - D / 2), mag = 2;
+  const D = scopeD(), x = Math.round(W / 2 - D / 2), y = Math.round(H / 2 - D / 2), mag = GS.zoom || 2;
   scopeCam.fov = 2 * Math.atan(Math.tan(cam.fov * Math.PI / 360) * (D / H) / mag) * 180 / Math.PI;
   scopeCam.aspect = 1; scopeCam.updateProjectionMatrix();
   scopeCam.position.copy(cam.position); scopeCam.quaternion.copy(cam.quaternion);
   R.setScissorTest(true); R.setScissor(x, y, D, D); R.setViewport(x, y, D, D);
+  const fogF = scene.fog.far, fogN = scene.fog.near; if (GS.thermal) { scene.fog.far = fogF * 3; scene.fog.near = fogN * 3; }
   R.clear(); R.render(scene, scopeCam);
+  scene.fog.far = fogF; scene.fog.near = fogN;
   R.setScissorTest(false); R.setViewport(0, 0, W, H);
 }
 
@@ -5093,7 +5211,7 @@ function renderProfile() {
   renderAcct();
   const rows = [];
   for (const slot of ['primary', 'sidearm']) for (const w of WEAPONS[slot]) if (w.lvl > 1) rows.push([w.lvl, w.name, w.live ? w.cls : w.cls + ' · in development']);
-  for (const [gid, slots] of Object.entries(ATT)) for (const [sl, list] of Object.entries(slots)) for (const a of list) if (a.lvl > 1) rows.push([a.lvl, a.name, `${weaponById('primary', gid).name} ${SLOT_NAMES[sl].toLowerCase()}`]);
+  for (const [gid, slots] of Object.entries(ATT)) for (const [sl, list] of Object.entries(slots)) 
   for (let l = 2; l <= MAX_LEVEL; l++) { const r = rankOf(l); if (r.g === 1 || l === MAX_LEVEL) rows.push([l, `Rank: ${r.name}`, 'New rank badge']); }
   rows.sort((a, b) => a[0] - b[0]);
   $('pRewards').innerHTML = rows.map(([l, n, d]) => `<div class="${prog.level >= l ? 'got' : ''}"><em>Lv ${l}</em><span><b>${n}</b><br><small>${d}</small></span><em>${prog.level >= l ? 'Unlocked' : 'Locked'}</em></div>`).join('');
@@ -5116,7 +5234,7 @@ function start(tod, seed, wx) {
   applyTOD(tod);
   mode = 'travel'; showOnly(null); $('hud').hidden = true; paused = false;
   input.fire = false; input.adsToggle = false; input.use = false; input.crouchToggle = false; $('tZoom').classList.remove('on'); $('tCrouch').classList.remove('on');
-  $('wName').textContent = weaponById('primary', loadout.primary).name;
+  updateWeaponBar();
   try { $('hbGun').src = thumb(loadout.primary); } catch (e) {}
   applyLoadout();
   $('npName').textContent = callsign;
