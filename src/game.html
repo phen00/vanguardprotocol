@@ -2057,11 +2057,10 @@ function makeGun(id, att = {}) {
     for (let i = 0; i < 3; i++) B(0.022, 0.003, 0.005, 0, -0.025, -0.14 + i * 0.02, mid);
     const barW = C(0.008, 0.008, 0.03, 0, 0.022, -0.16, dk); muzzle = -0.165;
     // grip: angled frame with a back strap, beavertail, finger grooves and stippled side panels
-    const gripG = new T.Group(); gripG.position.set(0, -0.016, 0.012); gripG.rotation.x = 0.2; g.add(gripG);
+    const gripG = new T.Group(); gripG.position.set(0, -0.016, 0.006); gripG.rotation.x = 0.1; g.add(gripG);
     const gb = (w, h, d, x, y, z, m, rx = 0) => { const q = new T.Mesh(new T.BoxGeometry(w, h, d), m); q.position.set(x, y, z); q.rotation.x = rx; gripG.add(q); return q; };
     gb(0.029, 0.1, 0.04, 0, -0.05, 0, dk);
     gb(0.026, 0.094, 0.01, 0, -0.05, 0.022, dk);                       // back strap
-    gb(0.026, 0.008, 0.016, 0, 0.0, 0.024, dk, -0.25);                  // beavertail over the hand
     for (const y of [-0.026, -0.048, -0.07]) gb(0.027, 0.007, 0.006, 0, y, -0.022, mid);   // finger grooves
     for (const sx of [-1, 1]) gb(0.002, 0.055, 0.028, sx * 0.0148, -0.052, 0.002, mid);    // side panels
     const magP = new T.Group(); gripG.add(magP);
@@ -2216,7 +2215,7 @@ const GRIPS = {
   vk9: { r: [0, -0.11, 0.07, 0.3, 0.021, 0.025], l: [0, 0.004, -0.31, 0.032, 0.04] },
   breaker: { r: [0, -0.12, 0.13, 0.3, 0.03, 0.0275], l: [0, 0, 0.01, 0.037, 0.034], onPump: true },
   hail: { r: [0, -0.11, 0.07, 0.25, 0.02, 0.025], l: [0, 0.004, -0.29, 0.03, 0.034] },
-  wasp: { r: [0, -0.08, 0.035, 0.28, 0.019, 0.024], l: [-0.012, -0.115, 0.03, 0.026, 0.03] }
+  wasp: { r: [0, -0.08, 0.028, 0.1, 0.019, 0.024], l: [-0.012, -0.115, 0.03, 0.026, 0.03] }
 };
 function attachHands(model, id) {
   const gp = GRIPS[id]; if (!gp) return;
