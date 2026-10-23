@@ -2404,6 +2404,18 @@ function leftHand(w, hh) {
   limb(h, -0.01, -hh - 0.042, 0.076, -0.42, -0.5, 1, 0.55, 0.032, 0.04, HM.sleeve);
   return h;
 }
+// the pistol reload hand: fingers pointing down, pinching the top of a power cell (origin at the knuckles)
+function reloadHand() {
+  const h = new T.Group(), F = FT * 0.9;
+  hbox(h, 0.05, 0.05, 0.014, 0, 0.028, 0.004, HM.glove);                     // palm
+  hbox(h, 0.046, 0.044, 0.008, 0, 0.03, 0.014, HM.plate);                    // back of the hand, toward the camera
+  for (let i = 0; i < 4; i++) { const x = -0.018 + i * 0.012, k = i === 3 ? 0.85 : 1;
+    chain(h, [V3(x, 0.004, 0), V3(x, -0.02 * k, -0.005), V3(x, -0.036 * k, -0.016)], F, F, HM.skin); }
+  chain(h, [V3(-0.027, 0.02, 0.008), V3(-0.03, -0.006, 0.014), V3(-0.022, -0.026, 0.01)], F * 1.05, F * 1.05, HM.skin);   // thumb on the near side
+  hbox(h, 0.05, 0.02, 0.036, 0, 0.062, 0.008, HM.cuff);
+  limb(h, 0, 0.07, 0.008, -1, 0.75, 0.35, 0.09, 0.03, 0.036, HM.sleeve);
+  return h;
+}
 // where each weapon is held: right grip [x, y, z, tilt, half width, half depth],
 // left hand [x, y, z, half width, half height] and its parent
 const GRIPS = {
@@ -2418,6 +2430,7 @@ function attachHands(model, id) {
   const lh = leftHand(gp.l[3], gp.l[4]);
   const holder = gp.onPump && model.userData.pump ? model.userData.pump : model;
   lh.position.set(gp.l[0], gp.l[1], gp.l[2]); holder.add(lh);
+  if (id === 'wasp') { const rl = reloadHand(); rl.visible = false; model.add(rl); model.userData.rlh = rl; }
   model.userData.trig = rh.userData.trig; model.userData.lh = lh; model.userData.lhBase = lh.position.clone(); model.userData.lhHolder = holder;
 }
 // steam puffs for the VK-9 vent
@@ -3454,10 +3467,10 @@ function update(dt) {
   const smg = venting && (curW === 'hail' || curW === 'wasp') && gunModel && gunModel.userData.mag;
   const seg = (a, b) => { const x = Math.max(0, Math.min(1, (vr - a) / (b - a))); return x * x * (3 - 2 * x); };
   const tilt = smg ? seg(0, 0.12) * (1 - seg(0.84, 1)) : 0;
-  gun.position.y += (target.y - 0.3 * Math.sin(Math.min(1, (P.swapT || 0) / 0.32) * Math.PI) + P.recoil * 0.12 * (1 - 0.75 * P.ads) - Math.abs(Math.sin(P.bob)) * bobA + (ventGun ? 0.05 * lift : smg ? (curW === 'wasp' ? 0.025 : -0.035) * tilt : venting ? -0.12 : 0) - gun.position.y) * Math.min(1, dt * 14);
+  gun.position.y += (target.y - 0.3 * Math.sin(Math.min(1, (P.swapT || 0) / 0.32) * Math.PI) + P.recoil * 0.12 * (1 - 0.75 * P.ads) - Math.abs(Math.sin(P.bob)) * bobA + (ventGun ? 0.05 * lift : smg ? (curW === 'wasp' ? 0 : -0.035) * tilt : venting ? -0.12 : 0) - gun.position.y) * Math.min(1, dt * 14);
   gun.position.z += (target.z - gun.position.z) * Math.min(1, dt * 18);
   gun.position.z = Math.min(gun.position.z, target.z + 0.05);
-  gun.rotation.x += ((P.visArm > 0 ? -0.18 * Math.sin((1 - P.visArm / 0.55) * Math.PI) : 0) + (ventGun ? 0.6 * lift : smg ? (curW === 'wasp' ? -0.05 : 0.22) * tilt : venting ? -0.5 : 0) + P.recoil * (0.5 - 0.28 * P.ads) - gun.rotation.x) * Math.min(1, dt * 12);
+  gun.rotation.x += ((P.visArm > 0 ? -0.18 * Math.sin((1 - P.visArm / 0.55) * Math.PI) : 0) + (ventGun ? 0.6 * lift : smg ? (curW === 'wasp' ? 0 : 0.22) * tilt : venting ? -0.5 : 0) + P.recoil * (0.5 - 0.28 * P.ads) - gun.rotation.x) * Math.min(1, dt * 12);
   if (gunModel && gunModel.userData.pump) {
     let off = 0;
     if (GS.pellets > 1 && P.fireCd > 0) {
@@ -3466,7 +3479,7 @@ function update(dt) {
     }
     gunModel.userData.pump.position.z = gunModel.userData.pumpZ + off;
   }
-  gun.rotation.y += (0.12 * (1 - P.ads) + (smg && curW === 'wasp' ? -0.4 * tilt : 0) - gun.rotation.y) * Math.min(1, dt * 10);
+  gun.rotation.y += (0.12 * (1 - P.ads) + (smg && curW === 'wasp' ? 0 : 0) - gun.rotation.y) * Math.min(1, dt * 10);
   // Tactical Visor: the weapon physically swings to point at the locked head
   if (P.visT > 0 && P.visTarget) {
     cam.updateMatrixWorld(); _tb.set(P.visTarget.x, P.visTarget.y, P.visTarget.z); cam.worldToLocal(_tb);
@@ -3476,7 +3489,7 @@ function update(dt) {
     gun.rotation.y = gun.rotation.y + (ty * 1.15 - gun.rotation.y) * P.visAim;
     gun.rotation.x = gun.rotation.x + (tp * 1.15 - gun.rotation.x) * P.visAim;
   } else P.visAim = 0;
-  gun.rotation.z += ((sprint > 1 && moving ? 0.25 : 0) + (GS.shell && P.reloadT > 0 ? -0.4 : 0) + (ventGun ? -0.3 * lift : smg ? (curW === 'wasp' ? 0.2 : 0.28) * tilt : 0) - gun.rotation.z) * Math.min(1, dt * 10);
+  gun.rotation.z += ((sprint > 1 && moving ? 0.25 : 0) + (GS.shell && P.reloadT > 0 ? -0.4 : 0) + (ventGun ? -0.3 * lift : smg ? (curW === 'wasp' ? 0.06 : 0.28) * tilt : 0) - gun.rotation.z) * Math.min(1, dt * 10);
   if (gunModel && gunModel.userData.lh) {
     const lh = gunModel.userData.lh, base = gunModel.userData.lhBase;
     let ox = 0, oy = 0, oz = 0;
@@ -3493,25 +3506,30 @@ function update(dt) {
       const toHandle = seg(0.62, 0.68) * (1 - seg(0.8, 0.9));       // reach over to the charging handle
       const rack = seg(0.68, 0.72) * (1 - seg(0.74, 0.8));          // pull it back and let it snap forward
       if (gunModel.userData.cellPistol) {
-        // pistol: the top cover swings up on its front hinge, the left hand plucks the spent cell out of the
-        // back and flicks it away, brings a fresh one up from the belt, seats it and slams the cover shut
-        const G = [0.012, 0.115, 0.075];
-        const H = keyLerp(vr, [[0, 0, 0, 0], [0.08, 0, 0, 0], [0.2, ...G], [0.25, ...G], [0.34, G[0] - 0.02, G[1] + 0.07, G[2] + 0.04], [0.42, -0.24, 0.12, 0.06],
-          [0.5, -0.14, -0.32, 0.16], [0.55, -0.14, -0.32, 0.16], [0.62, G[0] - 0.02, G[1] + 0.07, G[2] + 0.04], [0.68, ...G],
-          [0.74, 0.012, 0.29, 0.02], [0.78, 0.012, 0.29, 0.02], [0.83, 0.012, 0.14, 0.045], [0.9, 0.012, 0.14, 0.045], [1, 0, 0, 0]]);
-        ox = H[0]; oy = H[1]; oz = H[2];
+        // pistol: the top cover springs open on its own, the spent cell kicks out in a puff of smoke, the left hand
+        // brings a fresh cell down from above (fingers pointing down), pushes it into the back and slams the cover shut
+        // The gun holds still. The supporting hand drops away, and a hand comes in from the left with its fingers
+        // pointing down, pinching a fresh cell by the top: it lowers it into the back, then slaps the cover shut.
+        const off = [-0.1, -0.15, -0.02], SEAT = [0, 0.059, 0.036];
+        const RH = keyLerp(vr, [[0, ...off], [0.24, ...off], [0.36, 0, 0.11, 0.036], [0.46, ...SEAT], [0.52, ...SEAT], [0.6, 0, 0.165, -0.02], [0.64, 0, 0.165, -0.02], [0.68, 0, 0.092, -0.01], [0.76, 0, 0.092, -0.01], [0.88, ...off], [1, ...off]]);
+        const LH = keyLerp(vr, [[0, 0, 0, 0], [0.14, 0, 0, 0], [0.24, -0.04, -0.2, 0.06], [0.88, -0.04, -0.2, 0.06], [1, 0, 0, 0]]);
+        ox = LH[0]; oy = LH[1]; oz = LH[2];
+        const rl = gunModel.userData.rlh, inHandPhase = vr > 0.24 && vr < 0.88;
+        lh.visible = !inHandPhase;
+        if (rl) { rl.visible = inHandPhase; rl.position.set(RH[0], RH[1], RH[2]); rl.rotation.set(0, 0, 0.12 * (1 - seg(0.36, 0.46))); }
         const hg = gunModel.userData.hinge, mg = gunModel.userData.mag;
-        if (hg) hg.rotation.x = keyLerp(vr, [[0, 0], [0.1, 0], [0.2, -0.8], [0.78, -0.8], [0.83, 0]])[0];
-        const inHand = (vr > 0.24 && vr < 0.4) || (vr > 0.53 && vr < 0.68);
-        if (inHand) mg.position.set(H[0] - G[0], H[1] - G[1], H[2] - G[2]);
-        else mg.position.set(0, 0, vr < 0.24 && P.cellOut ? 0.045 * (1 - seg(0.16, 0.24)) : 0);
-        mg.visible = !(vr >= 0.4 && vr <= 0.53);
-        gunModel.userData.ch.position.z = gunModel.userData.chZ0;
+        if (hg) hg.rotation.x = keyLerp(vr, [[0, 0], [0.08, 0], [0.11, -0.44], [0.15, -0.35], [0.64, -0.35], [0.68, 0]])[0];
         const R0 = P.rsnd || (P.rsnd = {});
-        if (vr > 0.12 && !R0.open) { R0.open = 1; sTone(1500, 1100, 0.025, 0.07, 'square'); sTone(2200, 600, 0.18, 0.025, 'sawtooth', 0.02); }
-        if (vr > 0.4 && !R0.toss) { R0.toss = 1; tossCell(mg); sTone(420, 260, 0.08, 0.04, 'triangle'); }
-        if (vr > 0.68 && !R0.seat) { R0.seat = 1; P.magIn = true; sTone(1100, 900, 0.03, 0.07, 'square'); sTone(1700, 1700, 0.02, 0.05, 'sine', 0.03); }
-        if (vr > 0.82 && !R0.slam) { R0.slam = 1; sTone(260, 120, 0.09, 0.16, 'square'); sTone(900, 500, 0.04, 0.08, 'square', 0.01); addShake(0.25); }
+        if (vr < 0.13) mg.position.set(0, 0.02 * seg(0.09, 0.13), (P.cellOut ? 0.045 : 0) + 0.02 * seg(0.09, 0.13));
+        else if (vr > 0.24 && vr < 0.46) mg.position.set(RH[0], RH[1] - 0.035 - 0.024, RH[2] - 0.012 - 0.024);
+        else mg.position.set(0, 0, 0);
+        mg.visible = !(vr >= 0.13 && vr <= 0.24);
+        gunModel.userData.ch.position.z = gunModel.userData.chZ0;
+        if (vr > 0.08 && !R0.open) { R0.open = 1; P.recoil = Math.max(P.recoil, 0.12); sTone(1500, 1100, 0.025, 0.08, 'square'); sTone(320, 160, 0.06, 0.1, 'square'); sNoise(0.6, 3000, 0.08, 'highpass', 0.03); }
+        if (vr > 0.13 && !R0.toss) { R0.toss = 1; tossCell(mg, [0.35, 1.1, 0.02]); sTone(620, 240, 0.12, 0.06, 'triangle'); }
+        if (vr > 0.12 && vr < 0.5) { R0.smk = (R0.smk || 0) - dt; if (R0.smk <= 0) { R0.smk = 0.07; mg.updateMatrixWorld(true); _tb.set(0, 0.03, 0.03).applyMatrix4(mg.parent.matrixWorld); gun.worldToLocal(_tb); puff(_tb.x + rnd(-0.01, 0.01), _tb.y, _tb.z); } }
+        if (vr > 0.46 && !R0.seat) { R0.seat = 1; P.magIn = true; P.recoil = Math.max(P.recoil, 0.06); sTone(1100, 900, 0.03, 0.07, 'square'); sTone(1700, 1700, 0.02, 0.05, 'sine', 0.03); }
+        if (vr > 0.67 && !R0.slam) { R0.slam = 1; P.recoil = Math.max(P.recoil, 0.3); sTone(260, 110, 0.1, 0.18, 'square'); sTone(900, 500, 0.04, 0.09, 'square', 0.01); sNoise(0.08, 1800, 0.15); addShake(0.3); }
       } else {
       ox = -0.05 * toHandle; oy = (-0.21 * toMag - 0.34 * down) * (1 - toHandle) + 0.03 * toHandle; oz = 0.17 * toMag * (1 - toHandle) + (0.12 + 0.06 * rack) * toHandle;
       const mg = gunModel.userData.mag; mg.position.set(-0.08 * down, -0.34 * down, 0.04 * down); mg.visible = !(vr > 0.33 && vr < 0.41);
@@ -3523,7 +3541,7 @@ function update(dt) {
       oy = -0.07 * k; oz = 0.42 * k;
     }
     lh.position.set(base.x + ox, base.y + oy, base.z + oz);
-    if (!smg) { P.rsnd = null; if (gunModel.userData.hinge) gunModel.userData.hinge.rotation.x = 0; }
+    if (!smg) { P.rsnd = null; lh.visible = true; if (gunModel.userData.rlh) gunModel.userData.rlh.visible = false; if (gunModel.userData.hinge) gunModel.userData.hinge.rotation.x = 0; }
     if (!smg && gunModel.userData.mag) { gunModel.userData.mag.position.set(0, 0, gunModel.userData.cellPistol && P.mag === 0 ? 0.045 : 0); gunModel.userData.mag.visible = true; P.magIn = false; if (gunModel.userData.ch) gunModel.userData.ch.position.z = gunModel.userData.chZ0; }
   }
   if (ventGun) {
@@ -3976,11 +3994,11 @@ function keyLerp(t, K) {
 }
 // spent pistol cells flicked away by the left hand: a copy tumbles off in view-model space
 const tossed = [];
-function tossCell(mg) {
+function tossCell(mg, v) {
   mg.updateMatrixWorld(true);
   const c = mg.clone(); gunScene.attach ? gunScene.attach(c) : gunScene.add(c);
   mg.matrixWorld.decompose(c.position, c.quaternion, c.scale);
-  tossed.push({ m: c, v: new T.Vector3(-0.75, 0.5, -0.35), w: new T.Vector3(7, 3, 9), t: 0 });
+  tossed.push({ m: c, v: v ? new T.Vector3(...v) : new T.Vector3(-0.75, 0.5, -0.35), w: new T.Vector3(7, 3, 9), t: 0 });
 }
 function updateTossed(dt) {
   for (const o of tossed) { o.t += dt; o.v.y -= 2.6 * dt; o.m.position.addScaledVector(o.v, dt); o.m.rotation.x += o.w.x * dt; o.m.rotation.y += o.w.y * dt; o.m.rotation.z += o.w.z * dt; }
