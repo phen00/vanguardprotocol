@@ -1058,6 +1058,33 @@ for (const k of ['scorch', 'stain', 'grass']) MX[k].userData.noHit = true;
 function slab(parent, w, h, d, x, y, z, mat, rx = 0, ry = 0, rz = 0) { const m = new T.Mesh(boxGeo(w, h, d, 1), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); parent.add(m); return m; }
 function decal(x, y, z, r, mat) { const g = new T.CircleGeometry(r, 10); g.rotateX(-Math.PI / 2); const m = new T.Mesh(g, mat); m.position.set(x, y + 0.02, z); m.scale.set(1, 1, srnd(0.6, 1)); m.rotation.y = srand() * 6; build.add(m); }
 // a building shell with door and window gaps; roof can be whole, half-collapsed or missing
+// sandbag walls: staggered rows of lumpy bags around a solid collision box
+const bagTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
+  g.fillStyle = '#a08a5e'; g.fillRect(0, 0, 32, 32);
+  for (let i = 0; i < 140; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? '60,48,30' : '200,180,140'},${(Math.random() * .25).toFixed(2)})`; g.fillRect(Math.random() * 32 | 0, Math.random() * 32 | 0, 2, 1); }
+  g.fillStyle = 'rgba(60,46,28,.55)'; g.fillRect(0, 15, 32, 1); g.fillRect(3, 0, 1, 32); g.fillRect(28, 0, 1, 32);
+  const t = new T.CanvasTexture(c); t.magFilter = T.NearestFilter; return t; })();
+const bagMats = [0xb8a070, 0xa89064, 0x9a845a].map(c => new T.MeshLambertMaterial({ map: bagTex, color: c }));
+const bagGeo = (() => { const g = new T.BoxGeometry(0.56, 0.2, 0.32, 2, 1, 1); const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const k = 1 - Math.abs(x) / 0.28 * 0.25; p.setY(i, y * k); p.setZ(i, z * (0.85 + 0.15 * k)); }
+  g.computeVertexNormals(); return g; })();
+function sandbags(cx, cz, w, d, h, y0 = 0) {
+  boxes.push({ x0: cx - w / 2, x1: cx + w / 2, z0: cz - d / 2, z1: cz + d / 2, y0, y1: y0 + h });
+  const along = w >= d, len = along ? w : d, thick = along ? d : w;
+  const rows = Math.max(2, Math.round(h / 0.19)), cols = Math.max(1, Math.round(len / 0.52)), deep = thick > 0.7 ? 2 : 1;
+  for (let r = 0; r < rows; r++) for (let k = 0; k < deep; k++) {
+    const shift = r % 2 ? 0.26 : 0, n = cols - (r % 2 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const t = -len / 2 + 0.26 + shift + i * (len - 0.52) / Math.max(1, cols - 1);
+      const off = deep === 2 ? (k ? 0.17 : -0.17) * (thick / 0.8) : 0;
+      const m = new T.Mesh(bagGeo, bagMats[(r * 7 + i * 3 + k) % 3]);
+      const y = y0 + 0.1 + r * (h - 0.2) / (rows - 1);
+      if (along) m.position.set(cx + t, y, cz + off); else { m.position.set(cx + off, y, cz + t); m.rotation.y = Math.PI / 2; }
+      m.rotation.y += srnd(-0.08, 0.08); m.rotation.z = srnd(-0.05, 0.05); m.scale.set(srnd(0.92, 1.06), srnd(0.9, 1.1), srnd(0.95, 1.08));
+      build.add(m);
+    }
+  }
+}
 let roomDoors = [];
 function room(cx, cz, w, d, h, y0, doors = [], opts = {}) {
   const t = 0.3, mat = opts.mat || M.concrete;
@@ -1191,8 +1218,8 @@ function buildLevel() {
   addBox(3, 5.5, 0.4, 0.4, 3, 0.9); addBox(9, 5.5, 0.4, 0.4, 3, 0.9);
   addBox(6, 5.5, 7.2, 3.2, 0.3, 3.9, M.trim, false);
   // cover
-  addBox(-3, 3, 4, 0.6, 1.1, 0.9); addBox(5, 1.5, 0.6, 3.5, 1.1, 0.9);
-  addBox(-9.5, 5, 3, 0.6, 1.1, 0.9); addBox(10.5, 1, 2.5, 0.6, 1.1, 0.9);
+  sandbags(-3, 3, 4, 0.6, 1.1, 0.9); sandbags(5, 1.5, 0.6, 3.5, 1.1, 0.9);
+  sandbags(-9.5, 5, 3, 0.6, 1.1, 0.9); sandbags(10.5, 1, 2.5, 0.6, 1.1, 0.9);
   addBox(0, -1, 2, 2, 0.5, 0.9, M.trim);
 
   // grated walkway east
@@ -1207,14 +1234,14 @@ function buildLevel() {
   // west pillbox and walls
   room(-26, 9, 7, 7, 3.2, 0, [{ side: 'e', off: 0, w: 2 }, { side: 'n', off: 1.5, w: 1.8 }, { side: 'w', off: -1.5, w: 2, h: 0.5, sill: 1.6 }], { roofW: 7.8, roofD: 7.8 });
   wreckInterior(-26, 9, 7, 7, 0, 'bunk');
-  addBox(-26, 15.5, 6, 0.6, 1.2); addBox(-31, 3, 0.6, 5, 1.2); addBox(-20, 2.5, 4, 0.6, 1.2);
+  sandbags(-26, 15.5, 6, 0.6, 1.2); sandbags(-31, 3, 0.6, 5, 1.2); sandbags(-20, 2.5, 4, 0.6, 1.2);
   // north ruins
-  addBox(6, -24, 10, 1, 2.6); addBox(-10, -22, 1, 7, 2.1); addBox(-3, -30, 4, 0.6, 1.2);
-  addBox(18, -18, 0.6, 6, 1.6);
+  addBox(6, -24, 10, 1, 2.6); addBox(-10, -22, 1, 7, 2.1); sandbags(-3, -30, 4, 0.6, 1.2);
+  sandbags(18, -18, 0.8, 6, 1.4);
   room(-24, -16, 5, 5, 4, 0, [{ side: 's', off: 0.8, w: 1.8 }, { side: 'e', off: -0.6, w: 1.8 }, { side: 'n', off: 0, w: 1.8 }], { roofW: 5.6, roofD: 5.6 });
   wreckInterior(-24, -16, 5, 5, 0, 'lab');
   // south
-  addBox(14, 22, 8, 1, 2.2); addBox(-14, 24, 1, 8, 1.8);
+  addBox(14, 22, 8, 1, 2.2); sandbags(-14, 24, 0.9, 8, 1.3);
   room(24, 30, 5, 5, 3, 0, [{ side: 'n', off: -0.8, w: 1.6 }, { side: 'w', off: 0.6, w: 1.5 }], { roofW: 5.6, roofD: 5.6 });
   wreckInterior(24, 30, 5, 5, 0, 'store');
   // ---- outer colony, now that the map is bigger ----
@@ -1230,7 +1257,9 @@ function buildLevel() {
   wreckShuttle(43, 42);
   burntVehicle(-36, 22, 0.6); burntVehicle(22, 50, -1.1); burntVehicle(-14, -46, 2.2); burntVehicle(56, 14, 0.3);
   // extra cover out in the wider ring
-  addBox(-50, -12, 6, 0.8, 1.4); addBox(30, -52, 0.8, 7, 1.6); addBox(-22, 52, 8, 0.8, 1.2); addBox(54, 24, 0.8, 6, 1.4); addBox(-58, 14, 0.8, 5, 1.3);
+  sandbags(-50, -12, 6, 0.8, 1.3); sandbags(30, -52, 0.8, 7, 1.3); sandbags(-22, 52, 8, 0.8, 1.2); sandbags(54, 24, 0.8, 6, 1.3); sandbags(-58, 14, 0.8, 5, 1.2);
+  // a few extra sandbag nests around the wider map
+  for (const [x, z, w, d] of [[-8, 18, 3.5, 0.7], [12, -16, 0.7, 3.5], [-34, -6, 3, 0.7], [36, 8, 0.7, 3], [8, 34, 3.2, 0.7], [-6, -38, 3, 0.7], [-38, 40, 0.7, 3.2], [40, -26, 3, 0.7]]) sandbags(x, z, w, d, 1.15);
   for (const [x, z, sc] of [[-44, 4, 2.6], [36, 14, 2.2], [-14, 40, 2.4], [14, -44, 2.8], [52, -20, 2.4], [-56, -30, 3]]) rockAt(x, z, sc, sc * 0.8, sc, true);
   // crates
   for (const [x, z, s, y] of [[20, 15, 1.3, 0], [21.4, 15.1, 1.3, 0], [20.7, 15.2, 1.1, 1.3], [-18, -10, 1.3, 0], [-18.2, -8.6, 1.3, 0], [15, -14, 1.3, 0], [-12, 18, 1.3, 0], [-10.6, 18.3, 1.2, 0], [29, -18, 1.3, 0], [-34, -24, 1.3, 0], [33, 16, 1.3, 0], [-30, 28, 1.3, 0], [8, 32, 1.3, 0]])
