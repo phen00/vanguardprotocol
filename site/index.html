@@ -157,7 +157,20 @@ canvas#cv { display: block; width: 100%; height: 100%; image-rendering: pixelate
 .ptag span { font: 600 9px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: #9fd6ff; }
 .ptag i { width: 0; height: 0; margin-top: 3px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #5cb8ff; filter: drop-shadow(0 1px 1px rgba(0,0,0,.8)); }
 .vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(220,30,20,.55) 100%); }
-.lowshield { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 80px rgba(63,143,224,.6); transition: opacity .2s; }
+.lowshield { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background:
+    radial-gradient(ellipse at center, transparent 45%, rgba(70,160,255,.7) 100%),
+    repeating-linear-gradient(60deg, rgba(160,220,255,.45) 0 2px, transparent 2px 16px),
+    repeating-linear-gradient(-60deg, rgba(160,220,255,.45) 0 2px, transparent 2px 16px),
+    repeating-linear-gradient(0deg, rgba(160,220,255,.3) 0 2px, transparent 2px 16px);
+  -webkit-mask: radial-gradient(ellipse at center, transparent 42%, #000 92%); mask: radial-gradient(ellipse at center, transparent 42%, #000 92%); }
+.dmgdir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.di { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.di i { position: absolute; left: -46px; top: -150px; width: 92px; height: 26px; border-top: 5px solid currentColor; border-radius: 50% 50% 0 0 / 100% 100% 0 0; filter: drop-shadow(0 0 6px currentColor); animation: difade .9s ease-out forwards; }
+@keyframes difade { 0% { opacity: 1; } 60% { opacity: .85; } 100% { opacity: 0; } }
+.vitals.jolt { animation: jolt .22s ease-out; }
+@keyframes jolt { 20% { transform: translate(3px, 2px); } 45% { transform: translate(-3px, -1px); } 70% { transform: translate(2px, 1px); } }
+@media (prefers-reduced-motion: reduce) { .vitals.jolt { animation: none; } }
 
 .banner {
   position: absolute; left: 0; right: 0; top: 26%; text-align: center; pointer-events: none;
@@ -419,6 +432,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
   <div id="hud" hidden>
   <div class="vignette" id="vig"></div>
   <div class="lowshield" id="lowsh"></div>
+  <div class="dmgdir" id="dmgdir"></div>
   <div class="scope" id="scope" hidden><div class="mount"></div><div class="housing"><i class="knob t"></i><i class="knob l"></i></div><div class="lens"></div><i class="post t"></i><i class="post b"></i><i class="chev"></i></div>
   <div class="holo" id="holo" hidden></div>
   <div class="cross" id="cross"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i></div>
@@ -1500,16 +1514,36 @@ function newGame() {
   S = {
     running: true, t: 0, wave: 0, score: 0, kills: 0, xp: 0, streak: 0, lastKill: -9, queue: [], spawnCd: 0, intermission: 3,
     p: { dead: false, x: 0, y: 0.9, z: 4, vy: 0, r: 0.4, yaw: 0, pitch: 0, onGround: true, hp: 100, lagHp: 100, lagT: 0, shield: 100, recharging: false, beepT: 0, sinceHit: 9,
-         mag: GS.mag, reserve: GS.reserve, pumped: false, reloadT: 0, fireCd: 0, pulseCd: 0, recoil: 0, ads: 0, bob: 0, hurt: 0, shake: 0, ch: 0, nadeCd: 0, glT: -1, glFired: false }
+         mag: GS.mag, reserve: GS.reserve, pumped: false, reloadT: 0, fireCd: 0, pulseCd: 0, recoil: 0, ads: 0, bob: 0, hurt: 0, shake: 0, ch: 0, shFlash: 0, punchP: 0, punchY: 0, nadeCd: 0, glT: -1, glFired: false }
   };
 }
 
 const input = { keys: {}, fire: false, ads: false, adsToggle: false, jump: false, mx: 0, my: 0, look: { x: 0, y: 0 } };
 
+function hitReaction(P, toShield, toHull, fromX, fromZ) {
+  if (toShield > 0) {
+    P.shFlash = Math.min(1, (P.shFlash || 0) + 0.45 + toShield / 30);
+    const v = $('vitals'); v.classList.remove('jolt'); void v.offsetWidth; v.classList.add('jolt');
+  }
+  if (fromX === undefined) return;
+  // view punch away from the hit, and an arc around the crosshair pointing at the attacker
+  const dx = fromX - P.x, dz = fromZ - P.z;
+  const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+  const side = dx * rx + dz * rz, ahead = dx * fx + dz * fz;
+  const amt = Math.min(0.05, 0.012 + (toShield + toHull) / 900) * (reduceMotion ? 0.3 : 1);
+  P.punchP += amt * (ahead > 0 ? 1 : -0.6); P.punchY += -Math.sign(side) * amt * 0.8;
+  const box = $('dmgdir');
+  const di = document.createElement('div'); di.className = 'di';
+  di.style.transform = `rotate(${(Math.atan2(side, ahead) * 180 / Math.PI).toFixed(1)}deg)`;
+  const arc = document.createElement('i'); arc.style.color = toHull > 0 ? '#ff4b3a' : '#7cc8ff';
+  di.append(arc); box.append(di); setTimeout(() => di.remove(), 950);
+  while (box.children.length > 5) box.firstChild.remove();
+}
 function damagePlayer(d, fromX, fromZ) {
   const P = S.p; if (!S.running || P.dead || mode !== 'game') return;
   P.sinceHit = 0;
   const s = Math.min(P.shield, d); P.shield -= s; d -= s;
+  hitReaction(P, s, d, fromX, fromZ);
   if (s > 0) SFX.shieldHit();
   if (s > 0 && P.shield <= 0) { SFX.shieldBreak(); P.beepT = 0.5; const v = $('vitals'); v.classList.remove('broken'); void v.offsetWidth; v.classList.add('broken'); }
   addShake(Math.min(1, 0.25 + d / 25));
@@ -1539,12 +1573,13 @@ function tryFire() {
   if (GS.shell && P.reloadT > 0 && P.mag > 0) P.reloadT = 0;   // firing interrupts a shell-by-shell reload
   if (P.dead || P.reloadT > 0 || P.fireCd > 0) return;
   if (P.mag <= 0) { P.fireCd = 0.25; SFX.empty(); if (P.reserve > 0) startReload(); return; }
-  P.fireCd = GS.rate; P.mag--; P.recoil += GS.recoil; P.pumped = false;
+  P.fireCd = GS.rate; P.mag--; P.recoil += GS.recoil * (1 - 0.4 * P.ads); P.pumped = false;
   GS.pellets > 1 ? SFX.blast() : SFX.shot();
   flash.visible = true; flash.material.rotation = rnd(0, 6); flash.userData.t = GS.pellets > 1 ? 0.07 : 0.045;
   flash.scale.setScalar((P.ads > 0.5 ? 0.12 : 0.22) * (GS.pellets > 1 ? 1.6 : 1) * rnd(0.85, 1.2));
   // kick: gun slams back and up, view climbs with a little sideways drift, short shake
-  gun.position.z += GS.kick; gun.position.y += GS.kick * 0.2; gun.rotation.x += GS.kick;
+  // hip fire: gun slams back and tips up. Aimed: it lifts straight up so the sights stay lined up
+  gun.position.z += GS.kick * (1 - 0.55 * P.ads); gun.position.y += GS.kick * (0.2 + 0.25 * P.ads); gun.rotation.x += GS.kick * (1 - 0.85 * P.ads);
   P.yaw += rnd(-1, 1) * GS.recoil * 0.25;
   addShake((P.ads > 0.5 ? 0.55 : 1) * GS.shake);
   const moving = Math.hypot(input.mx, input.my) > 0.1;
@@ -1735,6 +1770,8 @@ function update(dt) {
   P.pulseCd = Math.max(0, P.pulseCd - dt);
   P.recoil *= Math.pow(0.004, dt);
   P.shake = Math.max(0, P.shake - dt * 4);
+  P.shFlash = Math.max(0, (P.shFlash || 0) - dt * 3.2);
+  P.punchP *= Math.pow(0.002, dt); P.punchY *= Math.pow(0.002, dt);
   P.ads += ((adsOn && P.reloadT <= 0 ? 1 : 0) - P.ads) * Math.min(1, dt * 12);
 
   // shields
@@ -1822,9 +1859,9 @@ function update(dt) {
   const bobA = moving ? (sprint > 1 ? 0.028 : 0.014) * (1 - P.ads * 0.8) : 0;
   const target = GUN_HIP.clone().lerp(GUN_ADS, P.ads);
   gun.position.x += (target.x + Math.cos(P.bob) * bobA - gun.position.x) * Math.min(1, dt * 14);
-  gun.position.y += (target.y - Math.abs(Math.sin(P.bob)) * bobA - (P.reloadT > 0 ? 0.12 : 0) - gun.position.y) * Math.min(1, dt * 14);
+  gun.position.y += (target.y + P.recoil * 0.9 * P.ads - Math.abs(Math.sin(P.bob)) * bobA - (P.reloadT > 0 ? 0.12 : 0) - gun.position.y) * Math.min(1, dt * 14);
   gun.position.z += (target.z - gun.position.z) * Math.min(1, dt * 18);
-  gun.rotation.x += ((P.reloadT > 0 && !GS.shell ? -0.5 : 0) + P.recoil * 2 - gun.rotation.x) * Math.min(1, dt * 12);
+  gun.rotation.x += ((P.reloadT > 0 && !GS.shell ? -0.5 : 0) + P.recoil * (2 - 1.7 * P.ads) - gun.rotation.x) * Math.min(1, dt * 12);
   if (gunModel && gunModel.userData.pump) {
     let off = 0;
     if (GS.pellets > 1 && P.fireCd > 0) {
@@ -1854,7 +1891,7 @@ function placeCamera() {
   const bob = reduceMotion ? 0 : Math.sin(P.bob * 2) * 0.03 * (1 - P.ads);
   const sh = reduceMotion ? 0 : P.shake * P.shake;
   cam.position.set(P.x + rnd(-1, 1) * sh * 0.018, P.y + 1.62 - 0.58 * P.ch + bob + rnd(-1, 1) * sh * 0.018, P.z);
-  cam.rotation.set(P.pitch + P.recoil + rnd(-1, 1) * sh * 0.006, P.yaw + rnd(-1, 1) * sh * 0.006, rnd(-1, 1) * sh * 0.012);
+  cam.rotation.set(P.pitch + P.recoil + P.punchP + rnd(-1, 1) * sh * 0.006, P.yaw + P.punchY + rnd(-1, 1) * sh * 0.006, rnd(-1, 1) * sh * 0.012);
   const fov = CFG.fov - (CFG.fov - GS.fov * CFG.fov / 72) * P.ads;
   if (Math.abs(cam.fov - fov) > 0.05) { cam.fov = fov; cam.updateProjectionMatrix(); }
   sky.position.copy(cam.position);
@@ -2051,7 +2088,7 @@ function hud() {
     ui.tPulse.textContent = P.pulseCd > 0 ? Math.ceil(P.pulseCd) : 'WAVE';
   }
   ui.vig.style.opacity = Math.max(P.hurt, P.hp < 30 ? 0.35 + Math.sin(S.t * 6) * 0.1 : 0);
-  ui.lowsh.style.opacity = P.sinceHit < 0.25 && P.shield > 0 ? 1 : 0;
+  ui.lowsh.style.opacity = Math.max(0, P.shFlash || 0).toFixed(3);
 
   // radar
   const s = 120, c = s / 2, R0 = 54, range = 32;
@@ -2523,7 +2560,7 @@ function renderAttach(pw, ps) {
 // ---------------- menu scene: frigate in orbit ----------------
 const menuScene = new T.Scene();
 const menuCam = new T.PerspectiveCamera(42, 1, 0.1, 3000);
-let ship, stars, planet, engineGlows = [], GTEX, menuAtmo, menuSun, LB = 0, menuAmb, menuRim, menuSunSprite;
+let ship, stars, planet, engineGlows = [], GTEX, menuAtmo, menuSun, LB = 1, menuAmb, menuRim, menuSunSprite;
 function glowTex() {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -2561,7 +2598,7 @@ function buildMenu() {
   }
   for (let i = 0; i < 2600; i++) { pg.fillStyle = `rgba(255,255,255,${srand() * .1})`; pg.fillRect(srand() * 256 | 0, srand() * 128 | 0, 3 + srand() * 9 | 0, 1); }
   const ptex = new T.CanvasTexture(pc); ptex.magFilter = T.NearestFilter;
-  planet = new T.Mesh(new T.SphereGeometry(70, 32, 24), new T.MeshLambertMaterial({ map: ptex }));
+  planet = new T.Mesh(new T.SphereGeometry(70, 48, 32), new T.MeshLambertMaterial({ map: ptex, emissiveMap: ptex, emissive: 0x3a4448 }));
   planet.position.set(-80, -60, -170); planet.rotation.z = 0.3; menuScene.add(planet);
   const atmo = new T.Mesh(new T.SphereGeometry(76, 48, 32), new T.ShaderMaterial({
     uniforms: { glow: { value: new T.Color(0x7cc8ff) }, power: { value: 0.75 } },
@@ -2658,7 +2695,7 @@ function renderMenu(dt) {
   if (Math.abs(menuCam.aspect - W / H) > 0.001) { menuCam.aspect = W / H; menuCam.updateProjectionMatrix(); }
   // main menu: close orbit behind the frigate. Lobby: pulled-back front three-quarter shot of the
   // whole squad with the planet filling the background.
-  LB += ((!$('lobby').hidden ? 1 : 0) - LB) * Math.min(1, dt * 2.2);
+  LB = 1;
   const k = LB * LB * (3 - 2 * LB);
   const a = 0.85 + Math.sin(mt * 0.06) * 0.5;
   _ta.set(Math.cos(a) * 14, 3 + Math.sin(mt * 0.13) * 0.8, Math.sin(a) * 14);
@@ -2973,7 +3010,8 @@ $('createBtn').addEventListener('click', () => {
 $('joinBtn').addEventListener('click', () => netConnect($('roomCode').value));
 $('roomCode').addEventListener('keydown', e => { if (e.key === 'Enter') netConnect($('roomCode').value); });
 $('mpStart').addEventListener('click', () => { if (!NET.host) return; netSend({ t: 'start' }); start(); });
-$('mpLoadout').addEventListener('click', () => { mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Back to lobby'; showArmory(); });
+let armoryFrom = 'solo';
+$('mpLoadout').addEventListener('click', () => { armoryFrom = 'lobby'; mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Back to lobby'; showArmory(); });
 $('mpLeave').addEventListener('click', () => { netLeave(); mode = 'menu'; showOnly('menu'); });
 for (const id of ['srvUrl', 'roomCode']) $(id).addEventListener('keydown', e => e.stopPropagation());
 setInterval(() => { if (NET.on && mode !== 'game') netSend({ t: 'ping', at: Date.now() }); }, 20000);
@@ -2989,7 +3027,7 @@ function toLobby() {
 // 'approach': chase cam behind the frigate as it dives toward the planet.
 // 'warp': hyperspace tunnel of star streaks, for jumps to other planets later on.
 let travel = null, streaks = null;
-const _ta = new T.Vector3(), _tb = new T.Vector3(), _tc = new T.Vector3();
+const _ta = new T.Vector3(), _tb = new T.Vector3(), _tc = new T.Vector3(), _td = new T.Vector3(), _te = new T.Vector3(), _tObj = new T.Object3D();
 function buildStreaks() {
   const n = 500, pos = new Float32Array(n * 6), data = [];
   for (let i = 0; i < n; i++) {
@@ -3003,7 +3041,7 @@ function buildStreaks() {
 }
 function startTravel(kind, name, sub, done) {
   if (kind === 'warp' && !streaks) buildStreaks();
-  travel = { kind, t: 0, dur: kind === 'warp' ? 6.2 : 5.4, done, flashed: false, cam: null };
+  travel = { q0: ship.quaternion.clone(), kind, t: 0, dur: kind === 'warp' ? 6.2 : 5.4, done, flashed: false, cam: null };
   $('tName').textContent = name; $('tSub').textContent = sub;
   const sq = $('tSquad'); sq.innerHTML = '';
   const crew = [{ n: callsign, c: '#ffb547' }].concat(NET.on ? [...NET.peers.values()].map(p => ({ n: p.name, c: '#' + shipColors(p.id)[1].getHexString() })) : []);
@@ -3011,14 +3049,12 @@ function startTravel(kind, name, sub, done) {
   const f = $('tFade'); f.style.transition = 'none'; f.style.background = '#000'; f.style.opacity = 1;
   $('travel').hidden = false;
   ship.position.set(0, 0, 0); ship.rotation.set(0, 0, 0);
-  LB = 0; planet.position.copy(PLANET_HOME); menuAtmo.position.copy(PLANET_HOME); menuSun.position.set(80, 30, 40);
-  planet.scale.setScalar(1); menuAtmo.scale.setScalar(1); menuAtmo.material.uniforms.power.value = 0.75; menuSunSprite.position.set(800, 300, 400); menuSunSprite.scale.setScalar(160); menuAmb.intensity = 0.6; menuRim.intensity = 0;
   planet.visible = kind !== 'warp';
   SFX.travel(travel.dur);
 }
 function endTravel() {
   const tr = travel; travel = null;
-  ship.position.set(0, 0, 0); ship.rotation.set(0, 0, 0); planet.visible = true;
+  ship.position.set(0, 0, 0); ship.rotation.set(0, 0, 0); planet.visible = true; menuAmb.intensity = 0.95;
   if (streaks) streaks.l.material.opacity = 0;
   const f = $('tFade');
   $('travel').classList.add('out');
@@ -3027,6 +3063,7 @@ function endTravel() {
   setTimeout(() => { $('travel').hidden = true; $('travel').classList.remove('out'); }, 750);
   if (tr && tr.done) tr.done();
 }
+const te0 = t => Math.min(1, t / 1.2);   // hold position briefly while the ships turn
 function renderTravel(dt) {
   const tr = travel; tr.t += dt; mt += dt;
   syncFleet(dt);
@@ -3040,19 +3077,30 @@ function renderTravel(dt) {
   else f.style.opacity = 0;
 
   if (tr.kind === 'approach') {
-    const P = planet.position, Rp = 70;
+    const P = planet.position, Rp = 70 * planet.scale.x;
     const dir = _ta.copy(P).normalize();             // the ship starts at the origin
-    const endPt = _tb.copy(P).addScaledVector(dir, -(Rp + 4));
+    const endPt = _tb.copy(P).addScaledVector(dir, -Rp * 1.22);   // stop high enough to see the curve
     const e = u * u * u * 0.85 + u * 0.15;          // slow drift, then a hard burn
-    ship.position.copy(endPt).multiplyScalar(e);
+    ship.position.copy(endPt).multiplyScalar(e * te0(tr.t));
     ship.position.y += Math.sin(mt * 0.8) * 0.15;
-    ship.lookAt(_tc.copy(ship.position).sub(dir));   // nose (-z) toward the planet
-    ship.rotateZ(Math.sin(tr.t * 0.7) * 0.08 - u * 0.25);
+    // bank and turn from the lobby formation toward the planet, then dive
+    _tObj.position.copy(ship.position);
+    _tObj.lookAt(_tc.copy(ship.position).sub(dir));   // nose (-z) toward the planet
+    _tObj.rotateZ(Math.sin(tr.t * 0.7) * 0.08 - u * 0.25 - Math.sin(Math.min(1, tr.t / 1.6) * Math.PI) * 0.45);
+    const turn = Math.min(1, tr.t / 1.6), te = turn * turn * (3 - 2 * turn);
+    ship.quaternion.slerpQuaternions(tr.q0, _tObj.quaternion, te);
     const want = ship.localToWorld(new T.Vector3(3.2 - u * 1.5, 2.6, 11 + u * 6));
-    if (!tr.cam) tr.cam = want.clone();
-    tr.cam.lerp(want, 1 - Math.exp(-dt * (2.2 - u * 1.4)));
-    menuCam.position.copy(tr.cam);
-    menuCam.lookAt(_tc.copy(ship.position).addScaledVector(dir, 10));
+    // hold the lobby shot while the ships turn, then swing up and around into the chase view
+    if (!tr.cam0) { tr.cam0 = menuCam.position.clone(); tr.look0 = new T.Vector3(1.5, 0.6, 6); tr.cam = want.clone(); }
+    tr.cam.lerp(want, 1 - Math.exp(-dt * 4));
+    const sw = Math.min(1, Math.max(0, (tr.t - 0.8) / 2.2)), se = sw * sw * (3 - 2 * sw);
+    menuCam.position.copy(tr.cam0).lerp(tr.cam, se);
+    _td.set(1, 0, 0).applyQuaternion(ship.quaternion);
+    menuCam.position.addScaledVector(_td, Math.sin(se * Math.PI) * 12);
+    menuCam.position.y += Math.sin(se * Math.PI) * 9;
+    menuCam.lookAt(_te.copy(tr.look0).lerp(_tc.copy(ship.position).addScaledVector(dir, 10), se));
+    _td.copy(menuCam.position).add(_te.set(0, 220, 0)).addScaledVector(dir, -150);
+    menuSun.position.lerp(_td, Math.min(1, dt * 1.5)); menuAmb.intensity += (1.1 - menuAmb.intensity) * Math.min(1, dt);
     const boost = 1 + u * 1.6;
     for (const [g, sc] of engineGlows) g.scale.setScalar(sc * boost * (0.9 + Math.random() * 0.15));
     stars.rotation.y = mt * 0.003;
@@ -3138,10 +3186,10 @@ function toMenu() {
   $('hud').hidden = true; showOnly('menu'); refreshRank();
   if (document.pointerLockElement) document.exitPointerLock();
 }
-$('playBtn').addEventListener('click', () => { initAudio(); netLeave(); mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Deploy'; showArmory(); });
+$('playBtn').addEventListener('click', () => { initAudio(); netLeave(); armoryFrom = 'solo'; mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Deploy'; showArmory(); });
 $('mpBtn').addEventListener('click', () => { initAudio(); mode = 'menu'; showOnly('lobby'); renderLobby(); if (!NET.on) lobbyStatus(serverUrl ? 'Create a room and send the code to your squad, or type a code and join.' : 'Enter the server address you set up, then create or join a room.'); });
-$('backBtn').addEventListener('click', () => { mode = 'menu'; if (NET.on) { showOnly('lobby'); renderLobby(); } else showOnly('menu'); });
-$('deployBtn').addEventListener('click', () => { if (NET.on) { mode = 'menu'; showOnly('lobby'); renderLobby(); } else start(); });
+$('backBtn').addEventListener('click', () => { mode = 'menu'; if (armoryFrom === 'lobby') { showOnly('lobby'); renderLobby(); } else showOnly('menu'); });
+$('deployBtn').addEventListener('click', () => { if (armoryFrom === 'lobby') { mode = 'menu'; showOnly('lobby'); renderLobby(); } else start(); });
 $('againBtn').addEventListener('click', () => { if (NET.on) toLobby(); else start(); });
 $('overMenuBtn').addEventListener('click', toMenu);
 $('quitBtn').addEventListener('click', toMenu);
