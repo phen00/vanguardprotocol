@@ -74,11 +74,11 @@ canvas#cv { display: block; width: 100%; height: 100%; image-rendering: pixelate
 .nameplate { top: 8px; left: 0; }
 .np { display: flex; align-items: center; gap: 9px; padding: 5px 16px 5px 6px; max-width: 250px;
   background: linear-gradient(90deg, rgba(8,12,20,.8), rgba(8,12,20,.35)); border-left: 2px solid var(--amber);
-  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); text-shadow: 0 1px 2px #000; }
+  border-radius: 0 12px 12px 0; text-shadow: 0 1px 2px #000; }
 .party { display: grid; gap: 4px; margin-top: 4px; }
 .pm { display: flex; align-items: center; gap: 7px; padding: 4px 14px 5px 6px; max-width: 214px;
   background: linear-gradient(90deg, rgba(8,12,20,.72), rgba(8,12,20,.3)); border-left: 2px solid #5cb8ff;
-  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%); text-shadow: 0 1px 2px #000; }
+  border-radius: 0 10px 10px 0; text-shadow: 0 1px 2px #000; }
 .pm svg { display: block; flex: none; }
 .pm .pt { display: grid; gap: 1px; min-width: 0; flex: 1; }
 .pm .pn { font: 700 12px var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -108,7 +108,14 @@ canvas#cv { display: block; width: 100%; height: 100%; image-rendering: pixelate
 .cs span { font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
 .cs input { box-sizing: border-box; pointer-events: auto; font: 700 16px var(--display); color: var(--ink); background: rgba(8,12,20,.55); border: 1px solid var(--line); padding: 6px 9px; width: min(220px, 100%); }
 .cs input:focus-visible { outline: 2px solid var(--shield); outline-offset: 1px; }
-.xp .track { flex: 1; height: 4px; background: rgba(255,255,255,.14); position: relative; overflow: hidden; }
+.xp { padding-inline: 18px; gap: 10px; }
+.xp .bars { flex: 1; display: grid; gap: 4px; }
+.xp .track { height: 5px; border-radius: 5px; background: rgba(255,255,255,.1); position: relative; overflow: hidden; }
+.xp .track.tal { height: 4px; }
+.xp .track i { border-radius: 5px; }
+.xp .track.tal i { background: linear-gradient(90deg, #2a7fd9, #5cc8ff); box-shadow: 0 0 6px rgba(92,200,255,.7); }
+.xp .val { display: none; }
+.xp .tpchip { font: 700 9px var(--display); letter-spacing: .14em; text-transform: uppercase; color: #7fd0ff; white-space: nowrap; text-shadow: 0 0 8px rgba(92,200,255,.6); }
 .xp .track i { position: absolute; inset: 0; background: linear-gradient(90deg, #d98a1c, var(--amber)); transform-origin: left; transition: transform .35s ease-out; box-shadow: 0 0 6px rgba(255,181,71,.7); }
 .xp .val { font-size: 10px; color: var(--muted); letter-spacing: .06em; }
 
@@ -181,25 +188,27 @@ canvas#cv { display: block; width: 100%; height: 100%; image-rendering: pixelate
 .di i { position: absolute; left: -46px; top: -150px; width: 92px; height: 26px; border-top: 5px solid currentColor; border-radius: 50% 50% 0 0 / 100% 100% 0 0; filter: drop-shadow(0 0 6px currentColor); animation: difade .9s ease-out forwards; }
 @keyframes difade { 0% { opacity: 1; } 60% { opacity: .85; } 100% { opacity: 0; } }
 .hb-m.jolt { animation: jolt .22s ease-out; }
-.hudbar { position: absolute; left: 0; right: 0; bottom: 26px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px) minmax(0, 1fr); align-items: end; gap: 14px; pointer-events: none;
+.hudbar { position: absolute; left: 0; right: 0; bottom: 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px) minmax(0, 1fr); align-items: end; gap: 14px; pointer-events: none;
   padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px)); text-shadow: 0 1px 2px #000; font-variant-numeric: tabular-nums; }
-.hb-l { justify-self: start; display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 12px; padding: 8px 30px 8px 12px; border-bottom: 2px solid rgba(120,200,255,.55);
-  background: linear-gradient(90deg, rgba(6,12,24,.78), rgba(6,12,24,.2)); clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 100%, 0 100%); }
+.hb-l { justify-self: start; position: relative; display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 14px; margin-left: 18px; padding: 8px 22px 10px 12px; border-radius: 14px;
+  background: radial-gradient(120% 140% at 0% 100%, rgba(6,14,28,.62), rgba(6,14,28,.12) 70%, transparent); }
+.hb-l::after { content: ''; position: absolute; left: 10px; right: 0; bottom: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, rgba(120,210,255,.9), rgba(120,210,255,0)); box-shadow: 0 0 8px rgba(120,210,255,.6); }
 .hb-gun { width: 118px; height: 52px; image-rendering: pixelated; filter: drop-shadow(0 0 4px rgba(120,200,255,.35)); }
 .hb-ammo { display: grid; justify-items: start; }
-.hb-mag { font: 800 40px var(--display); line-height: .9; }
+.hb-ammo { min-width: 64px; }
+.hb-mag { font: 600 38px var(--display); line-height: 1; letter-spacing: .01em; font-variant-numeric: tabular-nums; text-shadow: 0 0 10px rgba(140,210,255,.35), 0 1px 2px rgba(0,0,0,.8); }
 .hb-mag.low { color: var(--threat); }
-.hb-mag.vent { font-size: 22px; color: var(--amber); letter-spacing: .08em; }
-.hb-res { font: 600 13px var(--mono); color: #8fd6ff; margin-top: 2px; }
-.hb-name { grid-column: 1 / 3; font: 700 10px var(--display); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+.hb-mag.vent { font-size: 17px; font-weight: 700; color: var(--amber); letter-spacing: .16em; padding: 9px 0 6px; text-shadow: 0 0 10px rgba(255,181,71,.5); }
+.hb-res { font: 600 13px var(--mono); color: #8fd6ff; margin-top: 1px; padding-top: 3px; border-top: 1px solid rgba(143,214,255,.3); font-variant-numeric: tabular-nums; }
+.hb-name { grid-column: 1 / 3; font: 700 9px var(--display); letter-spacing: .22em; text-transform: uppercase; color: rgba(200,225,245,.6); margin-top: 3px; }
 .hb-m { position: relative; height: 126px; }
 .arcs { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .arcs path { fill: none; }
-.arcs .bg { stroke: rgba(6,12,24,.62); }
-#aShBg, #aSh { stroke-width: 10; }
-#aSh { stroke: #8fd6ff; filter: drop-shadow(0 0 5px rgba(110,190,255,.9)); }
-#aHpBg, #aHp, #aHpLag { stroke-width: 6; }
-#aHp { stroke: var(--hull); filter: drop-shadow(0 0 4px rgba(240,138,36,.7)); }
+.arcs .bg { stroke: rgba(6,12,24,.5); }
+#aShBg, #aSh { stroke-width: 9; stroke-linecap: round; }
+#aSh { stroke: #9adcff; filter: drop-shadow(0 0 2px rgba(170,225,255,.95)) drop-shadow(0 0 9px rgba(80,170,255,.75)); }
+#aHpBg, #aHp, #aHpLag { stroke-width: 6; stroke-linecap: round; }
+#aHp { stroke: #ff5a3c; filter: drop-shadow(0 0 2px rgba(255,140,110,.9)) drop-shadow(0 0 8px rgba(255,60,40,.6)); }
 #aHpLag { stroke: #fff1dc; }
 .hb-m.lowsh #aSh { stroke: #ffcf6a; }
 .hb-m.charging #aSh { animation: chg .35s ease-in-out infinite alternate; }
@@ -209,21 +218,23 @@ canvas#cv { display: block; width: 100%; height: 100%; image-rendering: pixelate
 .hb-m.broken #aShBg { animation: brk2 .08s steps(2) 6; }
 @keyframes brk2 { 50% { stroke: rgba(200,240,255,.95); } }
 @media (prefers-reduced-motion: reduce) { .hb-m.charging #aSh, .hb-m.empty #aShBg, .hb-m.low #aHp, .hb-m.broken #aShBg, .hb-m.jolt { animation: none; } }
-.abil { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; gap: 10px; }
-.ab { position: relative; width: 58px; height: 48px; display: grid; place-items: center; color: #6f93b8; background: rgba(8,20,40,.72);
-  clip-path: polygon(16% 0, 84% 0, 100% 100%, 0 100%); box-shadow: inset 0 0 0 1px rgba(120,190,255,.35); }
-.ab svg { width: 24px; height: 24px; position: relative; }
-.ab.ready { color: #e4f5ff; background: rgba(24,70,130,.8); box-shadow: inset 0 0 14px rgba(110,190,255,.75), inset 0 0 0 1px rgba(160,220,255,.7); }
+.abil { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); display: flex; gap: 9px; align-items: flex-end; }
+.ab { position: relative; width: 50px; height: 42px; display: grid; place-items: center; color: #6f93b8; background: rgba(8,20,40,.62); overflow: hidden;
+  border-radius: 12px; box-shadow: inset 0 0 0 1px rgba(120,190,255,.32); }
+.ab:nth-child(2) { width: 54px; height: 46px; }
+.ab svg { width: 22px; height: 22px; position: relative; }
+.ab.ready { color: #e4f5ff; background: rgba(24,70,130,.72); box-shadow: inset 0 0 12px rgba(110,190,255,.6), inset 0 0 0 1px rgba(160,220,255,.65), 0 0 10px rgba(90,180,255,.35); }
 .ab .cd { position: absolute; inset: 0; background: conic-gradient(rgba(3,7,14,.8) calc(var(--p, 0) * 1turn), transparent 0); }
 .ab .t { position: absolute; font: 800 15px var(--display); color: #fff; }
-.ab span { position: absolute; bottom: 2px; right: 9px; font: 700 9px var(--display); color: rgba(200,225,255,.7); letter-spacing: .06em; }
+.ab span { position: absolute; bottom: 2px; right: 7px; font: 700 9px var(--display); color: rgba(200,225,255,.7); letter-spacing: .06em; }
 .ab.locked { color: #2f3858; background: rgba(8,12,22,.6); box-shadow: inset 0 0 0 1px rgba(60,70,110,.5); }
-.hb-r { justify-self: end; display: grid; gap: 4px; min-width: 190px; text-align: right; padding: 8px 12px 9px 30px; border-bottom: 2px solid rgba(255,181,71,.5);
-  background: linear-gradient(270deg, rgba(6,12,24,.78), rgba(6,12,24,.2)); clip-path: polygon(20px 0, 100% 0, 100% 100%, 0 100%); }
+.hb-r { justify-self: end; position: relative; display: grid; gap: 4px; min-width: 190px; text-align: right; margin-right: 18px; padding: 8px 14px 11px 26px; border-radius: 14px;
+  background: radial-gradient(120% 140% at 100% 100%, rgba(6,14,28,.62), rgba(6,14,28,.12) 70%, transparent); }
+.hb-r::after { content: ''; position: absolute; right: 10px; left: 0; bottom: 0; height: 2px; border-radius: 2px; background: linear-gradient(270deg, rgba(255,181,71,.85), rgba(255,181,71,0)); box-shadow: 0 0 8px rgba(255,181,71,.45); }
 .ob-l { font: 600 9px var(--mono); letter-spacing: .24em; text-transform: uppercase; color: var(--amber); }
 .ob-w { font: 800 26px var(--display); line-height: 1; }
 .ob-w b { font-weight: 800; }
-.ob-bar { height: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+.ob-bar { height: 3px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
 .ob-bar i { display: block; height: 100%; background: var(--amber); transform-origin: right; }
 .ob-s { display: flex; justify-content: flex-end; gap: 14px; font-size: 10px; color: var(--muted); letter-spacing: .06em; }
 .ob-s b { color: var(--ink); }
@@ -271,7 +282,7 @@ h1 em { font-style: normal; color: var(--hull); }
 .go {
   pointer-events: auto; font: 700 16px var(--display); letter-spacing: .14em; text-transform: uppercase;
   background: var(--hull); color: var(--void); border: 0; padding: 14px 22px; cursor: pointer;
-  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%); justify-self: start;
+  border-radius: 10px; justify-self: start;
 }
 .go:focus-visible { outline: 2px solid var(--shield); outline-offset: 4px; }
 .result { font-variant-numeric: tabular-nums; display: flex; gap: 28px; flex-wrap: wrap; }
@@ -303,7 +314,7 @@ h1 em { font-style: normal; color: var(--hull); }
 .sgrid input[type=range] { width: 100%; min-width: 0; accent-color: var(--amber); pointer-events: auto; }
 .sgrid input[type=checkbox] { justify-self: start; width: 18px; height: 18px; accent-color: var(--amber); pointer-events: auto; }
 .sres { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; }
-.seg { display: flex; border: 1px solid var(--line); }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; width: fit-content; max-width: 100%; }
 .seg button { pointer-events: auto; background: rgba(8,12,20,.5); color: var(--muted); border: 0; border-right: 1px solid var(--line); padding: 8px 12px; font: 700 12px var(--display); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
 .seg button:last-child { border-right: 0; }
 .seg button[aria-pressed=true] { background: var(--amber); color: var(--void); }
@@ -347,7 +358,7 @@ h1 em { font-style: normal; color: var(--hull); }
 .mapc:focus-visible { outline: 2px solid var(--shield); outline-offset: 2px; }
 .mpanel h1 { font-size: clamp(40px, 9vw, 62px); }
 .rank { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.lvlb { font: 800 12px var(--display); background: var(--amber); color: var(--void); padding: 2px 9px 1px 7px; clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+.lvlb { font: 800 12px var(--display); background: var(--amber); color: var(--void); padding: 2px 9px 1px 7px; border-radius: 6px; }
 .mtrack { flex: 1; max-width: 160px; height: 4px; background: rgba(255,255,255,.14); position: relative; overflow: hidden; }
 .mtrack i { position: absolute; inset: 0; background: var(--amber); transform-origin: left; }
 .lbtns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -362,6 +373,21 @@ h1 em { font-style: normal; color: var(--hull); }
 .pstats div { padding: 10px; background: rgba(8,12,20,.6); border: 1px solid var(--line); font-family: var(--mono); }
 .pstats b { display: block; font-size: 20px; font-family: inherit; color: var(--ink); }
 .pstats span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; opacity: .7; }
+.acct { padding: 12px; background: rgba(8,12,20,.6); border: 1px solid var(--line); display: grid; gap: 8px; font: 12px var(--mono); }
+.acct .arow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.acct input { background: #0a0e18; border: 1px solid var(--line); color: var(--ink); font: 13px var(--mono); padding: 8px 10px; min-width: 0; flex: 1 1 130px; }
+.acct .amsg { min-height: 1em; color: var(--muted); }
+.acct .amsg.err { color: #ff7a6a; }
+.acct b { color: #5dff96; }
+.bpprog { display: flex; align-items: center; gap: 10px; font: 12px var(--mono); }
+.bpprog .track { flex: 1; height: 6px; background: rgba(255,255,255,.12); position: relative; overflow: hidden; }
+.bpprog .track i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #d98a1c, var(--amber)); }
+.bptrack { display: grid; grid-auto-flow: column; grid-auto-columns: 96px; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
+.bptrack div { display: grid; gap: 4px; padding: 8px; background: rgba(255,255,255,.03); border: 1px solid var(--line); font: 10px var(--mono); }
+.bptrack div i { aspect-ratio: 1; display: grid; place-items: center; font-style: normal; font-size: 20px; background: repeating-linear-gradient(45deg, #0f1320 0 8px, #131829 8px 16px); color: rgba(255,255,255,.35); }
+.bptrack div b { font-size: 10px; color: var(--ink); }
+.bphead small { display: block; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--amber); }
+.bphead b { font-size: 18px; }
 .bpass { padding: 12px; background: rgba(8,12,20,.6); border: 1px dashed var(--line); display: grid; gap: 10px; }
 .bphead { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; }
 .bphead span { opacity: .6; }
@@ -432,6 +458,24 @@ h1 em { font-style: normal; color: var(--hull); }
 .cab b { font: 700 18px var(--display); }
 .cab p { margin: 0; font-size: 12px; line-height: 1.55; color: var(--muted); max-width: 62ch; }
 .talents { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: 300px; }
+.tthead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.tpts { font: 600 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.tpts b { color: #7fd0ff; font-size: 16px; margin-left: 6px; }
+.tbar { display: grid; gap: 4px; font: 11px var(--mono); color: #7fd0ff; max-width: 420px; }
+.tbar .track { flex: 1; height: 5px; background: rgba(255,255,255,.12); position: relative; overflow: hidden; }
+.tbar .track i { position: absolute; inset: 0; transform-origin: left; background: linear-gradient(90deg, #2a7fd9, #5cc8ff); }
+.ttree { position: relative; width: 100%; max-width: 360px; aspect-ratio: 300 / 330; margin: 4px 0; background: radial-gradient(ellipse at 50% 60%, rgba(40,70,60,.35), rgba(8,12,20,.6)); border: 1px solid var(--line); }
+.ttree .tlines { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tbr { position: absolute; top: 4px; transform: translateX(-50%); font: 700 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.tn { position: absolute; width: 40px; height: 40px; transform: translate(-50%, -50%); display: grid; place-items: center; padding: 0; background: #0e1320; border: 2px solid rgba(160,175,200,.35); color: rgba(200,210,225,.45); cursor: pointer; pointer-events: auto; }
+.tn svg { width: 22px; height: 22px; }
+.tn.ab { border-radius: 50%; }
+.tn b { position: absolute; top: -8px; right: -8px; font: 700 9px var(--mono); background: #0e1320; border: 1px solid currentColor; padding: 0 3px; }
+.tn.can { border-color: #7fd0ff; color: #cfeeff; box-shadow: 0 0 10px rgba(92,200,255,.45); }
+.tn.got { border-color: #ffb547; color: #ffd28a; background: #2a2010; box-shadow: 0 0 10px rgba(255,181,71,.45); }
+.tinfo { font: 12px/1.55 var(--mono); color: var(--muted); max-width: 420px; min-height: 58px; }
+.tinfo b { color: var(--ink); font-family: var(--display); font-size: 14px; }
+.tinfo em { font-style: normal; color: #7fd0ff; font-size: 11px; }
 .tnode { aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 4px; background: repeating-linear-gradient(45deg, #0f1320 0 8px, #131829 8px 16px); border: 1px solid var(--line); color: #4a5378; font: 700 10px var(--display); letter-spacing: .12em; text-transform: uppercase; text-align: center; }
 .tnode svg { opacity: .7; }
 .tb.nade { width: 52px; height: 52px; right: max(176px, calc(env(safe-area-inset-right, 0px) + 164px)); bottom: max(146px, calc(env(safe-area-inset-bottom, 0px) + 130px)); border-color: var(--amber); color: var(--amber); }
@@ -462,7 +506,7 @@ h1 em { font-style: normal; color: var(--hull); }
 .go:disabled { background: #4a5068; color: #c9cfe0; cursor: not-allowed; }
 .skins { display: flex; gap: 8px; flex-wrap: wrap; }
 .skin { pointer-events: auto; display: grid; gap: 5px; justify-items: center; width: 68px; padding: 7px 4px 6px; background: rgba(20,26,42,.78); border: 1px solid var(--line); color: var(--ink); font: 600 9px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
-.skin .sw { width: 46px; height: 26px; clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); display: grid; place-items: center; font: 800 13px var(--display); color: rgba(255,255,255,.5); }
+.skin .sw { width: 46px; height: 26px; border-radius: 7px; display: grid; place-items: center; font: 800 13px var(--display); color: rgba(255,255,255,.5); }
 .skin.on { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); color: var(--amber); }
 .skin:disabled { color: var(--muted); cursor: not-allowed; }
 .skin:disabled .sw { filter: grayscale(.7) brightness(.45); }
@@ -519,6 +563,10 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 .tb.zoom { width: 48px; height: 48px; right: max(170px, calc(env(safe-area-inset-right, 0px) + 158px)); bottom: max(92px, calc(env(safe-area-inset-bottom, 0px) + 78px)); }
 .stick { position: absolute; width: 110px; height: 110px; margin: -55px; border-radius: 50%; border: 2px solid rgba(255,255,255,.28); pointer-events: none; }
 .knob { position: absolute; width: 46px; height: 46px; margin: -23px; border-radius: 50%; background: rgba(255,255,255,.35); pointer-events: none; }
+.ghost, .wcard, .ccard, .stage, .mapc, .field input, .pcard, .acct, .acct input, .pstats div, .rewards div, .bpass, .bptrack div, .ttree, .tn, .cab, .lobby .roster > div, .stats > div, .lpanel .attach button { border-radius: 10px; }
+.mapc img, .mapc .ph { border-radius: 9px 9px 0 0; }
+.cab { border-left: 0; box-shadow: inset 3px 0 0 var(--hull); }
+.tn.ab { border-radius: 50%; }
 </style>
 
 <div id="game">
@@ -566,7 +614,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
   <div class="edge mammo" id="mAmmo"></div>
 
   <div class="feed" id="feed"><div class="total" id="feedTotal"></div></div>
-  <div class="edge xp"><span class="xpb" id="xpBadge"></span><span class="xprank" id="xpRank"></span><div class="track"><i id="xpFill"></i></div><span class="val" id="xpVal">0 / 1,000 XP</span></div>
+  <div class="edge xp"><span class="xpb" id="xpBadge"></span><span class="xprank" id="xpRank"></span><div class="bars"><div class="track"><i id="xpFill"></i></div><div class="track tal"><i id="tFill"></i></div></div><span class="val"><span id="xpVal"></span><span id="tVal"></span></span><span class="tpchip" id="tChip" hidden></span></div>
 
   <div class="banner" id="banner"></div>
   <div class="prompt" id="prompt" hidden></div>
@@ -576,7 +624,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
     <div class="tb fire" data-act="fire">FIRE</div>
     <div class="tb jump" data-act="jump">JUMP</div>
     <div class="tb reload" data-act="reload">RELOAD</div>
-    <div class="tb pulse" data-act="pulse" id="tPulse" hidden>WAVE</div>
+    <div class="tb pulse" data-act="pulse" id="tPulse" hidden>DOME</div>
     <div class="tb nade" data-act="nade" id="tNade">NADE</div>
     <div class="tb crouch" data-act="crouch" id="tCrouch">CROUCH</div>
     <div class="tb zoom" data-act="zoom" id="tZoom">ZOOM</div>
@@ -633,12 +681,15 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
     <div class="lpanel">
       <div class="eyebrow">Service record</div>
       <div class="prow"><span id="pBadge"></span><div><h2 id="pName">Operator</h2><div class="mrn" id="pRank"></div><div class="rank"><div class="mtrack"><i id="pFill"></i></div><span id="pXp"></span></div></div></div>
-      <div class="attlbl">Stats</div>
-      <div class="pstats" id="pStats"></div>
-      <div class="attlbl">Battle pass</div>
-      <div class="bpass"><div class="bphead"><b>Season 1 · Kessa Rising</b><span>Coming in a later update</span></div><div class="bptiers" id="bpTiers"></div></div>
-      <div class="attlbl">Rank-up rewards</div>
-      <div class="rewards" id="pRewards"></div>
+      <div class="acct" id="acct"></div>
+      <div class="seg tabs" id="pTabs"><button type="button" data-tab="stats" aria-pressed="true">Stats</button><button type="button" data-tab="unlocks" aria-pressed="false">Future unlocks</button><button type="button" data-tab="bp" aria-pressed="false">Battle pass</button></div>
+      <div class="tabp" id="pt-stats"><div class="pstats" id="pStats"></div></div>
+      <div class="tabp" id="pt-unlocks" hidden><div class="rewards" id="pRewards"></div></div>
+      <div class="tabp" id="pt-bp" hidden>
+        <div class="bpass"><div class="bphead"><div><small>Season 0</small><b>Kessa Rising</b></div><span>Preview · rewards switch on in a later update</span></div>
+          <div class="bpprog"><span>Tier <b id="bpTier">0</b> / 30</span><div class="track"><i id="bpFill"></i></div></div>
+          <div class="bptrack" id="bpTiers"></div></div>
+      </div>
       <div class="lbtns"><button class="ghost" id="profileBack" type="button">Back</button></div>
     </div>
   </div>
@@ -665,10 +716,12 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
         <div class="cab">
           <div class="attlbl">Class ability</div>
           <b>Shoulder launcher</b>
-          <p>A launcher swings down over your left shoulder and fires a grenade that bounces, then explodes after a short fuse or when it touches an enemy. Press Q, or NADE on touch screens. Recharges in 9 seconds. E and F ability slots unlock with talents later.</p>
+          <p>A launcher swings down over your left shoulder and fires a grenade that bounces, then explodes after a short fuse or when it touches an enemy. Press Q, or NADE on touch screens. Recharges in 9 seconds. Talents add an E ability (Bubble Shield) and an F ability (Overdrive).</p>
         </div>
-        <div class="attlbl">Talents · coming in a later update</div>
-        <div class="talents" id="talents"></div>
+        <div class="tthead"><div class="attlbl">Talents</div><div class="tpts">Points available <b id="tPts">0</b></div><button class="link" id="tReset" type="button">Reset talents</button></div>
+        <div class="tbar"><div class="track"><i id="tFill2"></i></div><span id="tVal2"></span></div>
+        <div class="ttree" id="talents"></div>
+        <div class="tinfo" id="tInfo">Select a talent to see what it does. Trees start at the bottom; each talent needs one connected talent below it.</div>
       </div>
       <details class="ctrl"><summary>Controls</summary>
         <dl class="controls">
@@ -1381,7 +1434,7 @@ const gsun = new T.DirectionalLight(0xfff1d6, 0.7); gsun.position.set(1, 2, 1); 
 const GUN_HIP = new T.Vector3(0.17, -0.17, -0.4);
 let GUN_ADS = new T.Vector3(0, -0.128, -0.34);
 const WSTATS = {
-  vk9: { mag: 40, reserve: 240, maxRes: 360, rate: 0.095, dmg: 17, pellets: 1, recoil: 0.019, reload: 2.2, shell: 0, pick: 45, wave: 60, kick: 0.065, shake: 0.32 },
+  vk9: { mag: 40, reserve: 240, maxRes: 360, rate: 0.095, dmg: 17, pellets: 1, recoil: 0.019, reload: 2.2, shell: 0, pick: 45, wave: 60, kick: 0.065, shake: 0.13 },
   breaker: { mag: 6, reserve: 30, maxRes: 48, rate: 0.85, dmg: 13, pellets: 9, recoil: 0.05, reload: 0, shell: 0.5, pick: 8, wave: 12, kick: 0.09, shake: 0.6 }
 };
 const GS = Object.assign({ spreadMul: 1, fov: 46, sens: 0.45, optic: 'iron' }, WSTATS.vk9);
@@ -1605,6 +1658,11 @@ function hurtEnemy(e, dmg, headshot, cause, by) {
 }
 function creditKill(type, headshot, cause) {
   S.kills++;
+  { const P = S.p;
+    if (hasT('b1')) P.shield = Math.min(100, P.shield + 10);
+    if (hasT('b2')) P.momT = 4;
+    if (hasT('b4')) { P.nadeCd = Math.max(0, P.nadeCd - 1.5); P.bubCd = Math.max(0, (P.bubCd || 0) - 1.5); P.odCd = Math.max(0, (P.odCd || 0) - 1.5); }
+    if (hasT('b5') && P.hp < 35) { P.hp = Math.min(100, P.hp + 5); P.lagHp = Math.max(P.lagHp, P.hp); } }
   gainXP({ trooper: 100, stalker: 75, heavy: 300 }[type], type === 'heavy' ? 'Heavy down' : 'Kill', type === 'heavy');
   if (headshot) gainXP(50, 'Headshot', true);
   if (cause === 'pulse') gainXP(25, 'Shockwave kill');
@@ -1736,7 +1794,8 @@ function fireBolt(e, big, tgt) {
 function updateBolts(dt) {
   const P = S.p;
   for (const b of bolts) {
-    const p = b.m.position; p.x += b.vx * dt; p.y += b.vy * dt; p.z += b.vz * dt; b.life -= dt;
+    const p = b.m.position, x0 = p.x, y0 = p.y, z0 = p.z; p.x += b.vx * dt; p.y += b.vy * dt; p.z += b.vz * dt; b.life -= dt;
+    if (domes.length && domeBlocks(x0, y0, z0, p.x, p.y, p.z)) { b.life = 0; spark(p.x, p.y, p.z, 0x9fe4ff, 8, 3, 2); continue; }
     if (inSolid(p.x, p.y, p.z)) { b.life = 0; spark(p.x, p.y, p.z, b.big ? 0xff4020 : 0xffa040, b.big ? 12 : 5, 3, 2); if (b.big) splash(p, 3, 14); continue; }
     if (P.dead) continue;
     const cy = Math.max(P.y + 0.2, Math.min(P.y + 1.7 - 0.55 * (P.ch || 0), p.y));
@@ -1762,6 +1821,7 @@ function newGame() {
   for (const n of dnums) n.el.remove(); dnums = [];
   for (const b of booms) scene.remove(b.s);
   nades = []; booms = [];
+  for (const d of domes) scene.remove(d.g); domes = [];
   for (const d of debris) scene.remove(d.m);
   for (const k of pickups) scene.remove(k.m);
   enemies = []; bolts = []; debris = []; pickups = [];
@@ -1797,12 +1857,16 @@ function hitReaction(P, toShield, toHull, fromX, fromZ) {
 function damagePlayer(d, fromX, fromZ) {
   const P = S.p; if (!S.running || P.dead || mode !== 'game') return;
   P.sinceHit = 0;
+  if (hasT('s3')) d *= 0.8;
+  if (P.swT > 0) d *= 0.5;
   const s = Math.min(P.shield, d); P.shield -= s; d -= s;
+  if (s > 0 && P.shield <= 0 && hasT('s4') && !(P.swCd > 0)) { P.swT = 2; P.swCd = 20; d *= 0.5; }
   hitReaction(P, s, d, fromX, fromZ);
   if (s > 0) SFX.shieldHit();
   if (s > 0 && P.shield <= 0) { SFX.shieldBreak(); P.beepT = 0.5; const v = $('vitals'); v.classList.remove('broken'); void v.offsetWidth; v.classList.add('broken'); }
   addShake(Math.min(1, 0.25 + d / 25));
   if (d > 0) { P.lagT = 0.45; P.hp -= d; P.hurt = Math.min(1, P.hurt + d / 25); SFX.hurt(); }
+  if (P.hp <= 0 && hasT('s5') && S.lastStand !== S.wave) { S.lastStand = S.wave; P.hp = 1; P.lagHp = Math.max(P.lagHp, 1); P.shield = 100; banner('Last Stand', 'Shields restored', 1.8); SFX.recharge(); return; }
   if (P.hp <= 0) { if (NET.on) playerDown(); else gameOver(); }
 }
 function playerDown() {
@@ -1828,7 +1892,7 @@ function tryFire() {
   if (GS.shell && P.reloadT > 0 && P.mag > 0) P.reloadT = 0;   // firing interrupts a shell-by-shell reload
   if (P.dead || P.reloadT > 0 || P.fireCd > 0) return;
   if (P.mag <= 0) { P.fireCd = 0.25; SFX.empty(); if (P.reserve > 0) startReload(); return; }
-  P.fireCd = GS.rate; P.mag--; P.pumped = false; P.trigT = 0.08;
+  P.fireCd = GS.rate * (P.odT > 0 ? 0.7 : 1); if (!(P.odT > 0)) P.mag--; P.pumped = false; P.trigT = 0.08;
   // recoil moves your aim: part of the climb stays (pull down to compensate), part springs back
   const climb = GS.recoil * (1 - 0.35 * P.ads) * (1 - 0.25 * P.ch);
   // the view kicks as hard as the gun does, so the crosshair jumps with the muzzle
@@ -1862,7 +1926,7 @@ function tryFire() {
         // pellets lose power with distance; a single rifle round does not
         const fall = GS.pellets > 1 ? (h.distance < 12 ? 1 : h.distance < 26 ? 0.55 : 0.25) : 1;
         const rec = hitsOn.get(en) || { d: 0, head: false, dir };
-        rec.d += GS.dmg * fall * (GS.pellets > 1 && head ? 1.6 : 1); rec.head = rec.head || head;
+        rec.d += GS.dmg * fall * (GS.pellets > 1 && head ? 1.6 : 1) * dmgMul(h.distance); rec.head = rec.head || head;
         hitsOn.set(en, rec);
         spark(end.x, end.y, end.z, head ? 0xffffff : 0xffc070, head ? 8 : 5, 3, 2);
       } else spark(end.x, end.y, end.z, 0xd8d0b0, GS.pellets > 1 ? 3 : 5, 2.5, 2);
@@ -1892,6 +1956,51 @@ const NADE_CD = 9;
 let nades = [];
 const nadeGeo = new T.SphereGeometry(0.11, 8, 6);
 const boomTex = TX.flash;
+const BUB_CD = 30, BUB_LIFE = 8, BUB_R = 3.3, OD_CD = 45;
+let domes = [];
+const domeFill = new T.MeshBasicMaterial({ color: 0x5cc8ff, transparent: true, opacity: 0.16, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending });
+const domeWire = new T.MeshBasicMaterial({ color: 0x7fd0ff, wireframe: true, transparent: true, opacity: 0.3, depthWrite: false, blending: T.AdditiveBlending });
+const domeGeo = new T.IcosahedronGeometry(1, 2);
+function useBubble() {
+  const P = S.p;
+  if (!hasT('s1') || !S.running || P.dead || P.bubCd > 0) return;
+  P.bubCd = BUB_CD;
+  spawnDome(P.x, P.y, P.z);
+  if (NET.on) netSend({ t: 'dome', x: r2(P.x), y: r2(P.y), z: r2(P.z) });
+}
+function spawnDome(x, y, z) {
+  const g = new T.Group(); g.position.set(x, y, z);
+  const fm = domeFill.clone(), wm = domeWire.clone();
+  g.add(new T.Mesh(domeGeo, fm), new T.Mesh(domeGeo, wm)); g.scale.setScalar(0.01); scene.add(g);
+  domes.push({ g, fm, wm, x, y: y + 0.6, z, t: 0 });
+  SFX.recharge(); sTone(180, 520, 0.4, 0.12, 'sine');
+}
+function updateDomes(dt) {
+  for (const d of domes) {
+    d.t += dt;
+    const grow = Math.min(1, d.t / 0.25), fade = Math.max(0, Math.min(1, (BUB_LIFE - d.t) / 0.6));
+    d.g.scale.set(BUB_R * grow, BUB_R * grow * 0.85, BUB_R * grow);
+    d.fm.opacity = 0.16 * fade * (1 + 0.3 * Math.sin(d.t * 5)); d.wm.opacity = 0.3 * fade;
+    d.g.rotation.y += dt * 0.15;
+    if (d.t > BUB_LIFE) scene.remove(d.g);
+  }
+  domes = domes.filter(d => d.t <= BUB_LIFE);
+}
+// a bolt crossing into a dome from outside is stopped at the surface
+function domeBlocks(x0, y0, z0, x1, y1, z1) {
+  for (const d of domes) {
+    const r = BUB_R * Math.min(1, d.t / 0.25);
+    const i0 = Math.hypot(x0 - d.x, (y0 - d.y) / 0.85, z0 - d.z) < r, i1 = Math.hypot(x1 - d.x, (y1 - d.y) / 0.85, z1 - d.z) < r;
+    if (!i0 && i1) { d.fm.opacity = 0.5; return true; }
+  }
+  return false;
+}
+function useOverdrive() {
+  const P = S.p;
+  if (!hasT('g5') || !S.running || P.dead || P.odCd > 0) return;
+  P.odCd = OD_CD; P.odT = 6; P.mag = Math.max(P.mag, 1);
+  banner('Overdrive', 'Bottomless magazine', 1.2); sTone(220, 880, 0.5, 0.12, 'sawtooth');
+}
 function fireNade() {
   const P = S.p;
   if (!S.running || P.dead || P.nadeCd > 0 || P.glT >= 0) return;
@@ -2006,7 +2115,7 @@ function update(dt) {
   P.ch += ((crouching ? 1 : 0) - P.ch) * Math.min(1, dt * 12);
   const sprint = (k.shift && iy > 0 && !input.fire && !crouching) ? 1.5 : 1;
   const adsOn = input.ads || input.adsToggle;
-  const speed = 5.4 * sprint * (adsOn ? 0.6 : 1) * (1 - 0.5 * P.ch);
+  const speed = 5.4 * sprint * (adsOn ? 0.6 : 1) * (1 - 0.5 * P.ch) * (P.momT > 0 ? 1.12 : 1);
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   P.x += (fx * iy + rx * ix) * speed * dt; P.z += (fz * iy + rz * ix) * speed * dt;
   collide(P, P.r, P.y, 1.75 - 0.55 * P.ch);
@@ -2031,6 +2140,8 @@ function update(dt) {
   if (input.fire && S.running) tryFire();
   P.pulseCd = Math.max(0, P.pulseCd - dt);
   P.recoil *= Math.pow(0.012, dt);
+  for (const k of ['bubCd', 'odCd', 'odT', 'swT', 'swCd', 'momT']) if (P[k] > 0) P[k] = Math.max(0, P[k] - dt);
+  updateDomes(dt);
   P.bloom = Math.max(0, (P.bloom || 0) - dt * 2.6);
   P.shake = Math.max(0, P.shake - dt * 4);
   P.shFlash = Math.max(0, (P.shFlash || 0) - dt * 3.2);
@@ -2039,7 +2150,7 @@ function update(dt) {
 
   // shields
   P.sinceHit += dt;
-  if (P.sinceHit > 3.5 && P.shield < 100) {
+  if (P.sinceHit > (hasT('s2') ? 2.5 : 3.5) && P.shield < 100) {
     if (!P.recharging) { P.recharging = true; SFX.recharge(); }
     P.shield = Math.min(100, P.shield + 38 * dt);
   } else P.recharging = false;
@@ -2255,6 +2366,42 @@ try { callsign = (localStorage.getItem('kessa-name') || 'Operator').slice(0, 16)
 let prog = { level: 1, xp: 0 };
 try { const p = JSON.parse(localStorage.getItem('kessa-prog')); if (p && p.level) prog = p; } catch (e) {}
 const xpNeed = l => Math.round(2000 + 600 * (l - 1) + 25 * (l - 1) ** 2);
+// ---------- Soldier talents ----------
+// Three branches climb from the bottom: Gunner (weapon handling), Survivor (shields and cover),
+// Berserker (aggression). Talent points come from a separate, much slower XP track.
+const TALENTS = [
+  { id: 'g1', c: 0, r: 1, name: 'Steady Hands', desc: '15% less recoil.' },
+  { id: 'g2', c: 0, r: 2, name: 'Quick Vent', desc: 'Reloads and vents 20% faster.', req: ['g1'] },
+  { id: 'g3', c: 0, r: 3, name: 'Extended Cells', desc: '25% larger magazine.', req: ['g2'] },
+  { id: 'g4', c: 0, r: 4, name: 'Armour Piercing', desc: '12% more weapon damage.', req: ['g3', 's3'] },
+  { id: 'g5', c: 0, r: 5, name: 'Overdrive', desc: 'F ability: 6 seconds of bottomless magazine and 30% faster fire. 45 second cooldown.', req: ['g4'], ab: 'F' },
+  { id: 's1', c: 1, r: 1, name: 'Bubble Shield', desc: 'E ability: drop a dome for 8 seconds that stops enemy fire. You can shoot out of it. 30 second cooldown.', ab: 'E' },
+  { id: 's2', c: 1, r: 2, name: 'Quick Recovery', desc: 'Shields start recharging a second sooner.', req: ['s1'] },
+  { id: 's3', c: 1, r: 3, name: 'Hardened Shields', desc: 'Take 20% less damage.', req: ['s2'] },
+  { id: 's4', c: 1, r: 4, name: 'Second Wind', desc: 'When your shield breaks, take half damage for 2 seconds. Once every 20 seconds.', req: ['s3'] },
+  { id: 's5', c: 1, r: 5, name: 'Last Stand', desc: 'Once per wave, a hit that would down you leaves you on 1 health with full shields.', req: ['s4'] },
+  { id: 'b1', c: 2, r: 1, name: 'Bloodrush', desc: 'Kills restore 10 shield.' },
+  { id: 'b2', c: 2, r: 2, name: 'Momentum', desc: 'Move 12% faster for 4 seconds after a kill.', req: ['b1'] },
+  { id: 'b3', c: 2, r: 3, name: 'Close Quarters', desc: '20% more damage to enemies within 8 metres.', req: ['b2'] },
+  { id: 'b4', c: 2, r: 4, name: 'Frenzy', desc: 'Every kill takes 1.5 seconds off your ability cooldowns.', req: ['b3', 's3'] },
+  { id: 'b5', c: 2, r: 5, name: 'Rampage', desc: 'Below 35 health you deal 35% more damage and kills heal 5 health.', req: ['b4'] }
+];
+const BRANCHES = ['Gunner', 'Survivor', 'Berserker'];
+if (!prog.tal) prog.tal = { xp: 0, earned: 0, picks: [] };
+const tNeed = n => 15000 + 7500 * n;                       // far slower than levelling
+const hasT = id => prog.tal.picks.includes(id);
+const tPoints = () => prog.tal.earned - prog.tal.picks.length;
+const canPick = t => !hasT(t.id) && tPoints() > 0 && (!t.req || t.req.some(hasT));
+const saveProg = () => { try { localStorage.setItem('kessa-prog', JSON.stringify(prog)); } catch (e) {} queueSync(); };
+function dmgMul(dist) {
+  return (hasT('g4') ? 1.12 : 1) * (hasT('b3') && dist < 8 ? 1.2 : 1) * (hasT('b5') && S.p.hp < 35 ? 1.35 : 1);
+}
+function updateTalBar() {
+  const T_ = prog.tal, max = T_.earned >= TALENTS.length;
+  $('tFill').style.transform = `scaleX(${max ? 1 : Math.min(1, T_.xp / tNeed(T_.earned))})`;
+  const tc = $('tChip'); tc.hidden = tPoints() <= 0; tc.textContent = `${tPoints()} talent point${tPoints() > 1 ? 's' : ''}`;
+  $('tVal').textContent = max ? 'All talents earned' : `Talent ${T_.xp.toLocaleString()} / ${tNeed(T_.earned).toLocaleString()}${tPoints() > 0 ? ` · ${tPoints()} point${tPoints() > 1 ? 's' : ''} to spend` : ''}`;
+}
 let feedTotal = 0, feedTimer;
 let badgeLvl = 0;
 function updateXpBar() {
@@ -2271,6 +2418,12 @@ function updateXpBar() {
 }
 function gainXP(amount, label, gold) {
   S.xp += amount; prog.xp += amount;
+  const tal = prog.tal;
+  if (tal.earned < TALENTS.length) {
+    tal.xp += amount;
+    while (tal.earned < TALENTS.length && tal.xp >= tNeed(tal.earned)) { tal.xp -= tNeed(tal.earned); tal.earned++; setTimeout(() => { banner('Talent point earned', 'Spend it in Loadouts → Class', 2.6); SFX.level(); }, 900); }
+  }
+  updateTalBar();
   while (prog.level < MAX_LEVEL && prog.xp >= xpNeed(prog.level)) {
     prog.xp -= xpNeed(prog.level); prog.level++;
     const lv = prog.level, rk = rankOf(lv);
@@ -2280,7 +2433,7 @@ function gainXP(amount, label, gold) {
       SFX.level();
     }, 400);
   }
-  try { localStorage.setItem('kessa-prog', JSON.stringify(prog)); } catch (e) {}
+  saveProg();
   const feed = $('feed'), tot = $('feedTotal');
   feedTotal += amount; tot.textContent = '+' + feedTotal;
   tot.classList.add('on'); tot.classList.remove('bump'); void tot.offsetWidth; tot.classList.add('bump');
@@ -2290,8 +2443,8 @@ function gainXP(amount, label, gold) {
   clearTimeout(feedTimer); feedTimer = setTimeout(() => { tot.classList.remove('on'); feedTotal = 0; }, 1800);
   updateXpBar();
 }
-updateXpBar();
-const ui = { npStatus: $('npStatus'), npStatusT: $('npStatus').querySelector('span'), vitals: $('vitals'), aSh: $('aSh'), aHp: $('aHp'), aHpLag: $('aHpLag'), ammoRes: $('ammoRes'), obFill: $('obFill'), mAmmo: $('mAmmo'), ab1: $('ab1'), ab2: $('ab2'), scope: $('scope'), holo: $('holo'), cross: $('cross'), prompt: $('prompt'), tUse: $('tUse'), wave: $('waveN'), score: $('scoreN'), left: $('leftN'), ammo: $('ammo'), vig: $('vig'), lowsh: $('lowsh'), tPulse: $('tPulse') };
+updateXpBar(); updateTalBar();
+const ui = { ab3: $('ab3'), npStatus: $('npStatus'), npStatusT: $('npStatus').querySelector('span'), vitals: $('vitals'), aSh: $('aSh'), aHp: $('aHp'), aHpLag: $('aHpLag'), ammoRes: $('ammoRes'), obFill: $('obFill'), mAmmo: $('mAmmo'), ab1: $('ab1'), ab2: $('ab2'), scope: $('scope'), holo: $('holo'), cross: $('cross'), prompt: $('prompt'), tUse: $('tUse'), wave: $('waveN'), score: $('scoreN'), left: $('leftN'), ammo: $('ammo'), vig: $('vig'), lowsh: $('lowsh'), tPulse: $('tPulse') };
 let lastHud = '';
 let partyCount = -1;
 function peerStatus(p) {
@@ -2396,7 +2549,13 @@ function hud() {
   updateParty();
   if (!$('score').hidden && (scoreT = (scoreT || 0) + 1) % 15 === 0) renderScore();
   arcFill(ui.aSh, P.shield / 100); arcFill(ui.aHp, Math.max(0, P.hp) / 100); arcFill(ui.aHpLag, Math.max(0, P.lagHp) / 100);
-  for (const [el, cd, max] of [[ui.ab1, P.nadeCd, NADE_CD]]) {
+  for (const [el, id] of [[ui.ab2, 's1'], [ui.ab3, 'g5']]) if (el.classList.contains('locked') === hasT(id)) {
+    el.classList.toggle('locked', !hasT(id));
+    el.querySelector('svg').innerHTML = hasT(id) ? (id === 's1' ? '<path d="M3 18 A9 9 0 0 1 21 18 Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 18 A5 5 0 0 1 17 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/>' : '<path d="M13 2 L5 13 H11 L9 22 L19 9 H13 Z" fill="currentColor"/>') : '<rect x="6" y="11" width="12" height="9" rx="1.5" fill="currentColor"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="2"/>';
+    if (!el.querySelector('.cd')) el.insertAdjacentHTML('afterbegin', '<i class="cd"></i><b class="t"></b>');
+    if (id === 's1') ui.tPulse.hidden = !hasT('s1') || !isTouch;
+  }
+  for (const [el, cd, max] of [[ui.ab1, P.nadeCd, NADE_CD], ...(hasT('s1') ? [[ui.ab2, P.bubCd || 0, BUB_CD]] : []), ...(hasT('g5') ? [[ui.ab3, P.odT > 0 ? 0 : P.odCd || 0, OD_CD]] : [])]) {
     el.classList.toggle('ready', cd <= 0 && !P.dead);
     el.style.setProperty('--p', (cd / max).toFixed(3));
     const t = el.querySelector('.t'), txt = cd > 0 ? String(Math.ceil(cd)) : '';
@@ -2520,6 +2679,8 @@ addEventListener('keydown', e => {
   if (!S || !S.running || paused) return;
   if (k === ' ') { e.preventDefault(); input.jump = true; }
   if (k === 'q') fireNade();
+  if (k === 'e') useBubble();
+  if (k === 'f') useOverdrive();
 });
 addEventListener('keyup', e => {
   if (e.key === 'Tab') { e.preventDefault(); showScore(false); return; }
@@ -2654,7 +2815,7 @@ function act(name, down, el) {
   if (name === 'fire') input.fire = down;
   if (down && name === 'jump') input.jump = true;
   if (down && name === 'reload') startReload();
-  if (down && name === 'pulse') pulse();
+  if (down && name === 'pulse') useBubble();
   if (down && name === 'nade') fireNade();
   if (down && name === 'crouch') { input.crouchToggle = !input.crouchToggle; $('tCrouch').classList.toggle('on', input.crouchToggle); }
   if (down && name === 'use') input.use = true;
@@ -2752,6 +2913,12 @@ const attOf = id => loadout.att[id] || {};
 const statusOf = w => { const locked = prog.level < w.lvl; return { locked, avail: !locked && w.live }; };
 
 function applyLoadout() {
+  applyLoadoutBase();
+  if (hasT('g1')) GS.recoil *= 0.85;
+  if (hasT('g2')) { GS.reload *= 0.8; if (GS.shell) GS.shell *= 0.8; }
+  if (hasT('g3')) GS.mag = Math.round(GS.mag * 1.25);
+}
+function applyLoadoutBase() {
   const att = loadout.primary === 'vk9' ? attOf('vk9') : {};
   equipViewmodel(loadout.primary, att);
   Object.assign(GS, WSTATS[loadout.primary] || WSTATS.vk9);
@@ -2819,14 +2986,106 @@ function renderPreview() {
 
 let detailOpen = false;
 const SKINS = [['Factory', 'linear-gradient(135deg,#3a3f45,#24282c)'], ['Graphite', 'linear-gradient(135deg,#5b6068,#2b2e33)'], ['Dune', 'linear-gradient(135deg,#b49a6a,#6f5c3c)'], ['Glacier', 'linear-gradient(135deg,#e6eef5,#8fa3b5)'], ['Ember', 'linear-gradient(135deg,#ff8a3a,#7a2a12)']];
-(function buildTalents() {
-  const t = $('talents'); const tiers = ['Tier I', 'Tier II', 'Tier III'];
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
-    const d = document.createElement('div'); d.className = 'tnode';
-    d.innerHTML = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><rect x="4" y="9" width="12" height="9" rx="1.5" fill="currentColor"/><path d="M7 9 V6 a3 3 0 0 1 6 0 V9" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
-    d.append(tiers[r]); t.append(d);
+function renderTalents() {
+  const box = $('talents'); if (!box) return;
+  const W_ = 300, H_ = 330, col = c => 50 + c * 100, row = r => H_ - 34 - (r - 1) * 64;
+  let lines = '';
+  for (const t of TALENTS) for (const q of t.req || []) {
+    const u = TALENTS.find(x => x.id === q), on = hasT(t.id) && hasT(q);
+    lines += `<line x1="${col(u.c)}" y1="${row(u.r)}" x2="${col(t.c)}" y2="${row(t.r)}" stroke="${on ? '#ffb547' : 'rgba(160,175,200,.35)'}" stroke-width="${on ? 3 : 2}"/>`;
   }
-})();
+  box.innerHTML = `<svg class="tlines" viewBox="0 0 ${W_} ${H_}" preserveAspectRatio="none">${lines}</svg>`
+    + BRANCHES.map((n, c) => `<span class="tbr" style="left:${(col(c) / W_ * 100).toFixed(2)}%">${n}</span>`).join('')
+    + TALENTS.map(t => `<button type="button" class="tn ${hasT(t.id) ? 'got' : canPick(t) ? 'can' : ''} ${t.ab ? 'ab' : ''}" data-id="${t.id}" style="left:${(col(t.c) / W_ * 100).toFixed(2)}%;top:${(row(t.r) / H_ * 100).toFixed(2)}%" aria-label="${t.name}">${t.ab ? `<b>${t.ab}</b>` : ''}${TICON[t.id] || ''}</button>`).join('');
+  $('tPts').textContent = tPoints();
+  const T_ = prog.tal, max = T_.earned >= TALENTS.length;
+  $('tFill2').style.transform = `scaleX(${max ? 1 : Math.min(1, T_.xp / tNeed(T_.earned))})`;
+  $('tVal2').textContent = max ? 'Every talent point earned' : `${T_.xp.toLocaleString()} / ${tNeed(T_.earned).toLocaleString()} talent XP to the next point`;
+  for (const b of box.querySelectorAll('.tn')) b.addEventListener('click', () => {
+    const t = TALENTS.find(x => x.id === b.dataset.id);
+    if (canPick(t)) { prog.tal.picks.push(t.id); saveProg(); applyLoadout(); renderTalents(); }
+    const st = hasT(t.id) ? 'Unlocked' : canPick(t) ? 'Click again to unlock' : tPoints() <= 0 ? 'Needs a talent point' : 'Unlock a connected talent below first';
+    $('tInfo').innerHTML = `<b>${t.name}</b> <em>${BRANCHES[t.c]}${t.ab ? ' · ' + t.ab + ' ability' : ''}</em><br>${t.desc}<br><small>${st}</small>`;
+  });
+}
+const TICON = {
+  g1: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6" stroke="currentColor" stroke-width="2"/></svg>',
+  g2: '<svg viewBox="0 0 24 24"><path d="M6 20c0-4 4-4 4-8s-4-4-4-8M12 20c0-4 4-4 4-8s-4-4-4-8" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  g3: '<svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 8h4M10 12h4M10 16h4" stroke="currentColor" stroke-width="2"/></svg>',
+  g4: '<svg viewBox="0 0 24 24"><path d="M3 21L14 10M14 10l2-6 4 4-6 2z" fill="currentColor" stroke="currentColor" stroke-width="2"/></svg>',
+  g5: '<svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L9 22 L19 9 H13 Z" fill="currentColor"/></svg>',
+  s1: '<svg viewBox="0 0 24 24"><path d="M3 19 A9 9 0 0 1 21 19 Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 19 A5 5 0 0 1 17 19" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/></svg>',
+  s2: '<svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v5l3 2" stroke="currentColor" stroke-width="2" fill="none"/></svg>',
+  s3: '<svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z" fill="currentColor"/></svg>',
+  s4: '<svg viewBox="0 0 24 24"><path d="M4 12h5l2-5 3 10 2-5h4" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  s5: '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5-8-11a4.5 4.5 0 0 1 8-3 4.5 4.5 0 0 1 8 3c0 6-8 11-8 11z" fill="currentColor"/></svg>',
+  b1: '<svg viewBox="0 0 24 24"><path d="M12 3c3 5 6 8 6 12a6 6 0 0 1-12 0c0-4 3-7 6-12z" fill="currentColor"/></svg>',
+  b2: '<svg viewBox="0 0 24 24"><path d="M4 6l7 6-7 6M12 6l7 6-7 6" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>',
+  b3: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"/></svg>',
+  b4: '<svg viewBox="0 0 24 24"><path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="currentColor"/></svg>',
+  b5: '<svg viewBox="0 0 24 24"><path d="M5 4l5 8-5 8M19 4l-5 8 5 8M12 2v20" stroke="currentColor" stroke-width="2.5" fill="none"/></svg>'
+};
+$('tReset').addEventListener('click', () => { prog.tal.picks = []; saveProg(); applyLoadout(); renderTalents(); $('tInfo').textContent = 'Talents reset. Your points are back to spend.'; });
+for (const b of document.querySelectorAll('#pTabs button')) b.addEventListener('click', () => {
+  for (const o of document.querySelectorAll('#pTabs button')) o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+  for (const t of ['stats', 'unlocks', 'bp']) $('pt-' + t).hidden = t !== b.dataset.tab;
+});
+// ---------- accounts: sign in to keep your profile on the server ----------
+const API = window.KESSA_SERVER ? 'https://' + window.KESSA_SERVER.replace(/^wss?:\/\//, '').replace(/\/$/, '') + '/api' : null;
+let auth = null;
+try { auth = JSON.parse(localStorage.getItem('vp-auth')); } catch (e) {}
+const profileData = () => ({ prog, stats, loadout, callsign, v: 1 });
+async function api(path, method = 'GET', body) {
+  const r = await fetch(API + path, { method, headers: { 'content-type': 'application/json', ...(auth ? { authorization: 'Bearer ' + auth.token } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { if (r.status === 401 && auth && path === '/profile') { auth = null; try { localStorage.removeItem('vp-auth'); } catch (e) {} } throw new Error(j.error || 'Server unavailable'); }
+  return j;
+}
+const progScore = p => p && p.prog ? (p.prog.level || 1) * 1e7 + (p.prog.xp || 0) + ((p.prog.tal && p.prog.tal.earned) || 0) : 0;
+function adoptProfile(p) {
+  if (!p) return;
+  if (p.prog) { prog = Object.assign({ level: 1, xp: 0 }, p.prog); if (!prog.tal) prog.tal = { xp: 0, earned: 0, picks: [] }; }
+  if (p.stats) stats = Object.assign(stats, p.stats);
+  if (p.loadout) { loadout = Object.assign(loadout, p.loadout); saveLoadout(); }
+  try { localStorage.setItem('kessa-prog', JSON.stringify(prog)); localStorage.setItem('vp-stats', JSON.stringify(stats)); } catch (e) {}
+  refreshRank(); updateXpBar(); updateTalBar();
+}
+let syncT = 0, syncing = false;
+function queueSync() { if (!auth || !API) return; clearTimeout(syncT); syncT = setTimeout(pushProfile, 1500); }
+async function pushProfile() {
+  if (!auth || syncing) return; syncing = true;
+  try { await api('/profile', 'PUT', { profile: profileData() }); auth.saved = Date.now(); } catch (e) {}
+  syncing = false; if (!$('profile').hidden) renderAcct();
+}
+async function signIn(kind) {
+  const user = $('aUser').value.trim(), pass = $('aPass').value, msg = $('aMsg');
+  msg.className = 'amsg'; msg.textContent = kind === 'register' ? 'Creating account…' : 'Signing in…';
+  try {
+    const j = await api('/' + kind, 'POST', { user, pass, profile: kind === 'register' ? profileData() : undefined });
+    auth = { token: j.token, name: j.name };
+    try { localStorage.setItem('vp-auth', JSON.stringify(auth)); } catch (e) {}
+    // keep whichever save has more progress
+    if (j.profile && progScore(j.profile) >= progScore(profileData())) adoptProfile(j.profile); else pushProfile();
+    if (callsign === 'Operator') { callsign = j.name; try { localStorage.setItem('kessa-name', callsign); } catch (e) {} }
+    renderProfile();
+  } catch (e) { msg.className = 'amsg err'; msg.textContent = e.message; }
+}
+function renderAcct() {
+  const box = $('acct');
+  if (!API) { box.innerHTML = 'Accounts are not available on this build.'; return; }
+  if (auth) {
+    box.innerHTML = `<div class="arow">Signed in as <b>${auth.name.replace(/[<>&]/g, '')}</b><span class="amsg">Progress saves to your account${auth.saved ? ' · synced' : ''}</span><button class="ghost" id="aOut" type="button">Sign out</button></div>`;
+    $('aOut').addEventListener('click', async () => { try { await api('/logout', 'POST'); } catch (e) {} auth = null; try { localStorage.removeItem('vp-auth'); } catch (e) {} renderAcct(); });
+    return;
+  }
+  box.innerHTML = `<div>Sign in or register to keep your level, talents and stats on any device.</div>
+    <div class="arow"><input id="aUser" placeholder="Username" maxlength="16" autocomplete="username" spellcheck="false"><input id="aPass" type="password" placeholder="Password" maxlength="128" autocomplete="current-password"></div>
+    <div class="arow"><button class="go" id="aIn" type="button">Sign in</button><button class="ghost" id="aReg" type="button">Register</button><span class="amsg" id="aMsg"></span></div>`;
+  for (const id of ['aUser', 'aPass']) $(id).addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') signIn('login'); });
+  $('aIn').addEventListener('click', () => signIn('login')); $('aReg').addEventListener('click', () => signIn('register'));
+}
+// on start-up, pull the latest save for a signed-in player
+if (auth && API) api('/profile').then(j => { if (j.profile && progScore(j.profile) > progScore(profileData())) adoptProfile(j.profile); else queueSync(); }).catch(() => {});
 for (const b of document.querySelectorAll('#armTabs button')) b.addEventListener('click', () => {
   for (const o of document.querySelectorAll('#armTabs button')) o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
   $('wPanel').hidden = b.dataset.tab !== 'w'; $('cPanel').hidden = b.dataset.tab !== 'c';
@@ -2857,7 +3116,7 @@ function renderLoadout() {
   sum.append(bold('Soldier'), ' · ', bold(p.name), parts.length ? ` with ${parts.join(', ').toLowerCase()} · Sidearm: ` : ' · Sidearm: ', bold(sd.name));
   $('lvlNote').textContent = `Your level: ${prog.level}`;
 }
-function showArmory() { detailOpen = false; $('detailView').hidden = true; $('armoryView').hidden = false; renderLoadout(); }
+function showArmory() { renderTalents(); detailOpen = false; $('detailView').hidden = true; $('armoryView').hidden = false; renderLoadout(); }
 function openDetail(slot, id) {
   pvSel = { slot, id }; detailOpen = true;
   $('armoryView').hidden = true; $('detailView').hidden = false; $('loadout').scrollTop = 0;
@@ -3227,6 +3486,7 @@ function onNet(m) {
     case 'kill':
       if (!NET.host) { const e = enemies.find(x => x.nid === m.n && !x.dead); if (e) killEnemy(e, !!m.h, m.c, m.by); else if (m.by === NET.id) creditKill(ETYPES[m.ty] || 'trooper', !!m.h, m.c); }
       break;
+    case 'dome': if (S && S.running) spawnDome(m.x, m.y, m.z); break;
     case 'gl': if (S && S.running) { spawnNade(m.o[0], m.o[1], m.o[2], m.v[0], m.v[1], m.v[2], m.from); SFX.thump(Math.hypot(S.p.x - m.o[0], S.p.z - m.o[2])); } break;
     case 'pulse': if (NET.host) applyPulse(+m.x, +m.z, m.from); break;
     case 'dmg': if (S && S.running) damagePlayer(Math.min(60, +m.d || 0)); break;
@@ -3727,6 +3987,7 @@ function recordRun() {
   const cleared = Math.max(0, S.wave - 1);
   stats.matches++; stats.kills += S.kills; stats.waves += cleared; stats.bestWave = Math.max(stats.bestWave, cleared); stats.xp += S.xp; stats.time += S.t;
   try { localStorage.setItem('vp-stats', JSON.stringify(stats)); } catch (e) {}
+  queueSync();
 }
 function renderProfile() {
   const rk = rankOf(prog.level);
@@ -3735,7 +3996,9 @@ function renderProfile() {
   const mins = Math.round(stats.time / 60);
   $('pStats').innerHTML = [['Matches', stats.matches], ['Kills', stats.kills], ['Best wave', stats.bestWave], ['Waves cleared', stats.waves], ['XP earned', stats.xp.toLocaleString()], ['Time deployed', mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`]]
     .map(([l, v]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
-  $('bpTiers').innerHTML = Array.from({ length: 10 }, (_, i) => `<i>${i + 1}</i>`).join('');
+  const BP = ['Emblem: Kessa Dawn', 'Calling card: Dropship', 'VK-9 skin: Jungle', 'Emblem: Synth Skull', 'Badge frame: Bronze', 'Calling card: Aster Vale', 'Breaker-12 skin: Rust', 'Emblem: Vanguard', 'Ship colour: Ember', 'Calling card: Last Light'];
+  $('bpTiers').innerHTML = Array.from({ length: 30 }, (_, i) => `<div><span>Tier ${i + 1}</span><i>${i % 5 === 4 ? '★' : '?'}</i><b>${i % 3 === 0 ? BP[(i / 3) | 0] : 'Coming soon'}</b></div>`).join('');
+  renderAcct();
   const rows = [];
   for (const slot of ['primary', 'sidearm']) for (const w of WEAPONS[slot]) if (w.lvl > 1) rows.push([w.lvl, w.name, w.live ? w.cls : w.cls + ' · in development']);
   for (const [gid, slots] of Object.entries(ATT)) for (const [sl, list] of Object.entries(slots)) for (const a of list) if (a.lvl > 1) rows.push([a.lvl, a.name, `${weaponById('primary', gid).name} ${SLOT_NAMES[sl].toLowerCase()}`]);
