@@ -403,7 +403,7 @@ h1 em { font-style: normal; color: var(--hull); }
 #cPanel .ccards { grid-area: cards; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #cPanel .cab { grid-area: cab; }
 #cPanel .tbar { max-width: none; }
-#cPanel .ttree { max-width: none; aspect-ratio: auto; height: clamp(320px, calc(100vh - 230px), 640px); }
+#cPanel .ttree { max-width: none; aspect-ratio: auto; height: clamp(300px, calc(100vh - 300px), 620px); }
 #cPanel .tinfo { grid-area: info; max-width: none; padding: 12px 14px; background: rgba(20,26,42,.55); border-radius: 10px; }
 #cPanel .tn { width: clamp(40px, 4.4vw, 56px); height: clamp(40px, 4.4vw, 56px); }
 #cPanel .tn svg { width: 55%; height: 55%; }
@@ -586,6 +586,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 .omk i { width: 20px; height: 20px; transform: rotate(45deg); border: 2px solid var(--amber); border-radius: 4px; background: rgba(255,181,71,.18); box-shadow: 0 0 10px rgba(255,181,71,.5); display: grid; place-items: center; font: 700 10px var(--display); font-style: normal; color: #fff; }
 .omk span { font: 600 10px var(--mono); color: #ffe2b0; margin-top: 4px; }
 .sndhint { position: fixed; right: 18px; bottom: 18px; z-index: 30; pointer-events: auto; font: 600 11px var(--mono); letter-spacing: .1em; color: #cfeeff; background: rgba(10,20,36,.75); border: 1px solid rgba(120,200,255,.4); border-radius: 999px; padding: 8px 14px; cursor: pointer; animation: lowp 1.2s ease-in-out infinite alternate; }
+.armbar { position: sticky; bottom: 0; z-index: 5; padding: 12px 0 max(12px, env(safe-area-inset-bottom, 0px)); margin-top: -4px; background: linear-gradient(0deg, rgba(6,8,16,.96) 60%, rgba(6,8,16,0)); }
 </style>
 
 <div id="game">
@@ -751,7 +752,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
           <dt>Health</dt><dd>Shields recharge, health does not. Heal at the green medical station on the main plaza.</dd>
         </dl>
       </details>
-      <div class="lbtns"><button class="go" id="deployBtn">Deploy</button><button class="ghost" id="backBtn">Back</button></div>
+      <div class="lbtns armbar"><button class="go" id="deployBtn">Deploy</button><button class="ghost" id="backBtn">Back</button></div>
     </div>
     <div class="lpanel" id="detailView" hidden>
       <button class="link" id="detailBack" type="button">← Armory</button>
