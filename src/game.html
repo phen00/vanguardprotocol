@@ -737,6 +737,10 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 #game.predator .lookpad { visibility: visible; }
 .omk.tmk i { border-color: #5dff96; background: rgba(93,255,150,.18); box-shadow: 0 0 10px rgba(93,255,150,.55); }
 .omk.tmk span { color: #c8ffd8; }
+#ptags b { position: absolute; width: 0; height: 0; transform: translate(-50%, -100%); border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 15px solid #5dff96; filter: drop-shadow(0 0 4px rgba(93,255,150,.9)); }
+#ptags b.mate { border-top-color: #5cb8ff; filter: drop-shadow(0 0 4px rgba(92,184,255,.9)); }
+.omk.amk i { border-color: #ffd060; background: rgba(255,208,96,.18); box-shadow: 0 0 10px rgba(255,208,96,.55); } .omk.amk span { color: #ffe9b0; }
+.omk.hmk i { border-color: #ff6a8a; background: rgba(255,106,138,.18); box-shadow: 0 0 10px rgba(255,106,138,.55); } .omk.hmk span { color: #ffd0da; }
 </style>
 
 <div id="game">
@@ -1304,6 +1308,16 @@ function watchtower(x, z, side) {
   for (const [a, b] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) addBox(x + a, z + b, 0.14, 0.14, 2, top, MX.metal, false);
   addBox(x, z, 3.6, 3.6, 0.15, top + 2, MX.char, false);
 }
+// ladders: walk into one to climb it; at the top you step off onto the roof
+const ladders = [];
+function ladder(x, z, y0, y1, nx, nz) {
+  const along = nz !== 0, h = y1 - y0 + 1.0;
+  for (const sd of [-0.28, 0.28]) slab(build, along ? 0.06 : 0.06, h, along ? 0.06 : 0.06, x + (along ? sd : 0), y0 + h / 2, z + (along ? 0 : sd), MX.metal);
+  for (let y = y0 + 0.3; y < y1 + 0.9; y += 0.32) slab(build, along ? 0.56 : 0.05, 0.05, along ? 0.05 : 0.56, x, y, z, MX.metal);
+  // brackets back to the wall
+  for (const y of [y0 + 1, y0 + (y1 - y0) / 2, y1 - 0.3]) slab(build, Math.abs(nx) * 0.9 + 0.04, 0.05, Math.abs(nz) * 0.9 + 0.04, x + nx * 0.45, y, z + nz * 0.45, MX.metal);
+  ladders.push({ x, z, y0, y1, nx, nz });
+}
 let roomDoors = [];
 function room(cx, cz, w, d, h, y0, doors = [], opts = {}) {
   const t = 0.3, mat = opts.mat || M.concrete;
@@ -1480,7 +1494,7 @@ function buildLevel() {
   wreckInterior(-6, -5, 9, 6, 0.9, 'ops');
   addBox(-6, -1.15, 10.6, 0.3, 0.3, 4.8, M.trim, false);
   room(6.2, -5.3, 6, 5, 3, 0.9, [{ side: 'w', off: 0.6, w: 1.8 }, { side: 's', off: -1.2, w: 1.8 }, { side: 'e', off: 0.8, w: 1.6 }], { roofW: 6.6, roofD: 5.6, noWin: 's' });
-  addBox(8.5, -9, 3, 2, 6.5, 0.9);
+  addBox(8.5, -8.25, 3, 1.1, 6.5, 0.9);
   wreckInterior(6.2, -5.3, 6, 5, 0.9, 'store');
   // canopy on pillars
   addBox(3, 5.5, 0.4, 0.4, 3, 0.9); addBox(9, 5.5, 0.4, 0.4, 3, 0.9);
@@ -1524,7 +1538,7 @@ function buildLevel() {
   room(24, 30, 5, 5, 3, 0, [{ side: 'n', off: -0.8, w: 1.6 }, { side: 'w', off: 0.6, w: 1.5 }], { roofW: 5.6, roofD: 5.6 });
   wreckInterior(24, 30, 5, 5, 0, 'store');
   // ---- verticality: rooftop perch on the ops building, and two watchtowers ----
-  stairs(0.0, -2.3, 0, -1, 1.1, 0.9, 5.45, 10, 1);
+  ladder(-0.45, -2.75, 0.9, 5.45, -1, 0);   // up the east wall of the ops building
   for (const [x, z, w, d] of [[-6, -8.6, 9.8, 0.7], [-11.0, -5, 0.7, 6.4], [-6, -1.5, 4.6, 0.7]]) sandbags(x, z, w, d, 0.8, 5.45);
   watchtower(16, -30, 1); watchtower(-20, 33, -1);
   // ---- outer colony, now that the map is bigger ----
@@ -2618,15 +2632,27 @@ function updateEnemies(dt) {
       e.cd -= dt;
     }
 
-    // jetpack: if the target is up on a roof or tower and close, boost up after them
+    // jetpack: only when the target is standing on something reachable and nothing is overhead;
+    // rise straight up, fly across, then drop onto the target's level
     e.jetCd = (e.jetCd || rnd(1, 3)) - dt;
-    if (e.jet && e.jetCd <= 0 && !e.jetT && e.vy === 0 && P.y - e.y > 1.4 && dist < 11) {
-      e.jetCd = rnd(5, 8); e.jetT = Math.max(0.15, (P.y - e.y + 1.0 - 1.8) / 8.5); e.jetAir = true;
-      if (Math.hypot(S.p.x - e.x, S.p.z - e.z) < 30) sNoise(0.6, 1400, 0.12, 'bandpass');
+    if (e.jet && e.jetCd <= 0 && !e.jetMode && e.vy === 0 && P.y - e.y > 1.4 && dist < 8) {
+      e.jetCd = 1.2;
+      const land = groundAt(P.x, P.z, P.y + 0.2) >= P.y - 0.3, top = P.y + 1.4;
+      let clear = land;
+      for (let y = e.y + 1.9; clear && y < top + 1.8; y += 0.5) if (inSolid(e.x, y, e.z)) clear = false;
+      if (clear && !lineOfSight(e.x, top + 1.2, e.z, P.x, top, P.z)) clear = false;
+      if (clear) { e.jetCd = rnd(6, 9); e.jetMode = 'up'; e.jetTop = top; e.jetT = 0; e.jetAir = true; if (Math.hypot(S.p.x - e.x, S.p.z - e.z) < 30) { sNoise(1.2, 900, 0.14, 'bandpass'); sTone(140, 260, 0.6, 0.05, 'sawtooth'); } }
     }
-    if (e.jetT > 0) { e.jetT -= dt; e.vy = 8.5; if (e.jetT <= 0) e.jetT = 0; }
-    if (e.jetAir) { mx = ux; mz = uz; sp = dist > 0.7 ? Math.max(sp, 4.2) : 0; }
-    if (e.jet) e.jet.visible = e.jetT > 0 || (e.jetAir && e.vy > -2);
+    if (e.jetMode) {
+      e.jetT += dt;
+      if (e.jetMode === 'up') { mx = mz = 0; sp = 0; e.vy = 5.5 + 20 * dt; if (e.y >= e.jetTop) e.jetMode = 'over'; }
+      else if (e.jetMode === 'over') { mx = ux; mz = uz; sp = 4.5; e.vy = 20 * dt; if (dist < 0.9 || groundAt(e.x, e.z, e.y) >= P.y - 0.3) e.jetMode = 'drop'; }
+      else { mx = ux; mz = uz; sp = dist > 0.7 ? 2 : 0; e.vy = Math.max(e.vy, -3); }
+      if (e.jetT > 5) e.jetMode = 'drop';
+      // exhaust: flame and a stream of blue sparks
+      e.jetFx = (e.jetFx || 0) - dt; if (e.jetFx <= 0 && e.jetMode !== 'drop') { e.jetFx = 0.05; spark(e.x - Math.sin(e.g.rotation.y) * 0.3, e.y + 0.9 * e.D.scale, e.z - Math.cos(e.g.rotation.y) * 0.3, 0x7fd4ff, 3, 1.2, 0.6); }
+    }
+    if (e.jet) { e.jet.visible = !!e.jetMode && e.jetMode !== 'drop'; if (e.jet.visible) e.jet.scale.set(0.3 + Math.random() * 0.08, 0.6 + Math.random() * 0.25, 1); }
     if (e.detour > 0) { e.detour -= dt; mx = e.dx; mz = e.dz; }
     e.x += (mx * sp + e.kx) * dt; e.z += (mz * sp + e.kz) * dt;
     const decay = Math.pow(0.03, dt); e.kx *= decay; e.kz *= decay;
@@ -2637,7 +2663,7 @@ function updateEnemies(dt) {
     }
     collide(e, D.r, e.y, 1.9 * D.scale);
     e.vy -= 20 * dt; e.y += e.vy * dt;
-    const gr = groundAt(e.x, e.z, e.y); if (e.y <= gr) { e.y = gr; e.vy = 0; e.jetAir = false; }
+    const gr = groundAt(e.x, e.z, e.y); if (e.y <= gr) { e.y = gr; if (e.jetMode !== 'up' && e.jetMode !== 'over') { e.vy = 0; e.jetAir = false; e.jetMode = null; } }
 
     // stuck detection -> sidestep
     e.stuckT += dt;
@@ -3125,7 +3151,21 @@ function update(dt) {
   collide(P, P.r, P.y, 1.75 - 0.55 * P.ch);
   if (input.jump && P.onGround && !P.dead) { P.vy = 6.6; P.onGround = false; }
   input.jump = false;
-  P.vy -= 20 * dt; P.y += P.vy * dt;
+  // climbing: facing a ladder and pushing forward (or standing on it) moves you up or down
+  P.climbing = false;
+  for (const L of ladders) {
+    const dx = P.x - L.x, dz = P.z - L.z;
+    if (Math.hypot(dx, dz) < 0.75 && P.y >= L.y0 - 0.3 && P.y < L.y1 + 0.05 && !P.dead) {
+      const facing = -(fx * L.nx + fz * L.nz) < -0.2 || -(fx * L.nx + fz * L.nz) > 0.2;
+      if (iy !== 0 && facing) {
+        const towards = (fx * L.nx + fz * L.nz) > 0 ? 1 : -1;      // looking at the wall climbs up, looking away climbs down
+        P.climbing = true; P.vy = 0; P.y = Math.max(L.y0, P.y + iy * towards * 3.2 * dt); P.onGround = true;
+        P.x = L.x - L.nx * 0.35 + (P.x - L.x) * 0.2 * Math.abs(L.nz); P.z = L.z - L.nz * 0.35 + (P.z - L.z) * 0.2 * Math.abs(L.nx);
+        if (P.y >= L.y1 - 0.05) { P.y = L.y1 + 0.02; P.x = L.x + L.nx * 0.7; P.z = L.z + L.nz * 0.7; }
+      }
+    }
+  }
+  if (!P.climbing) { P.vy -= 20 * dt; P.y += P.vy * dt; }
   const g = groundAt(P.x, P.z, P.y);
   if (P.y <= g) { P.y = g; P.vy = 0; P.onGround = true; } else if (P.y > g + 0.05) P.onGround = false;
 
@@ -3237,7 +3277,7 @@ function update(dt) {
   updateAmmoBox();
   updateObjective(dt);
   // medical stations switch on by themselves when you step onto one hurt
-  if (input.use || (near && near.cd <= 0 && !near.active && P.hp < 100)) { input.use = false; if (near && near.cd <= 0 && !near.active && P.hp < 100) { near.active = true; SFX.heal(); } }
+  if (input.use) { input.use = false; if (near && !S.nearTerm && !S.nearAmmo && near.cd <= 0 && !near.active && P.hp < 100) { near.active = true; SFX.heal(); } }
 
   netTick(dt);
   if (!S.running) return;
@@ -3662,7 +3702,7 @@ function hud() {
   else { stt = `In combat · Wave ${S.wave}`; sc = '#ffb547'; }
   if (ui.npStatusT.textContent !== stt) { ui.npStatusT.textContent = stt; ui.npStatus.style.setProperty('--c', sc); }
   const st = S.nearStation; let msg = '';
-  if (st && S.running) msg = st.active ? 'Healing…' : st.cd > 0 ? `Medical station recharging · ${Math.ceil(st.cd)}s` : P.hp >= 100 ? 'Health full' : (isTouch ? 'Tap USE to heal' : 'Press E to heal');
+  if (st && S.running) msg = st.active ? 'Healing…' : st.cd > 0 ? `Medical station recharging · ${Math.ceil(st.cd)}s` : P.hp >= 100 ? 'Health full' : (isTouch ? 'Tap USE to heal' : 'Press X to heal');
   if (S.missile) msg = '';
   else if (!msg && S.nearTerm) msg = `${isTouch ? 'Tap USE' : 'Press X'} · tactical support terminal`;
   if (!msg && !S.missile && S.nearAmmo) { const c = ammoCost().toLocaleString(); msg = S.nearAmmo === 'full' ? 'Ammo full' : S.nearAmmo === 'poor' ? `Resupply costs ${c} points` : `${isTouch ? 'Tap USE' : 'Press X'} · resupply ammo for ${c} points`; }
@@ -4777,7 +4817,7 @@ function makeAlly() {
   arm(1, 0.18, 0.19, 0.49);   // trigger hand on the grip
   arm(-1, 0.18, 0.29, 0.78);  // support hand on the handguard
   scene.add(g);
-  return { g, legs, up };
+  return { g, legs, up, gun: gunM, gunId: 'vk9' };
 }
 function updatePeers(dt) {
   const k = Math.min(1, dt * 12);
@@ -4793,6 +4833,11 @@ function updatePeers(dt) {
     p.phase += dt * sp * 2.2;
     const sw = sp > 0.4 ? Math.sin(p.phase) * 0.6 : 0;
     p.model.legs[0].rotation.x = sw; p.model.legs[1].rotation.x = -sw;
+    if (p.w && p.model.gunId !== p.w && WSTATS[p.w]) {
+      p.model.up.remove(p.model.gun); const gm_ = makeGun(p.w, {}); gm_.rotation.y = Math.PI;
+      if (p.w === 'wasp') gm_.position.set(0.18, 0.32, 0.62); else gm_.position.set(0.18, 0.3, 0.56);
+      p.model.up.add(gm_); p.model.gun = gm_; p.model.gunId = p.w;
+    }
     p.model.up.rotation.x += (-p.pt * 0.85 - p.model.up.rotation.x) * k;
     p.model.g.scale.y += ((1 - 0.32 * (p.c || 0)) - p.model.g.scale.y) * k;
     if (p.f && p.a) {
@@ -5637,6 +5682,15 @@ function updateTerminal() {
     mk.hidden = false; mk.style.left = (behind ? (x < 0.5 ? 0.96 : 0.04) : x) * 100 + '%'; mk.style.top = (behind ? 0.5 : y) * 100 + '%';
     mk.querySelector('span').textContent = 'Support · ' + Math.round(Math.hypot(terminal.x - P.x, terminal.z - P.z)) + 'm';
   } else mk.hidden = true;
+  const st0 = stations[0];
+  for (const [id, obj, label, cls] of [['ammoMk', ammoBox && { x: ammoBox.x, y: ammoBox.y0 + 1.4, z: ammoBox.z }, 'Ammo', 'amk'], ['healMk', st0 && { x: st0.px, y: st0.y0 + 2.3, z: st0.pz }, 'Heal', 'hmk']]) {
+    let el = $(id); if (!el) { el = document.createElement('div'); el.id = id; el.className = 'omk ' + cls; el.innerHTML = `<i>${label === 'Ammo' ? '▮' : '+'}</i><span></span>`; $('tags').append(el); }
+    if (!inter || !obj || S.missile) { el.hidden = true; continue; }
+    _ta.set(obj.x, obj.y, obj.z).project(cam);
+    const behind = _ta.z > 1, x = Math.max(0.04, Math.min(0.96, _ta.x * 0.5 + 0.5)), y = Math.max(0.08, Math.min(0.9, -_ta.y * 0.5 + 0.5));
+    el.hidden = false; el.style.left = (behind ? (x < 0.5 ? 0.96 : 0.04) : x) * 100 + '%'; el.style.top = (behind ? 0.5 : y) * 100 + '%';
+    el.querySelector('span').textContent = label + ' · ' + Math.round(Math.hypot(obj.x - P.x, obj.z - P.z)) + 'm';
+  }
   const near = !P.dead && !S.missile && Math.hypot(P.x - terminal.x, P.z - terminal.z) < 1.6 && Math.abs(P.y - terminal.y0) < 1.3;
   S.nearTerm = near;
   if (near && input.use) { input.use = false; openShop(); }
@@ -5692,11 +5746,11 @@ const MSL = (() => { const g = new T.Group();
   g.visible = false; scene.add(g); return g; })();
 let mslSmoke = [];
 const smokeMat = () => new T.SpriteMaterial({ map: steamTex, color: 0x8a8a8a, transparent: true, depthWrite: false, opacity: 0.6 });
-function placeMissileModel(x, y, z, yaw, pitch, vis) {
+function placeMissileModel(x, y, z, yaw, pitch, vis, trail = true) {
   MSL.visible = vis; MSL.position.set(x, y, z);
   _ta.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
   MSL.quaternion.setFromUnitVectors(_Y, _ta);
-  if (Math.random() < 0.7) { const sp = new T.Sprite(smokeMat()); sp.position.set(x - _ta.x * 2.4, y - _ta.y * 2.4, z - _ta.z * 2.4); sp.scale.setScalar(1.2); scene.add(sp); mslSmoke.push({ s: sp, t: 0, life: 2.2, g: 3, vy: 0.4 }); }
+  if (trail && Math.random() < 0.7) { const sp = new T.Sprite(smokeMat()); sp.position.set(x - _ta.x * 2.4, y - _ta.y * 2.4, z - _ta.z * 2.4); sp.scale.setScalar(1.2); scene.add(sp); mslSmoke.push({ s: sp, t: 0, life: 2.2, g: 3, vy: 0.4 }); }
 }
 function updateSmoke(dt) {
   for (const p of mslSmoke) { p.t += dt; p.s.position.y += p.vy * dt; p.s.scale.setScalar(p.s.scale.x + p.g * dt); p.s.material.opacity = Math.max(0, (p.o || 0.6) * (1 - p.t / p.life)); if (p.t > p.life) scene.remove(p.s); }
@@ -5737,7 +5791,7 @@ function updateMissile(dt) {
   const cp = Math.cos(m.pitch);
   m.x += -Math.sin(m.yaw) * cp * m.v * dt; m.z += -Math.cos(m.yaw) * cp * m.v * dt; m.y += Math.sin(m.pitch) * m.v * dt;
   // engine hum gets higher as it speeds up
-  placeMissileModel(m.x, m.y, m.z, m.yaw, m.pitch, true);
+  placeMissileModel(m.x, m.y, m.z, m.yaw, m.pitch, true, false);
   if (NET.on) { m.nt = (m.nt || 0) - dt; if (m.nt <= 0) { m.nt = 0.1; netSend({ t: 'msl', x: r2(m.x), y: r2(m.y), z: r2(m.z), yw: r2(m.yaw), pt: r2(m.pitch) }); } }
   m.humT = (m.humT || 0) - dt; if (m.humT <= 0) { m.humT = 0.18; sTone(120 + m.v * 3, 110 + m.v * 3, 0.2, 0.05, 'sawtooth'); }
   let hit = m.t > 16 || m.y <= groundAt(m.x, m.z, m.y) + 0.3 || inSolid(m.x, m.y, m.z) || Math.abs(m.x) > 90 || Math.abs(m.z) > 90;
@@ -5771,6 +5825,9 @@ function predatorTags() {
     const x = (_ta.x * 0.5 + 0.5) * 100, y = (-_ta.y * 0.5 + 0.5) * 100, s = e.type === 'walker' ? 34 : e.type === 'heavy' ? 22 : 16;
     html += `<i style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;width:${s}px;height:${s}px"></i>`;
   }
+  const tri = (wx, wy, wz, cls) => { _ta.set(wx, wy, wz).project(cam); if (_ta.z > 1) return; html += `<b class="${cls}" style="left:${((_ta.x * 0.5 + 0.5) * 100).toFixed(2)}%;top:${((-_ta.y * 0.5 + 0.5) * 100).toFixed(2)}%"></b>`; };
+  tri(S.p.x, S.p.y + 1.8, S.p.z, 'me');
+  if (NET.on) for (const p of NET.peers.values()) if (p.a) tri(p.x, p.y + 1.8, p.z, 'mate');
   box.innerHTML = html;
   $('predAlt').textContent = Math.max(0, Math.round(S.missile.y)) + ' m';
 }
