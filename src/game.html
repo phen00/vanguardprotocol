@@ -1769,14 +1769,15 @@ function tryFire() {
   P.fireCd = GS.rate; P.mag--; P.pumped = false; P.trigT = 0.08;
   // recoil moves your aim: part of the climb stays (pull down to compensate), part springs back
   const climb = GS.recoil * (1 - 0.35 * P.ads) * (1 - 0.25 * P.ch);
-  P.pitch = Math.min(1.45, P.pitch + climb * 0.6); P.recoil += climb * 0.8;
+  // the view kicks as hard as the gun does, so the crosshair jumps with the muzzle
+  P.pitch = Math.min(1.45, P.pitch + climb * 0.5); P.recoil += climb * 0.6 + GS.kick * 0.42 * (1 - 0.4 * P.ads);
   P.bloom = Math.min(1.6, (P.bloom || 0) + (GS.pellets > 1 ? 1.2 : 0.35));
   GS.pellets > 1 ? SFX.blast() : SFX.shot();
   flash.visible = true; flash.material.rotation = rnd(0, 6); flash.userData.t = GS.pellets > 1 ? 0.07 : 0.045;
   flash.scale.setScalar((P.ads > 0.5 ? 0.12 : 0.22) * (GS.pellets > 1 ? 1.6 : 1) * rnd(0.85, 1.2));
   // kick: gun slams back and up, view climbs with a little sideways drift, short shake
   // hip fire: gun slams back and tips up. Aimed: it lifts straight up so the sights stay lined up
-  gun.position.z += GS.kick * (1 - 0.55 * P.ads); gun.position.y += GS.kick * (0.2 + 0.25 * P.ads); gun.rotation.x += GS.kick * (1 - 0.85 * P.ads);
+  gun.position.z += GS.kick * (1 - 0.55 * P.ads); gun.position.y += GS.kick * (0.1 + 0.15 * P.ads); gun.rotation.x += GS.kick * (0.45 - 0.4 * P.ads);
   P.yaw += rnd(-1, 1) * GS.recoil * 0.35;
   addShake((P.ads > 0.5 ? 0.55 : 1) * GS.shake);
   const moving = Math.hypot(input.mx, input.my) > 0.1;
@@ -1967,7 +1968,7 @@ function update(dt) {
   if (input.keys.r) { startReload(); input.keys.r = false; }
   if (input.fire && S.running) tryFire();
   P.pulseCd = Math.max(0, P.pulseCd - dt);
-  P.recoil *= Math.pow(0.03, dt);
+  P.recoil *= Math.pow(0.012, dt);
   P.bloom = Math.max(0, (P.bloom || 0) - dt * 2.6);
   P.shake = Math.max(0, P.shake - dt * 4);
   P.shFlash = Math.max(0, (P.shFlash || 0) - dt * 3.2);
@@ -2065,10 +2066,10 @@ function update(dt) {
   const lift0 = venting ? (vr < 0.2 ? vr / 0.2 : vr < 0.8 ? 1 : (1 - vr) / 0.2) : 0;
   const lift = lift0 * lift0 * (3 - 2 * lift0);
   const ventGun = venting && loadout.primary === 'vk9';
-  gun.position.y += (target.y + P.recoil * (0.35 + 0.55 * P.ads) - Math.abs(Math.sin(P.bob)) * bobA + (ventGun ? 0.05 * lift : venting ? -0.12 : 0) - gun.position.y) * Math.min(1, dt * 14);
+  gun.position.y += (target.y + P.recoil * (0.12 + 0.2 * P.ads) - Math.abs(Math.sin(P.bob)) * bobA + (ventGun ? 0.05 * lift : venting ? -0.12 : 0) - gun.position.y) * Math.min(1, dt * 14);
   gun.position.z += (target.z - gun.position.z) * Math.min(1, dt * 18);
   gun.position.z = Math.min(gun.position.z, target.z + 0.05);
-  gun.rotation.x += ((ventGun ? 0.6 * lift : venting ? -0.5 : 0) + P.recoil * (2 - 1.7 * P.ads) - gun.rotation.x) * Math.min(1, dt * 12);
+  gun.rotation.x += ((ventGun ? 0.6 * lift : venting ? -0.5 : 0) + P.recoil * (0.5 - 0.45 * P.ads) - gun.rotation.x) * Math.min(1, dt * 12);
   if (gunModel && gunModel.userData.pump) {
     let off = 0;
     if (GS.pellets > 1 && P.fireCd > 0) {
