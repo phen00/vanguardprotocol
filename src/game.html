@@ -234,6 +234,7 @@ canvas#cv { display: block; width: 100%; height: 100%; image-rendering: pixelate
 #intro { position: absolute; inset: 0; pointer-events: none; z-index: 6; font-family: inherit; color: #eef3f6; }
 #intro .in-top { position: absolute; left: 50%; top: 7%; transform: translateX(-50%); text-align: center; text-shadow: 0 2px 8px rgba(0,0,0,.7); }
 #intro .in-top b { display: block; font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: #ffb547; }
+#intro .in-place { font-size: 34px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; margin: 2px 0 2px; }
 #intro .in-top span { font-size: 15px; letter-spacing: .08em; }
 #intro .in-c { position: absolute; left: 50%; top: 72%; transform: translateX(-50%); text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
 #intro .in-c small { font-size: 11px; letter-spacing: .3em; text-transform: uppercase; opacity: .8; }
@@ -495,7 +496,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 <div id="game">
   <canvas id="cv"></canvas>
 
-  <div id="intro" hidden><div class="in-top"><b id="introTod">Insertion</b><span id="introDate"></span></div><div class="in-c"><small>Deploying in</small><div id="introN">5</div></div></div>
+  <div id="intro" hidden><div class="in-top"><b id="introTod">Insertion</b><div class="in-place">Kessa-4</div><span id="introDate"></span></div><div class="in-c"><small>Deploying in</small><div id="introN">5</div></div></div>
   <div id="hud" hidden>
   <div class="vignette" id="vig"></div>
   <div class="lowshield" id="lowsh"></div>
@@ -559,7 +560,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 
   <div class="overlay menu" id="menu">
     <div class="mpanel">
-      <div class="eyebrow">Frigate Aster Vale · High orbit, Kessa system</div>
+      <div class="eyebrow">Frigate Aster Vale · High orbit, Earth</div>
       <h1>Vanguard <em>Protocol</em></h1>
       <p class="brief">The colony on Kessa-4 has gone dark and synth patrols are pouring out of the jungle. Drop to the outpost and hold it for as long as you can.</p>
       <div class="pick">
@@ -1164,6 +1165,9 @@ const gl = new T.MeshLambertMaterial({ map: TX.concrete, color: 0xb9bec2 });
 const glow = new T.MeshBasicMaterial({ color: 0xffb547 });
 const glowCyan = new T.MeshBasicMaterial({ color: 0x8fe0ff });
 const glowRed = new T.MeshBasicMaterial({ color: 0xff6a2a });
+// VK-9 heat bars: white when the mag is full, shifting to red as it empties, back to white as it vents
+const heatMat = new T.MeshBasicMaterial({ color: 0xf4f8ff });
+const HEAT_COOL = new T.Color(0xf4f8ff), HEAT_HOT = new T.Color(0xff2414);
 const glass = new T.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.28, depthWrite: false });
 // Builds a weapon model. Forward is -z; origin sits at the receiver.
 function makeGun(id, att = {}) {
@@ -1180,8 +1184,8 @@ function makeGun(id, att = {}) {
     B(0.062, 0.058, 0.3, 0, 0.012, -0.33, lt);              // slim handguard
     B(0.05, 0.02, 0.26, 0, -0.026, -0.33, dk);              // handguard underside
     for (const s of [-1, 1]) {
-      for (let i = 0; i < 4; i++) B(0.004, 0.012, 0.036, s * 0.032, 0.016, -0.24 - i * 0.055, glow); // thermal vents
-      B(0.004, 0.008, 0.2, s * 0.035, 0.04, 0.0, glow);     // receiver heat strip
+      for (let i = 0; i < 4; i++) B(0.004, 0.012, 0.036, s * 0.032, 0.016, -0.24 - i * 0.055, heatMat); // thermal vents
+      B(0.004, 0.008, 0.2, s * 0.035, 0.04, 0.0, heatMat);     // receiver heat strip
       B(0.004, 0.03, 0.06, s * 0.035, 0.012, 0.09, dk);     // side panel
     }
     // top rail bridge with an open window between its two posts
@@ -1319,7 +1323,7 @@ const gsun = new T.DirectionalLight(0xfff1d6, 0.7); gsun.position.set(1, 2, 1); 
 const GUN_HIP = new T.Vector3(0.17, -0.17, -0.4);
 let GUN_ADS = new T.Vector3(0, -0.128, -0.34);
 const WSTATS = {
-  vk9: { mag: 30, reserve: 210, maxRes: 300, rate: 0.095, dmg: 17, pellets: 1, recoil: 0.019, reload: 2.2, shell: 0, pick: 45, wave: 60, kick: 0.065, shake: 0.32 },
+  vk9: { mag: 40, reserve: 240, maxRes: 360, rate: 0.095, dmg: 17, pellets: 1, recoil: 0.019, reload: 2.2, shell: 0, pick: 45, wave: 60, kick: 0.065, shake: 0.32 },
   breaker: { mag: 6, reserve: 30, maxRes: 48, rate: 0.85, dmg: 13, pellets: 9, recoil: 0.05, reload: 0, shell: 0.5, pick: 8, wave: 12, kick: 0.09, shake: 0.6 }
 };
 const GS = Object.assign({ spreadMul: 1, fov: 46, sens: 0.45, optic: 'iron' }, WSTATS.vk9);
@@ -2099,6 +2103,12 @@ function update(dt) {
     glow.color.setRGB(1, 0.71 + 0.25 * lift, 0.28 + 0.6 * lift);
   } else glow.color.setHex(0xffb547);
   updateSteam(dt);
+  if (loadout.primary === 'vk9') {
+    // heat follows the mag; while venting it cools back to white as the reload completes
+    let heat = 1 - P.mag / GS.mag;
+    if (P.reloadT > 0 && !GS.shell) heat *= Math.max(0, P.reloadT / GS.reload);
+    heatMat.color.copy(HEAT_COOL).lerp(HEAT_HOT, Math.pow(Math.max(0, Math.min(1, heat)), 0.8));
+  }
   if (gunModel && gunModel.userData.trig) { // trigger squeeze: snaps back on the shot, eases off after
     P.trigT = Math.max(0, (P.trigT || 0) - dt);
     const tr = gunModel.userData.trig, want = P.trigT > 0 ? 0.38 : 0;
@@ -2855,6 +2865,36 @@ function glowTex() {
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new T.CanvasTexture(c);
 }
+// Earth from orbit: oceans, continents, ice caps and cloud bands (painted procedurally, low-res)
+let EARTH_TEX, KESSA_TEX;
+function earthTex(P = {}) {
+  const ocean = P.ocean || ['#1f5a92', '#2a74b8'], dry = P.dry || ['#c4a66a', '#b0935a', '#8a9450'], wet = P.wet || ['#4f8a40', '#5e9846', '#6f9a4c', '#437a3a'], clouds = P.clouds || 900, land0 = P.land;
+  const w = 512, h = 256, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const og = g.createLinearGradient(0, 0, 0, h); og.addColorStop(0, ocean[0]); og.addColorStop(0.5, ocean[1]); og.addColorStop(1, ocean[0]);
+  g.fillStyle = og; g.fillRect(0, 0, w, h);
+  // continents: clusters of overlapping blobs, green toward the equator and tan in the dry belts
+  const land = land0 || [[0.18, 0.32, 60], [0.24, 0.62, 46], [0.5, 0.3, 54], [0.53, 0.58, 50], [0.7, 0.28, 70], [0.82, 0.68, 34], [0.36, 0.18, 30]];
+  for (const [cx, cy, r] of land) for (let i = 0; i < 26; i++) {
+    const x = (cx + (srand() - 0.5) * r / w * 2.2) * w, y = (cy + (srand() - 0.5) * r / h * 1.6) * h, rr = r * srnd(0.25, 0.6);
+    const lat = Math.abs(y / h - 0.5);
+    g.fillStyle = lat > 0.18 && lat < 0.3 ? dry[i % dry.length] : wet[i % wet.length];
+    g.beginPath(); g.ellipse(x, y, rr, rr * srnd(0.5, 0.9), srand() * 3, 0, Math.PI * 2); g.fill();
+  }
+  // polar ice
+  for (const [y0, dir] of [[0, 1], [h, -1]]) for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(240,246,250,.9)'; g.fillRect(srand() * w, y0 + dir * srand() * 18 - (dir < 0 ? 6 : 0), 10 + srand() * 30, 6); }
+  // cloud bands and swirls
+  for (let i = 0; i < clouds; i++) {
+    const y = h * (0.5 + (srand() - 0.5) * 0.9), x = srand() * w;
+    g.fillStyle = `rgba(255,255,255,${(0.08 + srand() * 0.3).toFixed(2)})`;
+    g.beginPath(); g.ellipse(x, y, 4 + srand() * 22, 1.5 + srand() * 4, (srand() - 0.5) * 0.4, 0, Math.PI * 2); g.fill();
+  }
+  const t = new T.CanvasTexture(c); return t;
+}
+function setPlanet(which) {
+  const k = which === 'kessa', m = planet.material;
+  m.map = m.emissiveMap = k ? KESSA_TEX : EARTH_TEX; m.emissive.setHex(k ? 0x26302e : 0x3a4a5a); m.needsUpdate = true;
+  menuAtmo.material.uniforms.glow.value.setHex(k ? 0x9fe0d8 : 0x7cc8ff);
+}
 function buildMenu() {
   // nebula backdrop
   const nc = document.createElement('canvas'); nc.width = 512; nc.height = 256; const ng = nc.getContext('2d');
@@ -2886,7 +2926,11 @@ function buildMenu() {
   }
   for (let i = 0; i < 2600; i++) { pg.fillStyle = `rgba(255,255,255,${srand() * .1})`; pg.fillRect(srand() * 256 | 0, srand() * 128 | 0, 3 + srand() * 9 | 0, 1); }
   const ptex = new T.CanvasTexture(pc); ptex.magFilter = T.NearestFilter;
-  planet = new T.Mesh(new T.SphereGeometry(70, 48, 32), new T.MeshLambertMaterial({ map: ptex, emissiveMap: ptex, emissive: 0x3a4448 }));
+  EARTH_TEX = earthTex();
+  // Kessa-4: jungle world, teal seas, heavy cloud
+  KESSA_TEX = earthTex({ ocean: ['#1a5a62', '#227a7e'], dry: ['#7a8a48', '#9a9658'], wet: ['#2c6a30', '#357a36', '#2a5e2c', '#3f8a3c'], clouds: 1500,
+    land: [[0.12, 0.4, 70], [0.3, 0.55, 64], [0.48, 0.38, 80], [0.66, 0.5, 74], [0.85, 0.42, 66], [0.4, 0.72, 40], [0.75, 0.22, 44]] });
+  planet = new T.Mesh(new T.SphereGeometry(70, 48, 32), new T.MeshLambertMaterial({ map: EARTH_TEX, emissiveMap: EARTH_TEX, emissive: 0x3a4a5a }));
   planet.position.set(-80, -60, -170); planet.rotation.z = 0.3; menuScene.add(planet);
   const atmo = new T.Mesh(new T.SphereGeometry(76, 48, 32), new T.ShaderMaterial({
     uniforms: { glow: { value: new T.Color(0x7cc8ff) }, power: { value: 0.75 } },
@@ -3325,11 +3369,28 @@ function buildStreaks() {
   const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
   const l = new T.LineSegments(g, new T.LineBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }));
   l.frustumCulled = false; menuCam.add(l); menuScene.add(menuCam);
-  streaks = { l, data, pos, g };
+  // blue hyperspace tunnel: streaky walls that scroll past, and a blazing exit point ahead
+  const tc = document.createElement('canvas'); tc.width = 64; tc.height = 256; const tg = tc.getContext('2d');
+  tg.fillStyle = '#081a3a'; tg.fillRect(0, 0, 64, 256);
+  for (let i = 0; i < 220; i++) { tg.fillStyle = `rgba(${90 + srand() * 80 | 0},${150 + srand() * 80 | 0},255,${(0.05 + srand() * 0.25).toFixed(2)})`; tg.fillRect(srand() * 64, srand() * 256, 1 + srand() * 3, 10 + srand() * 60); }
+  const ttex = new T.CanvasTexture(tc); ttex.wrapS = ttex.wrapT = T.RepeatWrapping; ttex.repeat.set(6, 3);
+  const tgeo = new T.CylinderGeometry(26, 26, 420, 28, 1, true); tgeo.rotateX(Math.PI / 2);
+  const tube = new T.Mesh(tgeo, new T.MeshBasicMaterial({ map: ttex, side: T.BackSide, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+  tube.position.z = -150; tube.visible = false; menuScene.add(tube);
+  const rc = document.createElement('canvas'); rc.width = rc.height = 256; const rg = rc.getContext('2d');
+  rg.translate(128, 128);
+  for (let i = 0; i < 40; i++) { const a = srand() * Math.PI * 2, len = 60 + srand() * 68, wdt = 1 + srand() * 3;
+    const gr = rg.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len); gr.addColorStop(0, 'rgba(220,240,255,.9)'); gr.addColorStop(1, 'rgba(120,180,255,0)');
+    rg.strokeStyle = gr; rg.lineWidth = wdt; rg.beginPath(); rg.moveTo(0, 0); rg.lineTo(Math.cos(a) * len, Math.sin(a) * len); rg.stroke(); }
+  const rays = new T.Sprite(new T.SpriteMaterial({ map: new T.CanvasTexture(rc), color: 0xd8f0ff, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
+  rays.position.set(9, 6, -190); rays.scale.setScalar(150); rays.visible = false; menuScene.add(rays);
+  const core = new T.Sprite(new T.SpriteMaterial({ map: GTEX, color: 0xe8f6ff, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
+  core.position.copy(rays.position); core.scale.setScalar(70); core.visible = false; menuScene.add(core);
+  streaks = { l, data, pos, g, tube, ttex, rays, core };
 }
 function startTravel(kind, name, sub, done) {
   if (kind === 'warp' && !streaks) buildStreaks();
-  travel = { q0: ship.quaternion.clone(), kind, t: 0, dur: kind === 'warp' ? 6.2 : 7.6, done, flashed: false, cam: null };
+  travel = { q0: ship.quaternion.clone(), kind, t: 0, dur: kind === 'warp' ? 6.2 : 8.4, done, flashed: false, cam: null };
   $('tName').textContent = name; $('tSub').textContent = sub;
   const sq = $('tSquad'); sq.innerHTML = '';
   const crew = [{ n: callsign, c: '#ffb547' }].concat(NET.on ? [...NET.peers.values()].map(p => ({ n: p.name, c: '#' + shipColors(p.id)[1].getHexString() })) : []);
@@ -3344,7 +3405,8 @@ function endTravel() {
   const tr = travel; travel = null;
   ship.position.set(0, 0, 0); ship.rotation.set(0, 0, 0); planet.visible = true; menuAmb.intensity = 0.95;
   menuCam.up.set(0, 1, 0); if (tr && tr.fov0) { menuCam.fov = tr.fov0; menuCam.updateProjectionMatrix(); }
-  if (streaks) streaks.l.material.opacity = 0;
+  setPlanet('earth'); menuAtmo.visible = true; planet.rotation.set(0, 0, 0.3);
+  if (streaks) { streaks.l.material.opacity = 0; for (const o of [streaks.tube, streaks.rays, streaks.core]) if (o) o.visible = false; }
   const f = $('tFade');
   $('travel').classList.add('out');
   f.style.background = '#fff'; f.style.opacity = 1;
@@ -3366,58 +3428,74 @@ function renderTravel(dt) {
   else f.style.opacity = 0;
 
   if (tr.kind === 'approach') {
-    // Shot 1 (lobby camera, locked off): the fleet turns, burns toward the lens and roars past overhead.
-    // Shot 2 (hard cut): chase view as the ships glide down into the planet's atmosphere.
-    const CUT = 2.9, P = planet.position, Rp = 70 * planet.scale.x;
+    // Destiny-style launch: from orbit over Earth the fleet turns, burns away and jumps to
+    // hyperspace; we ride the tunnel, drop out in front of Kessa-4 and fly straight at it.
+    const J = 1.9, X = 4.4;                          // jump time, exit time
     if (!tr.cam0) { tr.cam0 = menuCam.position.clone(); tr.look0 = new T.Vector3(1.5, 0.6, 6); tr.fov0 = menuCam.fov; }
-    const boost = tr.t < CUT ? 1 + Math.min(1, tr.t / CUT) * 2.2 : 0.9;
-    if (tr.t < CUT) {
-      const k = tr.t / CUT;
-      // aim a little above the lens and carry on well past it
-      const pass = _ta.copy(tr.cam0).add(_tb.set(0, 3.2, 0));
-      const path = _tb.copy(pass).multiplyScalar(1.8);
-      const e = Math.pow(k, 2.4);
-      ship.position.copy(path).multiplyScalar(e);
-      const vel = _tc.copy(path).normalize();
-      _tObj.position.copy(ship.position); _tObj.lookAt(_td.copy(ship.position).sub(vel));
-      _tObj.rotateZ(-0.35 * Math.sin(Math.min(1, k * 1.6) * Math.PI));
-      const turn = Math.min(1, tr.t / 0.9), te = turn * turn * (3 - 2 * turn);
-      ship.quaternion.slerpQuaternions(tr.q0, _tObj.quaternion, te);
+    const cl = x => Math.max(0, Math.min(1, x)), sm = x => x * x * (3 - 2 * x);
+    let boost = 1;
+    if (tr.t < J) {
+      const k = tr.t / J;
+      if (!tr.D) tr.D = new T.Vector3().sub(tr.cam0).setY(0).normalize().add(new T.Vector3(0, 0.12, 0)).normalize();
+      ship.position.copy(tr.D).multiplyScalar(420 * Math.pow(k, 3.2));
+      ship.position.y += Math.sin(mt * 0.8) * 0.15;
+      _tObj.position.copy(ship.position); _tObj.lookAt(_td.copy(ship.position).sub(tr.D));
+      _tObj.rotateZ(-0.3 * Math.sin(Math.min(1, k * 1.5) * Math.PI));
+      ship.quaternion.slerpQuaternions(tr.q0, _tObj.quaternion, sm(cl(tr.t / 1.0)));
       menuCam.position.copy(tr.cam0);
-      menuCam.position.x += Math.sin(mt * 37) * 0.04 * k * k; menuCam.position.y += Math.cos(mt * 41) * 0.04 * k * k; // rumble as they pass
-      // the operator pans up to follow them until they are almost on top of us
-      menuCam.lookAt(_te.copy(tr.look0).lerp(ship.position, Math.min(0.85, k * 0.9)));
-      if (k > 0.72 && !tr.whoosh) { tr.whoosh = true; if (SFX.whoosh) SFX.whoosh(); }
-      // engine glare washes the frame out as they thunder overhead, carrying us into the next shot
-      const wash = Math.max(0, (k - 0.7) / 0.3);
-      if (wash > 0) { f.style.background = '#eaf6ff'; f.style.opacity = (wash * wash * (3 - 2 * wash)).toFixed(3); }
-    } else {
-      if (!tr.cut) {
-        tr.cut = true;
-        f.style.background = '#eaf6ff'; f.style.opacity = 1; tr.blackT = 1.1;
-        menuCam.fov = 58; menuCam.updateProjectionMatrix();
-        const dir = P.clone().normalize();
-        const side = new T.Vector3().crossVectors(dir, new T.Vector3(0, 1, 0)).normalize();
-        tr.m = dir.clone().multiplyScalar(0.55).addScaledVector(side, 0.84).normalize();   // shallow glide path
-        tr.E = P.clone().addScaledVector(dir, -(Rp + 6));
-        tr.S = tr.E.clone().addScaledVector(tr.m, -110);
-        tr.up = dir.clone().negate().addScaledVector(tr.m, dir.dot(tr.m)).normalize();   // away from the planet, square to the flight path
+      menuCam.lookAt(_te.copy(tr.look0).lerp(ship.position, Math.min(0.5, k * 0.6)));
+      boost = 1 + k * 2.5;
+      if (k > 0.75 && !tr.whoosh) { tr.whoosh = true; SFX.whoosh(); }
+      const fl = cl((k - 0.82) / 0.18); if (fl > 0) { f.style.background = '#eaf6ff'; f.style.opacity = sm(fl).toFixed(3); }
+      planet.position.copy(PLANET_LOBBY); planet.scale.setScalar(3.6);
+    } else if (tr.t < X) {
+      // hyperspace tunnel
+      if (!tr.inWarp) { tr.inWarp = true; planet.visible = false; if (!streaks) buildStreaks(); ship.position.set(0, 0, 0); ship.rotation.set(0, 0, 0); }
+      const k = (tr.t - J) / (X - J);
+      const ramp = cl(k / 0.15) * (k > 0.85 ? cl(1 - (k - 0.85) / 0.15) * 0.6 + 0.4 : 1);
+      ship.position.set(Math.sin(mt * 9) * 0.05 * ramp, Math.sin(mt * 7) * 0.05 * ramp, 0);
+      ship.rotation.set(0, 0, Math.sin(mt * 1.3) * 0.05);
+      // low over the ship's left shoulder, looking past it at the light at the end of the tunnel
+      menuCam.position.set(-4.4, -1.8, 14.5); menuCam.lookAt(2.2, 1.5, -40);
+      menuCam.fov = 48 + ramp * 14; menuCam.updateProjectionMatrix();
+      const st = streaks, speed = 60 + ramp * 280;
+      for (const o of [st.tube, st.rays, st.core]) o.visible = true;
+      st.tube.material.opacity = 0.9 * ramp; st.ttex.offset.y -= dt * (0.4 + ramp * 2.2); st.ttex.offset.x += dt * 0.05;
+      st.rays.material.opacity = 0.5 + ramp * 0.5; st.rays.material.rotation += dt * 0.25; st.rays.scale.setScalar(140 + Math.sin(mt * 6) * 8 + k * 60);
+      st.core.material.opacity = 0.7 + ramp * 0.3; st.core.scale.setScalar(60 + Math.sin(mt * 9) * 5 + k * 40);
+      for (let i = 0; i < st.data.length; i++) {
+        const d = st.data[i]; d.z += speed * dt; if (d.z > 4) d.z -= 224;
+        const len = d.len * (0.2 + ramp * 5);
+        st.pos.set([d.x, d.y, d.z, d.x, d.y, d.z - len], i * 6);
       }
-      if (tr.blackT > 0) { tr.blackT -= dt; const w = Math.max(0, tr.blackT / 1.1); f.style.background = '#eaf6ff'; f.style.opacity = (w * w).toFixed(3); }
-      const k = Math.min(1, (tr.t - CUT) / (tr.dur - CUT)), e = k * 0.7 + k * k * 0.3;
-      ship.position.copy(tr.S).lerp(tr.E, e);
-      _tObj.position.copy(ship.position); _tObj.up.copy(tr.up); _tObj.lookAt(_td.copy(ship.position).sub(tr.m));
-      _tObj.rotateZ(Math.sin(tr.t * 0.9) * 0.06 - 0.12);
+      st.g.attributes.position.needsUpdate = true; st.l.material.opacity = 0.15 + ramp * 0.4;
+      boost = 1 + ramp;
+      // fade in from the jump flash, flash again on the way out
+      const fin = cl(1 - (tr.t - J) / 0.35), fout = cl((k - 0.9) / 0.1);
+      const fo = Math.max(fin, fout); f.style.background = '#eaf6ff'; f.style.opacity = sm(fo).toFixed(3);
+      if (k > 0.9 && !tr.exitW) { tr.exitW = true; SFX.whoosh(); }
+    } else {
+      // drop out in front of Kessa-4: the whole planet in frame as the fleet streaks toward it
+      if (!tr.exited) {
+        tr.exited = true; planet.visible = true; setPlanet('kessa');
+        if (streaks) { streaks.l.material.opacity = 0; for (const o of [streaks.tube, streaks.rays, streaks.core]) o.visible = false; }
+        menuCam.fov = tr.fov0; menuCam.updateProjectionMatrix();
+        planet.position.set(-30, 10, -900); planet.scale.setScalar(3.7); planet.rotation.set(0.25, 1.2, 0.35);
+        menuSun.position.set(-500, 400, -300); menuAmb.intensity = 0.55;
+      }
+      const k = cl((tr.t - X) / (tr.dur - X)), e = Math.pow(k, 1.4);
+      const fo = cl(1 - (tr.t - X) / 0.5); if (fo > 0) { f.style.background = '#eaf6ff'; f.style.opacity = (fo * fo).toFixed(3); }
+      // ship enters close on the right and races away into the planet
+      ship.position.set(5.5 + 26 * e, -2.4 - 5 * e, 4 - 330 * e);
+      _tObj.position.copy(ship.position); _tObj.lookAt(_td.copy(ship.position).multiplyScalar(2).sub(planet.position));
+      _tObj.rotateZ(-0.25 + Math.sin(tr.t * 0.8) * 0.05);
       ship.quaternion.copy(_tObj.quaternion);
-      _tObj.up.set(0, 1, 0);
-      // camera rides with the fleet: behind, above and off to one side, easing in closer
-      const off = _ta.set(5 - k * 1.8, 3.4 - k * 1.2, 17 - k * 5);
-      menuCam.up.copy(tr.up);
-      menuCam.position.copy(ship.localToWorld(off));
-      menuCam.lookAt(_te.copy(ship.position).addScaledVector(tr.m, 26));
+      menuCam.position.set(Math.sin(mt * 0.3) * 0.4, 0.6 + Math.sin(mt * 0.4) * 0.2, 18 - k * 4);
+      menuCam.lookAt(_te.copy(planet.position).lerp(ship.position, 0.25 * (1 - k)));
+      planet.rotation.y += dt * 0.02;
+      boost = 1.8 - k * 0.5;
     }
-    _td.copy(menuCam.position).add(_te.set(0, 220, 0)).addScaledVector(P, -0.4);
-    menuSun.position.lerp(_td, Math.min(1, dt * 1.5)); menuAmb.intensity += (1.1 - menuAmb.intensity) * Math.min(1, dt);
+    menuAtmo.position.copy(planet.position); menuAtmo.scale.copy(planet.scale); menuAtmo.visible = planet.visible;
     for (const [g, sc] of engineGlows) g.scale.setScalar(sc * boost * (0.9 + Math.random() * 0.15));
     stars.rotation.y = mt * 0.003;
   } else {
@@ -3540,7 +3618,7 @@ function updateIntro(dt) {
   if (t >= INTRO) {
     S.intro = null; $('intro').hidden = true; $('hud').hidden = false; lastHud = '';
     P.y = sh.gy; P.vy = 0; P.onGround = true; P.shake = 0;
-    banner('Holdout: Kessa', S.introStamp, 2.6);
+    banner('Kessa-4', S.introStamp, 2.6);
     if (!isTouch && lookMode === 'lock' && document.pointerLockElement !== cv) openPause('Click Resume to take control');
   }
 }
