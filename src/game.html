@@ -17,7 +17,8 @@
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   color-scheme: dark;
 }
-html, body { height: 100%; }
+html, body { height: 100%; width: 100%; overflow: hidden; overscroll-behavior: none; }
+@media (pointer: coarse) { html, body { position: fixed; inset: 0; } }
 body {
   background: var(--void); color: var(--ink); font-family: var(--mono);
   overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
@@ -627,7 +628,8 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 .gsstats b { font: 700 12px var(--display); color: var(--ink); text-align: right; letter-spacing: 0; }
 .gsstats b.s-up { color: #5dff96; } .gsstats b.s-dn { color: #ff7a6a; }
 @media (max-width: 860px) { .gsmain, .gsbottom { grid-template-columns: 1fr; } .gsstage { height: 38vh; min-height: 220px; } .gtag { min-width: 0; padding: 4px 7px; } .gtag b { font-size: 10px; } .gsopts { max-height: none; } }
-#game { height: 100vh; height: 100dvh; }
+#game { position: fixed; inset: 0; height: auto; width: auto; }
+.tb, button { touch-action: manipulation; }
 @media (pointer: coarse) and (max-width: 560px) { .nameplate { top: 76px; } .hudbar { transform: scale(.56); } }
 /* phones held sideways: compact HUD so nothing overlaps */
 @media (pointer: coarse) and (max-height: 500px) {
@@ -878,6 +880,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
         <label for="sVol">Volume</label><input id="sVol" type="range" min="0" max="1" step="0.05"><output id="sVolV"></output>
         <label for="sMus">Menu music</label><input id="sMus" type="range" min="0" max="1" step="0.05"><output id="sMusV"></output>
         <label for="sInv">Invert look up/down</label><input id="sInv" type="checkbox"><span></span>
+        <label for="sAuto">Auto-fire on touch screens</label><input id="sAuto" type="checkbox"><span></span>
       </div>
       <div class="sres"><span>Resolution</span><div class="seg" id="sRes">
         <button type="button" data-res="low">Low</button><button type="button" data-res="med">PS2</button><button type="button" data-res="high">High</button><button type="button" data-res="native">Full</button>
@@ -930,7 +933,7 @@ cam.rotation.order = 'YXZ';
 const gunScene = new T.Scene();
 const gunCam = new T.PerspectiveCamera(60, 1, 0.01, 10);
 let W = 1, H = 1;
-const CFG = { sens: 1, touchSens: 1, fov: 72, vol: 0.8, music: 0.6, invertY: false, res: 'med' };
+const CFG = { sens: 1, touchSens: 1, fov: 72, vol: 0.8, music: 0.6, invertY: false, res: 'med', autoFire: true };
 try { Object.assign(CFG, JSON.parse(localStorage.getItem('vp-settings') || '{}')); } catch (e) {}
 const saveCfg = () => { try { localStorage.setItem('vp-settings', JSON.stringify(CFG)); } catch (e) {} };
 const RES_H = { low: 220, med: 300, high: 480 };
@@ -941,7 +944,12 @@ function resize() {
   cam.aspect = gunCam.aspect = W / H;
   cam.updateProjectionMatrix(); gunCam.updateProjectionMatrix();
 }
-addEventListener('resize', resize); resize();
+addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 250));
+if (window.visualViewport) visualViewport.addEventListener('resize', () => { resize(); window.scrollTo(0, 0); });
+resize();
+// iOS double-tap zoom and pinch: never let the page zoom while playing
+document.addEventListener('gesturestart', e => e.preventDefault());
+let lastTouchEnd = 0; document.addEventListener('touchend', e => { const n = Date.now(); if (n - lastTouchEnd < 350 && !e.target.closest('input')) e.preventDefault(); lastTouchEnd = n; }, { passive: false });
 
 // ---------------- textures ----------------
 let seed = 1337;
@@ -2684,7 +2692,16 @@ function update(dt) {
     }
   }
   if (input.keys.r) { startReload(); input.keys.r = false; }
-  if (input.fire && S.running) tryFire();
+  if (isTouch && CFG.autoFire !== false && S.running && !P.dead) {
+    P.afT = (P.afT || 0) - dt;
+    if (P.afT <= 0) {
+      P.afT = 0.08; cam.updateMatrixWorld();
+      _ta.set(0, 0, -1).applyQuaternion(cam.quaternion);
+      const sh = shotHit(cam.position, _ta, 70, [].concat(...enemies.filter(e => !e.dead).map(e => e.hit)));
+      P.autoOn = !!(sh && sh.object.userData.enemy);
+    }
+  } else P.autoOn = false;
+  if ((input.fire || P.autoOn) && S.running) tryFire();
   P.pulseCd = Math.max(0, P.pulseCd - dt);
   P.recoil *= Math.pow(0.012, dt);
   for (const k of ['bubCd', 'odCd', 'odT', 'swT', 'swCd', 'momT']) if (P[k] > 0) P[k] = Math.max(0, P[k] - dt);
@@ -3368,12 +3385,13 @@ function syncSettingsUI() {
   $('sFov').value = CFG.fov; $('sFovV').textContent = CFG.fov + '°';
   $('sVol').value = CFG.vol; $('sVolV').textContent = Math.round(CFG.vol * 100) + '%';
   $('sMus').value = CFG.music; $('sMusV').textContent = Math.round(CFG.music * 100) + '%';
-  $('sInv').checked = CFG.invertY;
+  $('sInv').checked = CFG.invertY; $('sAuto').checked = CFG.autoFire !== false;
   for (const b of document.querySelectorAll('#sRes button')) b.setAttribute('aria-pressed', b.dataset.res === CFG.res ? 'true' : 'false');
 }
 const bindRange = (id, key, parse) => $(id).addEventListener('input', e => { CFG[key] = parse(e.target.value); saveCfg(); syncSettingsUI(); if (key === 'vol' && MASTER) MASTER.gain.value = CFG.vol; if (key === 'music' && music.bus && music.on) { music.bus.gain.cancelScheduledValues(AC.currentTime); music.bus.gain.value = CFG.music * 1.6; } });
 bindRange('sSens', 'sens', parseFloat); bindRange('sTouch', 'touchSens', parseFloat); bindRange('sFov', 'fov', v => parseInt(v, 10)); bindRange('sVol', 'vol', parseFloat); bindRange('sMus', 'music', parseFloat);
 $('sInv').addEventListener('change', e => { CFG.invertY = e.target.checked; saveCfg(); });
+$('sAuto').addEventListener('change', e => { CFG.autoFire = e.target.checked; saveCfg(); });
 for (const b of document.querySelectorAll('#sRes button')) b.addEventListener('click', () => { CFG.res = b.dataset.res; saveCfg(); syncSettingsUI(); resize(); });
 $('sDone').addEventListener('click', closeSettings);
 $('menuSettingsBtn').addEventListener('click', () => openSettings());
@@ -4163,7 +4181,7 @@ function netTick(dt) {
   if (NET.sendT <= 0) {
     NET.sendT = 1 / 12;
     netSend({ t: 'p', x: r2(P.x), y: r2(P.y), z: r2(P.z), yw: r2(P.yaw), pt: r2(P.pitch), a: P.dead ? 0 : 1,
-      f: input.fire && !P.dead && P.reloadT <= 0 && P.mag > 0 ? 1 : 0, n: callsign, l: prog.level, w: loadout.primary,
+      f: (input.fire || P.autoOn) && !P.dead && P.reloadT <= 0 && P.mag > 0 ? 1 : 0, n: callsign, l: prog.level, w: loadout.primary,
       hp: Math.round(Math.max(0, P.hp)), sh: Math.round(P.shield), hl: S.nearStation && S.nearStation.active ? 1 : 0, k: S.kills, xr: S.xp, c: r2(P.ch) });
   }
   if (NET.host) {

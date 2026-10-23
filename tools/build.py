@@ -8,7 +8,7 @@ three = '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three
 assert fonts in src and three in src
 out = src.replace(fonts, '<link rel="stylesheet" href="fonts.css">\n<script>window.KESSA_SERVER = "kessa-relay.retrohome.workers.dev";</script>').replace(three, '<script src="three.min.js"></script>')
 head = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
-        '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">\n'
         '<style>html,body{margin:0}body{font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>\n')
 open(os.path.join(root, 'site', 'index.html'), 'w').write(head + out + '\n</body>\n</html>\n')
 print('built site/index.html')
