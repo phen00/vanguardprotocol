@@ -1872,8 +1872,8 @@ function applyAttVisuals(g, id, A, R, B, C, muzzle) {
     if (A.grip === 'laser') { B(0.02, 0.016, 0.03, 0, -0.035, -0.12, dk); const beam = new T.Mesh(new T.BoxGeometry(0.0015, 0.0015, 3), new T.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.5, depthWrite: false })); beam.position.set(0, -0.035, -1.64); beam.userData.noFit = true; g.add(beam); }
     if (A.grip === 'light') { C(0.012, 0.014, 0.05, 0, -0.038, -0.12, dk); C(0.011, 0.011, 0.002, 0, -0.038, -0.146, new T.MeshBasicMaterial({ color: 0xfff6d8 })); }
     if (A.grip === 'vert') { B(0.016, 0.04, 0.018, 0, -0.05, -0.12, dk); }
-    if (A.mag === 'ext' || A.mag === 'drum') { const k = A.mag === 'ext' ? 0.035 : 0.075; B(0.026, k, 0.03, 0, -0.13 - k / 2, 0.032, dk, 0.22); R.mag.position.y = -k; }
-    if (A.mag === 'fast') B(0.036, 0.01, 0.044, 0, -0.112, 0.024, lt, 0.22);
+    if (A.mag === 'ext' || A.mag === 'drum') { const k = A.mag === 'ext' ? 0.035 : 0.075; const ex = new T.Mesh(new T.BoxGeometry(0.025, k, 0.032), dk); ex.position.set(0, -0.104 - k / 2, 0.001); R.mag.add(ex); R.mag.children[1].position.y -= k; }
+    if (A.mag === 'fast') { const fl = new T.Mesh(new T.BoxGeometry(0.034, 0.012, 0.048), lt); fl.position.set(0, -0.098, 0.002); R.mag.parent.add(fl); }
     return muzzle;
   }
   // magazine
@@ -2053,21 +2053,33 @@ function makeGun(id, att = {}) {
     // Wasp-9: compact polymer-framed striker pistol. Squared slide with front and rear serrations,
     // amber heat line, accessory rail, flared mag well.
     const dk = gm, lt = gl;
-    const slide = grp([B(0.034, 0.036, 0.2, 0, 0.022, -0.055, lt), ...[0, 1, 2, 3].map(i => B(0.036, 0.022, 0.004, 0, 0.026, 0.02 + i * 0.01, dk)), ...[0, 1, 2].map(i => B(0.036, 0.018, 0.004, 0, 0.028, -0.13 + i * 0.01, dk)), B(0.036, 0.004, 0.11, 0, 0.032, -0.06, glow)]);
-    const ejp = B(0.002, 0.014, 0.03, 0.017, 0.03, -0.04, dk); slide.add(ejp);
-    B(0.03, 0.022, 0.18, 0, -0.008, -0.06, dk);                         // frame
-    B(0.018, 0.006, 0.07, 0, -0.022, -0.115, dk);                        // accessory rail
-    for (let i = 0; i < 3; i++) B(0.02, 0.003, 0.006, 0, -0.026, -0.14 + i * 0.02, lt);
+    const mid = new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x50565c });
+    // slide: squared top, fine serrations cut into the rear and front, ejection port on the right
+    const slide = grp([B(0.034, 0.036, 0.2, 0, 0.022, -0.055, lt), B(0.03, 0.006, 0.19, 0, 0.042, -0.055, lt),
+      ...[0, 1, 2, 3, 4].map(i => B(0.0345, 0.02, 0.0025, 0, 0.024, 0.016 + i * 0.008, mid)), ...[0, 1, 2].map(i => B(0.0345, 0.016, 0.0025, 0, 0.026, -0.134 + i * 0.008, mid)),
+      B(0.002, 0.014, 0.034, 0.0172, 0.03, -0.035, dk)]);
+    B(0.03, 0.022, 0.18, 0, -0.008, -0.058, dk);                        // frame
+    B(0.02, 0.006, 0.07, 0, -0.021, -0.115, dk);                         // accessory rail
+    for (let i = 0; i < 3; i++) B(0.022, 0.003, 0.005, 0, -0.025, -0.14 + i * 0.02, mid);
     const barW = C(0.008, 0.008, 0.03, 0, 0.022, -0.16, dk); muzzle = -0.165;
-    B(0.032, 0.095, 0.042, 0, -0.065, 0.012, dk, 0.22);                  // grip
-    for (let i = 0; i < 4; i++) B(0.034, 0.004, 0.03, 0, -0.04 - i * 0.017, 0.008 + i * 0.004, lt, 0.22);
-    B(0.006, 0.006, 0.05, 0, -0.03, -0.035, dk); B(0.004, 0.02, 0.004, 0, -0.026, -0.03, lt);   // trigger guard and trigger
-    const magP = grp([B(0.026, 0.02, 0.032, 0, -0.118, 0.026, dk, 0.22), B(0.03, 0.008, 0.036, 0, -0.128, 0.029, lt, 0.22)]);
+    // grip: angled frame with a back strap, beavertail, finger grooves and stippled side panels
+    const gripG = new T.Group(); gripG.position.set(0, -0.016, 0.012); gripG.rotation.x = 0.2; g.add(gripG);
+    const gb = (w, h, d, x, y, z, m, rx = 0) => { const q = new T.Mesh(new T.BoxGeometry(w, h, d), m); q.position.set(x, y, z); q.rotation.x = rx; gripG.add(q); return q; };
+    gb(0.029, 0.1, 0.04, 0, -0.05, 0, dk);
+    gb(0.026, 0.094, 0.01, 0, -0.05, 0.022, dk);                       // back strap
+    gb(0.026, 0.008, 0.016, 0, 0.0, 0.024, dk, -0.25);                  // beavertail over the hand
+    for (const y of [-0.026, -0.048, -0.07]) gb(0.027, 0.007, 0.006, 0, y, -0.022, mid);   // finger grooves
+    for (const sx of [-1, 1]) gb(0.002, 0.055, 0.028, sx * 0.0148, -0.052, 0.002, mid);    // side panels
+    const magP = new T.Group(); gripG.add(magP);
+    magP.add(new T.Mesh(new T.BoxGeometry(0.024, 0.09, 0.032), dk)); magP.children[0].position.set(0, -0.05, 0);
+    const base = new T.Mesh(new T.BoxGeometry(0.031, 0.01, 0.044), mid); base.position.set(0, -0.104, 0.002); magP.add(base);
+    // squared trigger guard and trigger
+    B(0.006, 0.006, 0.048, 0, -0.034, -0.036, dk); B(0.006, 0.026, 0.006, 0, -0.023, -0.06, dk); B(0.004, 0.022, 0.006, 0, -0.024, -0.03, lt, 0.2);
     if (AT.optic === 'reflex') { B(0.026, 0.008, 0.03, 0, 0.044, -0.03, dk); B(0.004, 0.022, 0.006, 0.012, 0.058, -0.04, dk); B(0.004, 0.022, 0.006, -0.012, 0.058, -0.04, dk); B(0.028, 0.004, 0.006, 0, 0.07, -0.04, dk); B(0.022, 0.02, 0.002, 0, 0.058, -0.04, glass); B(0.002, 0.002, 0.002, 0, 0.058, -0.041, glowRed); sightY = 0.058; }
     else if (AT.optic === 'tri') { for (const sx of [-1, 1]) { B(0.006, 0.012, 0.008, sx * 0.009, 0.046, 0.035, dk); B(0.003, 0.003, 0.003, sx * 0.009, 0.05, 0.03, glowCyan); } B(0.005, 0.012, 0.006, 0, 0.046, -0.145, dk); B(0.003, 0.003, 0.003, 0, 0.051, -0.149, glowCyan); sightY = 0.05; }
     else { for (const sx of [-1, 1]) B(0.006, 0.012, 0.008, sx * 0.009, 0.046, 0.035, dk); B(0.005, 0.012, 0.006, 0, 0.046, -0.145, dk); B(0.002, 0.002, 0.002, 0, 0.052, -0.148, glow); sightY = 0.05; }
     g.userData.adsZ = AT.optic === 'reflex' ? -0.3 : -0.26; g.userData.mag = magP; g.userData.ch = slide;
-    RF = { barrel: barW, barrelZ0: -0.145, barrelY: 0.022, barrelR: 0.008, tips: [], mag: magP, magTop: -0.1, magZ: 0.024, stock: null, guardY: -0.03, guardZ: -0.05, noGrip: true, pistol: true, slide };
+    RF = { barrel: barW, barrelZ0: -0.145, barrelY: 0.022, barrelR: 0.008, tips: [], mag: magP, magTop: -0.1, magZ: 0.012, stock: null, guardY: -0.03, guardZ: -0.05, noGrip: true, pistol: true, slide };
   } else if (id === 'lancer') {
     B(0.1, 0.13, 0.5, 0, 0, 0); B(0.08, 0.085, 0.36, 0, 0, -0.42); C(0.016, 0.016, 0.3, 0, 0.01, -0.74);
     B(0.06, 0.13, 0.07, 0, -0.12, -0.04, gm, -0.15); B(0.085, 0.1, 0.3, 0, -0.03, 0.38, gl, 0.08); B(0.06, 0.12, 0.06, 0, -0.1, 0.15, gm, 0.35);
