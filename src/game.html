@@ -134,10 +134,10 @@ canvas#cv { display: block; width: 100%; height: 100%; image-rendering: pixelate
 
 .cross { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
 .cross i { position: absolute; background: rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
-.cross .a { left: -1px; width: 2px; height: 7px; top: -14px; }
-.cross .b { left: -1px; width: 2px; height: 7px; top: 7px; }
-.cross .c { top: -1px; height: 2px; width: 7px; left: -14px; }
-.cross .d { top: -1px; height: 2px; width: 7px; left: 7px; }
+.cross .a { left: -1px; width: 2px; height: 7px; top: calc(-14px - var(--g, 0px)); }
+.cross .b { left: -1px; width: 2px; height: 7px; top: calc(7px + var(--g, 0px)); }
+.cross .c { top: -1px; height: 2px; width: 7px; left: calc(-14px - var(--g, 0px)); }
+.cross .d { top: -1px; height: 2px; width: 7px; left: calc(7px + var(--g, 0px)); }
 .hit { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px; opacity: 0; pointer-events: none; }
 .hit::before, .hit::after { content: ""; position: absolute; left: 10px; top: -2px; width: 2px; height: 26px; background: #fff; transform: rotate(45deg); }
 .hit::after { transform: rotate(-45deg); }
@@ -1766,17 +1766,21 @@ function tryFire() {
   if (GS.shell && P.reloadT > 0 && P.mag > 0) P.reloadT = 0;   // firing interrupts a shell-by-shell reload
   if (P.dead || P.reloadT > 0 || P.fireCd > 0) return;
   if (P.mag <= 0) { P.fireCd = 0.25; SFX.empty(); if (P.reserve > 0) startReload(); return; }
-  P.fireCd = GS.rate; P.mag--; P.recoil += GS.recoil * (1 - 0.4 * P.ads); P.pumped = false; P.trigT = 0.08;
+  P.fireCd = GS.rate; P.mag--; P.pumped = false; P.trigT = 0.08;
+  // recoil moves your aim: part of the climb stays (pull down to compensate), part springs back
+  const climb = GS.recoil * (1 - 0.35 * P.ads) * (1 - 0.25 * P.ch);
+  P.pitch = Math.min(1.45, P.pitch + climb * 0.6); P.recoil += climb * 0.8;
+  P.bloom = Math.min(1.6, (P.bloom || 0) + (GS.pellets > 1 ? 1.2 : 0.35));
   GS.pellets > 1 ? SFX.blast() : SFX.shot();
   flash.visible = true; flash.material.rotation = rnd(0, 6); flash.userData.t = GS.pellets > 1 ? 0.07 : 0.045;
   flash.scale.setScalar((P.ads > 0.5 ? 0.12 : 0.22) * (GS.pellets > 1 ? 1.6 : 1) * rnd(0.85, 1.2));
   // kick: gun slams back and up, view climbs with a little sideways drift, short shake
   // hip fire: gun slams back and tips up. Aimed: it lifts straight up so the sights stay lined up
   gun.position.z += GS.kick * (1 - 0.55 * P.ads); gun.position.y += GS.kick * (0.2 + 0.25 * P.ads); gun.rotation.x += GS.kick * (1 - 0.85 * P.ads);
-  P.yaw += rnd(-1, 1) * GS.recoil * 0.25;
+  P.yaw += rnd(-1, 1) * GS.recoil * 0.35;
   addShake((P.ads > 0.5 ? 0.55 : 1) * GS.shake);
   const moving = Math.hypot(input.mx, input.my) > 0.1;
-  const cone = (GS.pellets > 1 ? (P.ads > 0.5 ? 0.045 : 0.06) : (P.ads > 0.5 ? 0.004 : (moving ? 0.03 : 0.016)) * GS.spreadMul) * (1 - 0.3 * P.ch);
+  const cone = (1 + (P.ads > 0.5 ? 0 : (P.bloom || 0) * 0.45)) * (GS.pellets > 1 ? (P.ads > 0.5 ? 0.045 : 0.06) : (P.ads > 0.5 ? 0.004 : (moving ? 0.03 : 0.016)) * GS.spreadMul) * (1 - 0.3 * P.ch);
   cam.updateMatrixWorld();
   const targets = levelMeshes.concat(...enemies.map(e => e.hit));
   const start = new T.Vector3(0.18, -0.16, -0.7).applyQuaternion(cam.quaternion).add(cam.position);
@@ -1963,7 +1967,8 @@ function update(dt) {
   if (input.keys.r) { startReload(); input.keys.r = false; }
   if (input.fire && S.running) tryFire();
   P.pulseCd = Math.max(0, P.pulseCd - dt);
-  P.recoil *= Math.pow(0.004, dt);
+  P.recoil *= Math.pow(0.03, dt);
+  P.bloom = Math.max(0, (P.bloom || 0) - dt * 2.6);
   P.shake = Math.max(0, P.shake - dt * 4);
   P.shFlash = Math.max(0, (P.shFlash || 0) - dt * 3.2);
   P.punchP *= Math.pow(0.002, dt); P.punchY *= Math.pow(0.002, dt);
@@ -2353,6 +2358,7 @@ function hud() {
   if (scoped) ui.scope.style.setProperty('--d', scopeD() + 'px');
   ui.holo.hidden = !(S.running && GS.optic === 'holo' && P.ads > 0.7);
   ui.cross.style.opacity = P.ads > 0.5 ? 0 : 1;
+  ui.cross.style.setProperty('--g', ((P.bloom || 0) * 9 + Math.min(6, Math.hypot(input.mx, input.my) * 6 + (P.onGround ? 0 : 5))).toFixed(1) + 'px');
   const key = [Math.ceil(P.hp), Math.ceil(P.shield), S.wave, S.score, enemies.length + S.queue.length, P.mag, P.reserve, P.reloadT > 0, Math.ceil(P.pulseCd), Math.ceil(P.nadeCd)].join('|');
   if (key !== lastHud) {
     lastHud = key;
@@ -3322,7 +3328,7 @@ function buildStreaks() {
 }
 function startTravel(kind, name, sub, done) {
   if (kind === 'warp' && !streaks) buildStreaks();
-  travel = { q0: ship.quaternion.clone(), kind, t: 0, dur: kind === 'warp' ? 6.2 : 6.6, done, flashed: false, cam: null };
+  travel = { q0: ship.quaternion.clone(), kind, t: 0, dur: kind === 'warp' ? 6.2 : 7.6, done, flashed: false, cam: null };
   $('tName').textContent = name; $('tSub').textContent = sub;
   const sq = $('tSquad'); sq.innerHTML = '';
   const crew = [{ n: callsign, c: '#ffb547' }].concat(NET.on ? [...NET.peers.values()].map(p => ({ n: p.name, c: '#' + shipColors(p.id)[1].getHexString() })) : []);
@@ -3361,7 +3367,7 @@ function renderTravel(dt) {
   if (tr.kind === 'approach') {
     // Shot 1 (lobby camera, locked off): the fleet turns, burns toward the lens and roars past overhead.
     // Shot 2 (hard cut): chase view as the ships glide down into the planet's atmosphere.
-    const CUT = 2.3, P = planet.position, Rp = 70 * planet.scale.x;
+    const CUT = 2.9, P = planet.position, Rp = 70 * planet.scale.x;
     if (!tr.cam0) { tr.cam0 = menuCam.position.clone(); tr.look0 = new T.Vector3(1.5, 0.6, 6); tr.fov0 = menuCam.fov; }
     const boost = tr.t < CUT ? 1 + Math.min(1, tr.t / CUT) * 2.2 : 0.9;
     if (tr.t < CUT) {
@@ -3380,11 +3386,14 @@ function renderTravel(dt) {
       menuCam.position.x += Math.sin(mt * 37) * 0.04 * k * k; menuCam.position.y += Math.cos(mt * 41) * 0.04 * k * k; // rumble as they pass
       // the operator pans up to follow them until they are almost on top of us
       menuCam.lookAt(_te.copy(tr.look0).lerp(ship.position, Math.min(0.85, k * 0.9)));
-      if (k > 0.8 && !tr.whoosh) { tr.whoosh = true; if (SFX.whoosh) SFX.whoosh(); }
+      if (k > 0.72 && !tr.whoosh) { tr.whoosh = true; if (SFX.whoosh) SFX.whoosh(); }
+      // engine glare washes the frame out as they thunder overhead, carrying us into the next shot
+      const wash = Math.max(0, (k - 0.7) / 0.3);
+      if (wash > 0) { f.style.background = '#eaf6ff'; f.style.opacity = (wash * wash * (3 - 2 * wash)).toFixed(3); }
     } else {
       if (!tr.cut) {
         tr.cut = true;
-        f.style.background = '#000'; f.style.opacity = 1; tr.blackT = 0.18;
+        f.style.background = '#eaf6ff'; f.style.opacity = 1; tr.blackT = 1.1;
         menuCam.fov = 58; menuCam.updateProjectionMatrix();
         const dir = P.clone().normalize();
         const side = new T.Vector3().crossVectors(dir, new T.Vector3(0, 1, 0)).normalize();
@@ -3393,7 +3402,7 @@ function renderTravel(dt) {
         tr.S = tr.E.clone().addScaledVector(tr.m, -110);
         tr.up = dir.clone().negate().addScaledVector(tr.m, dir.dot(tr.m)).normalize();   // away from the planet, square to the flight path
       }
-      if (tr.blackT > 0) { tr.blackT -= dt; f.style.background = '#000'; f.style.opacity = Math.max(0, tr.blackT / 0.18).toFixed(3); }
+      if (tr.blackT > 0) { tr.blackT -= dt; const w = Math.max(0, tr.blackT / 1.1); f.style.background = '#eaf6ff'; f.style.opacity = (w * w).toFixed(3); }
       const k = Math.min(1, (tr.t - CUT) / (tr.dur - CUT)), e = k * 0.7 + k * k * 0.3;
       ship.position.copy(tr.S).lerp(tr.E, e);
       _tObj.position.copy(ship.position); _tObj.up.copy(tr.up); _tObj.lookAt(_td.copy(ship.position).sub(tr.m));
