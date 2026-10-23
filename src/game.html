@@ -187,11 +187,58 @@ h1 em { font-style: normal; color: var(--hull); }
 .result span { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
 .result b { font: 800 30px var(--display); }
 .loading { color: var(--muted); font-size: 12px; }
+.pmenu { display: grid; gap: 8px; justify-items: stretch; max-width: 260px; }
+.pmenu .go, .pmenu .ghost { justify-self: stretch; text-align: left; }
+.sh { font-size: clamp(34px, 9vw, 48px); }
+.sgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 52px; gap: 12px 12px; align-items: center; font-size: 12px; }
+.sgrid label { color: var(--ink); }
+.sgrid output { font: 700 13px var(--display); color: var(--amber); text-align: right; font-variant-numeric: tabular-nums; }
+.sgrid input[type=range] { width: 100%; min-width: 0; accent-color: var(--amber); pointer-events: auto; }
+.sgrid input[type=checkbox] { justify-self: start; width: 18px; height: 18px; accent-color: var(--amber); pointer-events: auto; }
+.sres { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; }
+.seg { display: flex; border: 1px solid var(--line); }
+.seg button { pointer-events: auto; background: rgba(8,12,20,.5); color: var(--muted); border: 0; border-right: 1px solid var(--line); padding: 8px 12px; font: 700 12px var(--display); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed=true] { background: var(--amber); color: var(--void); }
+.seg button:focus-visible { outline: 2px solid var(--shield); outline-offset: -2px; }
+.scoreov { background: rgba(6,8,16,.55); }
+.sbpanel { width: min(640px, 100%); background: rgba(10,14,24,.88); border: 1px solid var(--line); border-top: 2px solid var(--amber); padding: 16px 18px 18px; display: grid; gap: 12px; }
+.sbhead { display: flex; justify-content: space-between; align-items: end; gap: 12px; }
+.sbhead h2 { margin: 2px 0 0; font: 800 28px var(--display); }
+.sbwrap { overflow-x: auto; }
+.sb { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.sb th { font: 600 9px var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); text-align: right; padding: 0 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.sb th:first-child { text-align: left; }
+.sb td { padding: 8px; text-align: right; font: 700 16px var(--display); border-bottom: 1px solid rgba(42,49,80,.6); white-space: nowrap; }
+.sb td.pl { text-align: left; display: flex; align-items: center; gap: 10px; }
+.sb td.pl svg { display: block; }
+.sb td.pl div { display: grid; }
+.sb td.pl b { font: 700 14px var(--display); }
+.sb td.pl span { font: 600 9px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.sb tr.me td { background: rgba(255,181,71,.08); }
+.sb tr.me td.pl b { color: var(--amber); }
+.sb td.down { color: var(--threat); font-size: 12px; } .sb td.ok { color: #5dff96; font-size: 12px; }
+.tb.sq { border-radius: 4px; width: 56px; height: 30px; font-size: 9px; right: max(16px, env(safe-area-inset-right, 0px)); }
+.tb.menu { top: 190px; } .tb.score { top: 226px; }
 .overlay { touch-action: pan-y; }
-.menu { place-items: center start; background: linear-gradient(90deg, rgba(5,7,14,.9), rgba(5,7,14,.5) 42%, rgba(5,7,14,0) 70%); }
+.menu { place-items: start start; background: linear-gradient(90deg, rgba(5,7,14,.9), rgba(5,7,14,.5) 42%, rgba(5,7,14,0) 70%); }
 @media (max-aspect-ratio: 1/1) { .menu { place-items: end start; background: linear-gradient(0deg, rgba(5,7,14,.94), rgba(5,7,14,.6) 45%, rgba(5,7,14,0) 72%); } }
-.mpanel { max-width: 420px; width: 100%; display: grid; gap: 18px; padding-block: 12px; }
-.mpanel h1 { font-size: clamp(46px, 13vw, 78px); }
+.mpanel { max-width: 440px; width: 100%; display: grid; gap: 14px; padding-block: max(12px, 3vh) 12px; }
+.pick { display: grid; gap: 6px; }
+.picklbl { font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+.modes button:disabled { opacity: .45; cursor: not-allowed; }
+.maps { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.mapc { flex: none; width: 132px; display: grid; padding: 0; background: rgba(8,12,20,.65); border: 1px solid var(--line); color: var(--ink); text-align: left; cursor: pointer; pointer-events: auto; font-family: var(--mono); }
+.mapc img, .mapc .ph { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; image-rendering: pixelated; background: #10141f; }
+.mapc .ph { display: grid; place-items: center; font: 800 24px var(--display); color: #39415f; background: repeating-linear-gradient(45deg, #0f1320 0 8px, #131829 8px 16px); }
+.mapc > span { display: grid; gap: 1px; padding: 5px 8px 6px; }
+.mapc b { font: 700 13px var(--display); }
+.mapc i { font-style: normal; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.mapc.on { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
+.mapc.on b { color: var(--amber); }
+.mapc.soon { cursor: default; opacity: .65; }
+.mapc:focus-visible { outline: 2px solid var(--shield); outline-offset: 2px; }
+.mpanel h1 { font-size: clamp(40px, 9vw, 62px); }
 .rank { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .lvlb { font: 800 12px var(--display); background: var(--amber); color: var(--void); padding: 2px 9px 1px 7px; clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
 .mtrack { flex: 1; max-width: 160px; height: 4px; background: rgba(255,255,255,.14); position: relative; overflow: hidden; }
@@ -371,6 +418,8 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
     <div class="tb reload" data-act="reload">RELOAD</div>
     <div class="tb pulse" data-act="pulse" id="tPulse">WAVE</div>
     <div class="tb zoom" data-act="zoom" id="tZoom">ZOOM</div>
+    <div class="tb sq menu" data-act="menu">MENU</div>
+    <div class="tb sq score" data-act="score">SCORE</div>
     <div class="tb use" data-act="use" id="tUse" hidden>USE</div>
   </div>
   </div>
@@ -380,13 +429,22 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
       <div class="eyebrow">Frigate Aster Vale · High orbit, Kessa system</div>
       <h1>Vanguard <em>Protocol</em></h1>
       <p class="brief">The colony on Kessa-4 has gone dark and synth patrols are pouring out of the jungle. Drop to the outpost and hold it for as long as you can.</p>
-      <div class="mapline"><span>Map</span><b>Holdout: Kessa</b></div>
+      <div class="pick">
+        <div class="picklbl">Game mode</div>
+        <div class="seg modes"><button type="button" aria-pressed="true">Holdout</button><button type="button" disabled>More soon</button></div>
+        <div class="picklbl">Map</div>
+        <div class="maps">
+          <button class="mapc on" type="button" aria-pressed="true"><img id="mapKessa" alt="Kessa outpost from above"><span><b>Kessa</b><i>Jungle outpost</i></span></button>
+          <div class="mapc soon"><div class="ph">?</div><span><b>Classified</b><i>Coming soon</i></span></div>
+          <div class="mapc soon"><div class="ph">?</div><span><b>Classified</b><i>Coming soon</i></span></div>
+        </div>
+      </div>
+      <div class="lbtns"><button class="go" id="playBtn" hidden>Play</button><button class="ghost" id="mpBtn" hidden>Multiplayer</button><button class="ghost" id="menuSettingsBtn" type="button">Settings</button><span class="loading" id="loading">Loading…</span></div>
       <div class="mrank"><span id="mBadge"></span><div class="mrt">
         <label class="cs"><span>Callsign</span><input id="callsign" maxlength="16" autocomplete="off" spellcheck="false"></label>
         <div class="mrn" id="mRankName"></div>
         <div class="rank"><div class="mtrack"><i id="mFill"></i></div><span id="mXp"></span></div>
       </div></div>
-      <div class="lbtns"><button class="go" id="playBtn" hidden>Play</button><button class="ghost" id="mpBtn" hidden>Multiplayer</button><span class="loading" id="loading">Loading…</span></div>
     </div>
   </div>
 
@@ -439,9 +497,39 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 
   <div class="overlay" id="pause" hidden>
     <div class="panel">
-      <div class="eyebrow">Paused</div>
+      <div class="eyebrow" id="pauseNote">Paused</div>
       <h1>Holding <em>position</em></h1>
-      <div class="lbtns"><button class="go" id="resumeBtn">Resume</button><button class="ghost" id="quitBtn">Quit to menu</button></div>
+      <div class="pmenu">
+        <button class="go" id="resumeBtn" type="button">Resume</button>
+        <button class="ghost" id="pSettingsBtn" type="button">Settings</button>
+        <button class="ghost" id="pScoreBtn" type="button">Scoreboard</button>
+        <button class="ghost" id="quitBtn" type="button">Quit to menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay settingsov" id="settings" hidden>
+    <div class="panel">
+      <div class="eyebrow">Options</div>
+      <h1 class="sh">Settings</h1>
+      <div class="sgrid">
+        <label for="sSens">Mouse sensitivity</label><input id="sSens" type="range" min="0.2" max="3" step="0.05"><output id="sSensV"></output>
+        <label for="sTouch">Touch look speed</label><input id="sTouch" type="range" min="0.3" max="3" step="0.05"><output id="sTouchV"></output>
+        <label for="sFov">Field of view</label><input id="sFov" type="range" min="60" max="100" step="1"><output id="sFovV"></output>
+        <label for="sVol">Volume</label><input id="sVol" type="range" min="0" max="1" step="0.05"><output id="sVolV"></output>
+        <label for="sInv">Invert look up/down</label><input id="sInv" type="checkbox"><span></span>
+      </div>
+      <div class="sres"><span>Resolution</span><div class="seg" id="sRes">
+        <button type="button" data-res="low">Low</button><button type="button" data-res="med">PS2</button><button type="button" data-res="high">High</button><button type="button" data-res="native">Full</button>
+      </div></div>
+      <div class="lbtns"><button class="go" id="sDone" type="button">Done</button></div>
+    </div>
+  </div>
+
+  <div class="overlay scoreov" id="score" hidden>
+    <div class="sbpanel">
+      <div class="sbhead"><div><div class="eyebrow">Holdout: Kessa</div><h2 id="sbWave">Wave 1</h2></div><button class="ghost" id="sbClose" type="button">Close</button></div>
+      <div class="sbwrap"><table class="sb"><thead><tr><th>Operator</th><th>Kills</th><th>XP this run</th><th>Status</th></tr></thead><tbody id="sbRows"></tbody></table></div>
     </div>
   </div>
 
@@ -482,9 +570,13 @@ cam.rotation.order = 'YXZ';
 const gunScene = new T.Scene();
 const gunCam = new T.PerspectiveCamera(60, 1, 0.01, 10);
 let W = 1, H = 1;
+const CFG = { sens: 1, touchSens: 1, fov: 72, vol: 0.8, invertY: false, res: 'med' };
+try { Object.assign(CFG, JSON.parse(localStorage.getItem('vp-settings') || '{}')); } catch (e) {}
+const saveCfg = () => { try { localStorage.setItem('vp-settings', JSON.stringify(CFG)); } catch (e) {} };
+const RES_H = { low: 220, med: 300, high: 480 };
 function resize() {
   W = game.clientWidth; H = game.clientHeight;
-  R.setPixelRatio(Math.max(0.25, Math.min(1, 300 / H)));
+  R.setPixelRatio(CFG.res === 'native' ? Math.min(window.devicePixelRatio || 1, 2) : Math.max(0.2, Math.min(1, RES_H[CFG.res] / H)));
   R.setSize(W, H, false);
   cam.aspect = gunCam.aspect = W / H;
   cam.updateProjectionMatrix(); gunCam.updateProjectionMatrix();
@@ -804,13 +896,14 @@ function lineOfSight(ax, ay, az, bx, by, bz) {
 }
 
 // ---------------- audio ----------------
-let AC = null, noiseBuf = null;
+let AC = null, noiseBuf = null, MASTER = null;
 function initAudio() {
   if (AC) { AC.resume && AC.resume(); return; }
   try {
     AC = new (window.AudioContext || window.webkitAudioContext)();
     noiseBuf = AC.createBuffer(1, AC.sampleRate * 0.5, AC.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    MASTER = AC.createGain(); MASTER.gain.value = CFG.vol; MASTER.connect(AC.destination);
     loadSounds();
   } catch (e) { AC = null; }
 }
@@ -835,7 +928,7 @@ function playSample(k, rate, gain, cutoff) {
   const t = AC.currentTime, s = AC.createBufferSource(); s.buffer = SND[k]; s.playbackRate.value = rate;
   const g = AC.createGain(); g.gain.value = gain;
   if (cutoff) { const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff; s.connect(f); f.connect(g); } else s.connect(g);
-  g.connect(AC.destination); s.start(t);
+  g.connect(MASTER); s.start(t);
   return s;
 }
 let reloadVoice = null;
@@ -844,13 +937,13 @@ function sNoise(dur, freq, gain, type = 'lowpass') {
   const s = AC.createBufferSource(); s.buffer = noiseBuf;
   const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq;
   const g = AC.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  s.connect(f); f.connect(g); g.connect(AC.destination); s.start(t); s.stop(t + dur);
+  s.connect(f); f.connect(g); g.connect(MASTER); s.start(t); s.stop(t + dur);
 }
 function sTone(f1, f2, dur, gain, type = 'square', delay = 0) {
   if (!AC) return; const t = AC.currentTime + delay;
   const o = AC.createOscillator(); o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + dur);
   const g = AC.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur);
+  o.connect(g); g.connect(MASTER); o.start(t); o.stop(t + dur);
 }
 const SFX = {
   shot() {
@@ -1493,7 +1586,7 @@ function placeCamera() {
   const bob = reduceMotion ? 0 : Math.sin(P.bob * 2) * 0.03 * (1 - P.ads);
   cam.position.set(P.x, P.y + 1.62 + bob, P.z);
   cam.rotation.set(P.pitch + P.recoil, P.yaw, 0);
-  const fov = 72 - (72 - GS.fov) * P.ads;
+  const fov = CFG.fov - (CFG.fov - GS.fov * CFG.fov / 72) * P.ads;
   if (Math.abs(cam.fov - fov) > 0.05) { cam.fov = fov; cam.updateProjectionMatrix(); }
   sky.position.copy(cam.position);
 }
@@ -1645,6 +1738,7 @@ function hud() {
   const P = S.p;
   if (NET.on) updateTags();
   updateParty();
+  if (!$('score').hidden && (scoreT = (scoreT || 0) + 1) % 15 === 0) renderScore();
   ui.shFill.style.transform = `scaleX(${P.shield / 100})`;
   for (let i = 0; i < 8; i++) {
     const v = x => Math.max(0, Math.min(1, (x - i * 12.5) / 12.5));
@@ -1744,6 +1838,7 @@ function gameOver() {
   $('rScore').textContent = S.score.toLocaleString();
   $('rBest').textContent = best.toLocaleString();
   $('againBtn').textContent = NET.on ? 'Back to lobby' : 'Redeploy';
+  $('pause').hidden = true; $('settings').hidden = true; $('score').hidden = true; paused = false;
   $('over').hidden = false; $('banner').classList.remove('on');
   if (document.pointerLockElement) document.exitPointerLock();
 }
@@ -1752,26 +1847,42 @@ function gameOver() {
 let lookMode = 'lock'; // or 'drag' if pointer lock is refused
 let paused = false;
 addEventListener('keydown', e => {
+  if (e.key === 'Tab') { e.preventDefault(); if (mode === 'game' && S) showScore(true); return; }
+  if (e.key === 'Escape' && mode === 'game' && S && S.running && document.pointerLockElement !== cv && performance.now() - unlockedAt > 400) {
+    e.preventDefault();
+    if (!$('settings').hidden) closeSettings(); else if (paused) resume(); else openPause();
+    return;
+  }
   const k = e.key.toLowerCase(); input.keys[k] = true;
   if (!S || !S.running || paused) return;
   if (k === ' ') { e.preventDefault(); input.jump = true; }
   if (k === 'q' || k === 'f') pulse();
   if (k === 'e') input.use = true;
 });
-addEventListener('keyup', e => { input.keys[e.key.toLowerCase()] = false; });
+addEventListener('keyup', e => {
+  if (e.key === 'Tab') { e.preventDefault(); showScore(false); return; }
+  input.keys[e.key.toLowerCase()] = false;
+});
+addEventListener('blur', () => { input.keys = {}; input.fire = false; input.ads = false; showScore(false); });
 const SENS = 0.0022;
 function look(dx, dy, sens = SENS) {
   const P = S.p; const z = 1 - S.p.ads * GS.sens;
+  if (CFG.invertY) dy = -dy;
   P.yaw -= dx * sens * z; P.pitch -= dy * sens * z;
   P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch));
 }
+// Browsers occasionally report a huge jump in mouse movement (cursor warping at a screen edge,
+// the first event after the mouse locks). Those spikes caused the random snap turns, so drop them.
+let lockedAt = 0, unlockedAt = 0, everLocked = false;
+function sane(dx, dy) { return Math.abs(dx) < 220 && Math.abs(dy) < 220 && performance.now() - lockedAt > 80; }
 document.addEventListener('mousemove', e => {
   if (!S || !S.running || paused || isTouch) return;
-  if (document.pointerLockElement === cv) look(e.movementX, e.movementY);
-  else if (lookMode === 'drag' && (e.buttons & 2)) look(e.movementX, e.movementY);
+  if (!sane(e.movementX, e.movementY)) return;
+  if (document.pointerLockElement === cv) look(e.movementX, e.movementY, SENS * CFG.sens);
+  else if (lookMode === 'drag' && (e.buttons & 2)) look(e.movementX, e.movementY, SENS * CFG.sens);
 });
 cv.addEventListener('mousedown', e => {
-  if (!S || !S.running || isTouch) return;
+  if (!S || !S.running || isTouch || paused) return;
   if (lookMode === 'lock' && document.pointerLockElement !== cv) { lockPointer(); return; }
   if (e.button === 0) input.fire = true;
   if (e.button === 2 && lookMode === 'lock') input.ads = true;
@@ -1779,19 +1890,96 @@ cv.addEventListener('mousedown', e => {
 addEventListener('mouseup', e => { if (e.button === 0) input.fire = false; if (e.button === 2) input.ads = false; });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 function lockPointer() {
-  try {
-    const r = cv.requestPointerLock && cv.requestPointerLock();
-    if (r && r.catch) r.catch(() => { lookMode = 'drag'; });
-    if (!cv.requestPointerLock) lookMode = 'drag';
-  } catch (e) { lookMode = 'drag'; }
+  if (!cv.requestPointerLock) { lookMode = 'drag'; return; }
+  let r = null;
+  // raw (unaccelerated) mouse input where the browser supports it
+  try { r = cv.requestPointerLock({ unadjustedMovement: true }); } catch (e) { r = null; }
+  if (r && r.catch) r.catch(err => {
+    if (err && err.name === 'NotSupportedError') { try { const r2 = cv.requestPointerLock(); if (r2 && r2.catch) r2.catch(() => {}); } catch (e) {} }
+  });
 }
-document.addEventListener('pointerlockerror', () => { lookMode = 'drag'; if (paused) resume(); });
-document.addEventListener('pointerlockchange', () => {
-  if (!S || !S.running || isTouch || mode !== 'game') return;
-  if (document.pointerLockElement !== cv && lookMode === 'lock') { paused = true; input.fire = false; $('pause').hidden = false; }
+document.addEventListener('pointerlockerror', () => {
+  // never locked at all: this browser or frame refuses, so look by holding the right mouse button instead
+  if (!everLocked) { setTimeout(() => { if (!everLocked && !document.pointerLockElement) { lookMode = 'drag'; if (paused) { paused = false; $('pause').hidden = true; } } }, 700); return; }
+  // usually "too soon after leaving"; stay in mouse-lock mode and let the player click again
+  if (mode === 'game' && S && S.running && !isTouch && !paused) openPause('Click Resume to lock the mouse again');
 });
-function resume() { paused = false; $('pause').hidden = true; if (lookMode === 'lock' && !isTouch) lockPointer(); }
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement === cv) {
+    lockedAt = performance.now(); everLocked = true; lookMode = 'lock';
+    if (paused && $('settings').hidden) { paused = false; $('pause').hidden = true; }
+    return;
+  }
+  unlockedAt = performance.now();
+  if (!S || !S.running || isTouch || mode !== 'game') return;
+  if (lookMode === 'lock' && !paused) openPause();
+});
+function openPause(note) {
+  paused = true; input.fire = false; input.ads = false;
+  $('pauseNote').textContent = note || (NET.on ? 'Menu · the squad keeps fighting while you are here' : 'Paused');
+  $('pause').hidden = false;
+}
+function resume() {
+  paused = false; $('pause').hidden = true; $('settings').hidden = true;
+  if (lookMode === 'lock' && !isTouch) lockPointer();
+}
 $('resumeBtn').addEventListener('click', resume);
+$('pSettingsBtn').addEventListener('click', () => openSettings());
+$('pScoreBtn').addEventListener('click', () => { $('pause').hidden = true; showScore(true, true); });
+
+// ---------------- scoreboard ----------------
+let scoreSticky = false, scoreT = 0;
+function showScore(on, sticky) {
+  const el = $('score');
+  if (on) { scoreSticky = !!sticky; el.hidden = false; renderScore(); }
+  else if (!scoreSticky || sticky === false) { el.hidden = true; scoreSticky = false; if (paused && mode === 'game' && $('settings').hidden) $('pause').hidden = false; }
+}
+function renderScore() {
+  if (!S) return;
+  $('sbWave').textContent = S.wave > 0 ? `Wave ${S.wave}` : 'Deploying';
+  const rows = [{ name: callsign, lvl: prog.level, kills: S.kills, xp: S.xp, me: true, st: S.p.dead ? 'Down' : 'Alive', host: NET.on && NET.host }];
+  if (NET.on) for (const p of NET.peers.values()) rows.push({ name: p.name, lvl: p.lvl, kills: p.kills || 0, xp: p.xpRun || 0, st: p.a ? 'Alive' : 'Down', host: p.id === NET.hostId });
+  rows.sort((a, b) => b.kills - a.kills || b.xp - a.xp);
+  const tb = $('sbRows'); tb.innerHTML = '';
+  for (const r of rows) {
+    const tr = document.createElement('tr'); if (r.me) tr.className = 'me';
+    const c1 = document.createElement('td'); c1.className = 'pl';
+    const b = document.createElement('span'); b.innerHTML = badgeSVG(r.lvl, 26);
+    const t = document.createElement('div'); const n = document.createElement('b'); n.textContent = r.name + (r.host ? '  · Host' : '');
+    const rk = document.createElement('span'); rk.textContent = `Lv ${r.lvl} · ${rankOf(r.lvl).title}`; t.append(n, rk); c1.append(b, t);
+    const c2 = document.createElement('td'); c2.textContent = r.kills;
+    const c3 = document.createElement('td'); c3.textContent = r.xp.toLocaleString();
+    const c4 = document.createElement('td'); c4.textContent = r.st; c4.className = r.st === 'Down' ? 'down' : 'ok';
+    tr.append(c1, c2, c3, c4); tb.append(tr);
+  }
+}
+$('sbClose').addEventListener('click', () => showScore(false, false));
+
+// ---------------- settings ----------------
+let settingsFrom = null;
+function openSettings() {
+  settingsFrom = !$('pause').hidden ? 'pause' : !$('menu').hidden ? 'menu' : null;
+  if (settingsFrom) $(settingsFrom).hidden = true;
+  syncSettingsUI(); $('settings').hidden = false;
+}
+function closeSettings() {
+  $('settings').hidden = true;
+  if (settingsFrom) $(settingsFrom).hidden = false;
+}
+function syncSettingsUI() {
+  $('sSens').value = CFG.sens; $('sSensV').textContent = CFG.sens.toFixed(2) + '×';
+  $('sTouch').value = CFG.touchSens; $('sTouchV').textContent = CFG.touchSens.toFixed(2) + '×';
+  $('sFov').value = CFG.fov; $('sFovV').textContent = CFG.fov + '°';
+  $('sVol').value = CFG.vol; $('sVolV').textContent = Math.round(CFG.vol * 100) + '%';
+  $('sInv').checked = CFG.invertY;
+  for (const b of document.querySelectorAll('#sRes button')) b.setAttribute('aria-pressed', b.dataset.res === CFG.res ? 'true' : 'false');
+}
+const bindRange = (id, key, parse) => $(id).addEventListener('input', e => { CFG[key] = parse(e.target.value); saveCfg(); syncSettingsUI(); if (key === 'vol' && MASTER) MASTER.gain.value = CFG.vol; });
+bindRange('sSens', 'sens', parseFloat); bindRange('sTouch', 'touchSens', parseFloat); bindRange('sFov', 'fov', v => parseInt(v, 10)); bindRange('sVol', 'vol', parseFloat);
+$('sInv').addEventListener('change', e => { CFG.invertY = e.target.checked; saveCfg(); });
+for (const b of document.querySelectorAll('#sRes button')) b.addEventListener('click', () => { CFG.res = b.dataset.res; saveCfg(); syncSettingsUI(); resize(); });
+$('sDone').addEventListener('click', closeSettings);
+$('menuSettingsBtn').addEventListener('click', () => openSettings());
 
 // ---------------- touch input ----------------
 const touches = { move: null, look: [] };
@@ -1803,6 +1991,8 @@ function act(name, down, el) {
   if (down && name === 'reload') startReload();
   if (down && name === 'pulse') pulse();
   if (down && name === 'use') input.use = true;
+  if (down && name === 'score') { if ($('score').hidden) showScore(true, true); else showScore(false, false); }
+  if (down && name === 'menu') openPause();
   if (down && name === 'zoom') { input.adsToggle = !input.adsToggle; $('tZoom').classList.toggle('on', input.adsToggle); }
   if (el) el.classList.toggle('on', down && name !== 'zoom');
 }
@@ -1840,7 +2030,7 @@ game.addEventListener('touchmove', e => {
       continue;
     }
     const l = touches.look.find(o => o.id === t.identifier);
-    if (l && !l.noLook && S.running && !paused) { look(x - l.x, y - l.y, 0.0058); l.x = x; l.y = y; }
+    if (l && !l.noLook && S.running && !paused) { look(x - l.x, y - l.y, 0.0058 * CFG.touchSens); l.x = x; l.y = y; }
   }
 }, { passive: false });
 function touchEnd(e) {
@@ -2244,7 +2434,7 @@ function onNet(m) {
     case 'start': if (mode !== 'game' || !S || !S.running) start(); break;
     case 'p': {
       const p = NET.peers.get(m.from); if (!p) break;
-      Object.assign(p, { tx: m.x, ty: m.y, tz: m.z, yw: m.yw, pt: m.pt, a: m.a, f: m.f, hp: m.hp ?? 100, sh: m.sh ?? 100, hl: m.hl });
+      Object.assign(p, { tx: m.x, ty: m.y, tz: m.z, yw: m.yw, pt: m.pt, a: m.a, f: m.f, hp: m.hp ?? 100, sh: m.sh ?? 100, hl: m.hl, kills: m.k || 0, xpRun: m.xr || 0 });
       if (m.n) p.name = m.n;
       if (m.l) p.lvl = m.l;
       break;
@@ -2314,7 +2504,7 @@ function netTick(dt) {
     NET.sendT = 1 / 12;
     netSend({ t: 'p', x: r2(P.x), y: r2(P.y), z: r2(P.z), yw: r2(P.yaw), pt: r2(P.pitch), a: P.dead ? 0 : 1,
       f: input.fire && !P.dead && P.reloadT <= 0 && P.mag > 0 ? 1 : 0, n: callsign, l: prog.level,
-      hp: Math.round(Math.max(0, P.hp)), sh: Math.round(P.shield), hl: S.nearStation && S.nearStation.active ? 1 : 0 });
+      hp: Math.round(Math.max(0, P.hp)), sh: Math.round(P.shield), hl: S.nearStation && S.nearStation.active ? 1 : 0, k: S.kills, xr: S.xp });
   }
   if (NET.host) {
     NET.snapT -= dt;
@@ -2460,7 +2650,7 @@ $('callsign').addEventListener('input', e => {
   try { localStorage.setItem('kessa-name', callsign); } catch (err) {}
 });
 addEventListener('keydown', e => { if (e.target && e.target.id === 'callsign') e.stopPropagation(); }, true);
-function showOnly(id) { for (const k of ['menu', 'loadout', 'pause', 'over', 'lobby']) $(k).hidden = k !== id; }
+function showOnly(id) { for (const k of ['menu', 'loadout', 'pause', 'over', 'lobby']) $(k).hidden = k !== id; $('score').hidden = true; $('settings').hidden = true; scoreSticky = false; }
 function refreshRank() {
   const rk = rankOf(prog.level);
   $('mBadge').innerHTML = badgeSVG(prog.level, 72);
@@ -2506,6 +2696,15 @@ $('quitBtn').addEventListener('click', toMenu);
 
 setTimeout(() => {
   buildLevel(); buildMenu();
+  try {
+    initPreview();
+    const c = new T.PerspectiveCamera(50, 16 / 9, 0.1, 400); c.position.set(-30, 24, 32); c.lookAt(3, 0, -3);
+    R2.setPixelRatio(1); R2.setSize(256, 144, false);
+    sky.position.copy(c.position);
+    R2.render(scene, c);
+    $('mapKessa').src = R2.domElement.toDataURL();
+    pvKey = '';
+  } catch (e) {}
   newGame(); S.running = false; refreshRank();
   $('loading').hidden = true; $('playBtn').hidden = false; $('mpBtn').hidden = false;
   requestAnimationFrame(frame);
