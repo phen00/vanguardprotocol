@@ -955,7 +955,8 @@ if (window.visualViewport) visualViewport.addEventListener('resize', () => { res
 resize();
 // iOS double-tap zoom and pinch: never let the page zoom while playing
 document.addEventListener('gesturestart', e => e.preventDefault());
-let lastTouchEnd = 0; document.addEventListener('touchend', e => { const n = Date.now(); if (n - lastTouchEnd < 350 && !e.target.closest('input')) e.preventDefault(); lastTouchEnd = n; }, { passive: false });
+// (only during play, and never on buttons, so quick taps in menus still register)
+let lastTouchEnd = 0; document.addEventListener('touchend', e => { const n = Date.now(); if (mode === 'game' && n - lastTouchEnd < 350 && !e.target.closest('input, button, a, label')) e.preventDefault(); lastTouchEnd = n; }, { passive: false });
 
 // ---------------- textures ----------------
 let seed = 1337;
