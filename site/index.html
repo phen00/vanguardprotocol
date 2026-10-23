@@ -962,8 +962,8 @@ const TX = {
 const M = {
   grass: new T.MeshLambertMaterial({ map: TX.grass }),
   dirt: new T.MeshLambertMaterial({ map: TX.dirt, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
-  concrete: new T.MeshLambertMaterial({ map: TX.concrete }),
-  trim: new T.MeshLambertMaterial({ map: TX.concrete, color: 0x9ea4a6 }),
+  concrete: new T.MeshLambertMaterial({ map: TX.concrete, color: 0x8e9294 }),
+  trim: new T.MeshLambertMaterial({ map: TX.concrete, color: 0x7c8284 }),
   grate: new T.MeshLambertMaterial({ map: TX.grate }),
   rock: new T.MeshLambertMaterial({ map: TX.rock }),
   bark: new T.MeshLambertMaterial({ map: TX.bark }),
@@ -1071,22 +1071,31 @@ const bagTex = (() => { const c = document.createElement('canvas'); c.width = c.
   g.fillStyle = 'rgba(60,46,28,.55)'; g.fillRect(0, 15, 32, 1); g.fillRect(3, 0, 1, 32); g.fillRect(28, 0, 1, 32);
   const t = new T.CanvasTexture(c); t.magFilter = T.NearestFilter; return t; })();
 const bagMats = [0xb8a070, 0xa89064, 0x9a845a].map(c => new T.MeshLambertMaterial({ map: bagTex, color: c }));
-const bagGeo = (() => { const g = new T.BoxGeometry(0.56, 0.2, 0.32, 2, 1, 1); const p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const k = 1 - Math.abs(x) / 0.28 * 0.25; p.setY(i, y * k); p.setZ(i, z * (0.85 + 0.15 * k)); }
+// a fat, slumped bag: pillowed in the middle, ends and edges sagging down
+const bagGeo = (() => { const g = new T.BoxGeometry(0.62, 0.28, 0.44, 8, 3, 4); const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i) / 0.31, y = p.getY(i) / 0.14, z = p.getZ(i) / 0.22;
+    const pillow = (1 - 0.55 * x * x) * (1 - 0.35 * z * z);
+    let ny = y > 0 ? y * pillow : y * (0.85 + 0.15 * pillow);
+    ny -= 0.35 * x * x * (y > 0 ? 1 : 0.4) + 0.12 * z * z;          // droop toward the ends and sides
+    const nz = z * (1 + 0.12 * (1 - x * x)) * (1 - 0.18 * Math.max(0, y));
+    const nx = x * (1 - 0.06 * y * y);
+    p.setXYZ(i, nx * 0.31, ny * 0.14, nz * 0.22);
+  }
   g.computeVertexNormals(); return g; })();
 function sandbags(cx, cz, w, d, h, y0 = 0) {
   boxes.push({ x0: cx - w / 2, x1: cx + w / 2, z0: cz - d / 2, z1: cz + d / 2, y0, y1: y0 + h });
   const along = w >= d, len = along ? w : d, thick = along ? d : w;
-  const rows = Math.max(2, Math.round(h / 0.19)), cols = Math.max(1, Math.round(len / 0.52)), deep = thick > 0.7 ? 2 : 1;
+  const rows = Math.max(2, Math.round(h / 0.21)), cols = Math.max(1, Math.round(len / 0.55)), deep = thick > 0.75 ? 2 : 1;
   for (let r = 0; r < rows; r++) for (let k = 0; k < deep; k++) {
-    const shift = r % 2 ? 0.26 : 0, n = cols - (r % 2 ? 1 : 0);
+    const shift = r % 2 ? 0.28 : 0, n = cols - (r % 2 ? 1 : 0);
     for (let i = 0; i < n; i++) {
-      const t = -len / 2 + 0.26 + shift + i * (len - 0.52) / Math.max(1, cols - 1);
-      const off = deep === 2 ? (k ? 0.17 : -0.17) * (thick / 0.8) : 0;
+      const t = -len / 2 + 0.28 + shift + i * (len - 0.56) / Math.max(1, cols - 1);
+      const off = deep === 2 ? (k ? 0.2 : -0.2) * (thick / 0.8) : 0;
       const m = new T.Mesh(bagGeo, bagMats[(r * 7 + i * 3 + k) % 3]);
-      const y = y0 + 0.1 + r * (h - 0.2) / (rows - 1);
+      const y = y0 + 0.11 + r * (h - 0.2) / (rows - 1) - r * 0.012;
       if (along) m.position.set(cx + t, y, cz + off); else { m.position.set(cx + off, y, cz + t); m.rotation.y = Math.PI / 2; }
-      m.rotation.y += srnd(-0.08, 0.08); m.rotation.z = srnd(-0.05, 0.05); m.scale.set(srnd(0.92, 1.06), srnd(0.9, 1.1), srnd(0.95, 1.08));
+      m.rotation.y += srnd(-0.08, 0.08); m.rotation.z = srnd(-0.05, 0.05); m.scale.set(srnd(0.94, 1.08), srnd(0.88, 1.08), srnd(0.95, 1.12)); m.rotation.x = srnd(-0.06, 0.06);
       build.add(m);
     }
   }
@@ -1228,6 +1237,13 @@ function buildLevel() {
   sandbags(-9.5, 5, 3, 0.6, 1.1, 0.9); sandbags(10.5, 1, 2.5, 0.6, 1.1, 0.9);
   addBox(0, -1, 2, 2, 0.5, 0.9, M.trim);
 
+  // the plaza took a beating: scorch marks, cracks and loose rubble
+  const onTop = (x, z, pad) => boxes.some(b => b.y1 > 1.0 && x > b.x0 - pad && x < b.x1 + pad && z > b.z0 - pad && z < b.z1 + pad);
+  for (let i = 0; i < 14; i++) { const x = srnd(-12, 12), z = srnd(-8, 8); if (!onTop(x, z, 0.3)) decal(x, 0.9, z, srnd(0.5, 1.6), MX.scorch); }
+  for (let i = 0; i < 18; i++) { const x = srnd(-12.5, 12.5), z = srnd(-8.5, 8.5); if (onTop(x, z, 0.4)) continue;
+    const L = srnd(0.8, 2.6); const c = new T.Mesh(new T.PlaneGeometry(0.05, L), MX.scorch); c.rotation.set(-Math.PI / 2, 0, srand() * 3); c.position.set(x, 0.925, z); build.add(c);
+    const c2 = new T.Mesh(new T.PlaneGeometry(0.04, L * 0.5), MX.scorch); c2.rotation.set(-Math.PI / 2, 0, srand() * 3); c2.position.set(x + srnd(-0.3, 0.3), 0.925, z + srnd(-0.3, 0.3)); build.add(c2); }
+  for (let i = 0; i < 26; i++) { const x = srnd(-12.5, 12.5), z = srnd(-8.5, 8.5); if (onTop(x, z, 0.3)) continue; const m = new T.Mesh(new T.DodecahedronGeometry(srnd(0.06, 0.18), 0), i % 3 ? M.trim : MX.char); m.position.set(x, 0.95, z); m.rotation.set(srand() * 3, srand() * 3, 0); build.add(m); }
   // grated walkway east
   addBox(21.5, -3, 17, 4, 0.9);
   addBox(21.5, -3, 17, 3.4, 0.06, 0.9, M.grate, true, 1.5);
