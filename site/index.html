@@ -1139,9 +1139,13 @@ function wreckInterior(cx, cz, w, d, y0, kind) {
   // dead terminal
   { const x = cx - w / 2 + 0.55, z = cz + srnd(-d / 4, d / 4); if (clear(x, z, 1.6)) addBox(x, z, 0.5, 1, 1, y0, MX.metal); if (clear(x, z, 1.6)) slab(build, 0.04, 0.45, 0.75, x + 0.27, y0 + 1.25, z, kind === 'lab' ? MX.screen : MX.char, 0, 0, -0.2); }
   // rubble and spent debris
-  for (let i = 0; i < 6; i++) { const m = new T.Mesh(new T.DodecahedronGeometry(srnd(0.08, 0.22), 0), i % 2 ? M.rock : MX.char); m.position.set(ix(), y0 + 0.08, iz()); m.rotation.set(srand() * 3, srand() * 3, 0); build.add(m); }
+  for (let i = 0; i < 2; i++) { const m = new T.Mesh(new T.DodecahedronGeometry(srnd(0.08, 0.22), 0), i % 2 ? M.rock : MX.char); m.position.set(ix(), y0 + 0.08, iz()); m.rotation.set(srand() * 3, srand() * 3, 0); build.add(m); }
   if (kind === 'bunk' || kind === 'hab') for (let i = 0; i < 2; i++) { if (!clear(cx + w / 2 - 1.2, cz - d / 2 + 1 + i * 1.6, 1.8)) continue; const g = new T.Group(); g.position.set(cx + w / 2 - 1.2, y0, cz - d / 2 + 1 + i * 1.6); build.add(g); slab(g, 1.9, 0.1, 0.8, 0, 0.45, 0, MX.metal, 0, 0, i ? 0.25 : 0); slab(g, 1.8, 0.12, 0.7, 0, 0.56, 0, MX.burnt, 0, 0, i ? 0.25 : 0); }
-  if (kind !== 'store') corpse(ix(), iz(), y0, srand() * 6, srand() < 0.5 ? 'colonist' : 'marine');
+  if (kind !== 'store') for (let tries = 0; tries < 8; tries++) {
+    const side = (srand() * 4) | 0, u = srnd(-0.35, 0.35);
+    const [x, z, face] = [[cx + u * w, cz - d / 2 + 0.45, 0], [cx + u * w, cz + d / 2 - 0.45, Math.PI], [cx - w / 2 + 0.45, cz + u * d, Math.PI / 2], [cx + w / 2 - 0.45, cz + u * d, -Math.PI / 2]][side];
+    if (clear(x, z, 1.6)) { slumped(x, z, y0, face, srand() < 0.5 ? 'colonist' : 'marine'); break; }
+  }
   if (kind === 'hab' || kind === 'ops') fire(ix(), y0, iz());
 }
 // a fallen body, lying face down with a dark stain; or a destroyed synth
@@ -1159,7 +1163,42 @@ function corpse(x, z, y0, rot, kind) {
   slab(g, 0.13, 0.12, 0.55, -0.32, 0.08, -0.15, cl, 0, -0.5, 0); slab(g, 0.13, 0.12, 0.55, 0.34, 0.08, 0.05, cl, 0, 0.9, 0);   // arms
   slab(g, 0.16, 0.14, 0.7, -0.12, 0.09, 0.62, cl, 0, 0.15, 0); slab(g, 0.16, 0.14, 0.7, 0.16, 0.09, 0.6, cl, 0, -0.3, 0);     // legs
 }
+// U-shaped (or corner) sandbag nest; dir is the side the enemy comes from
+let nests = [];
+function nest(x, z, dir) {
+  const D = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0], nw: [-1, -1], ne: [1, -1], sw: [-1, 1], se: [1, 1] }[dir];
+  if (D[0] && D[1]) {   // corner nest: two walls meeting toward the threat
+    sandbags(x + D[0] * 1.5, z, 0.8, 3.2, 1.15); sandbags(x, z + D[1] * 1.5, 3.2, 0.8, 1.15);
+  } else if (D[1]) { sandbags(x, z + D[1] * 1.3, 3.8, 0.8, 1.15); sandbags(x - 1.9, z + D[1] * 0.2, 0.8, 1.6, 1.15); sandbags(x + 1.9, z + D[1] * 0.2, 0.8, 1.6, 1.15); }
+  else { sandbags(x + D[0] * 1.3, z, 0.8, 3.8, 1.15); sandbags(x + D[0] * 0.2, z - 1.9, 1.6, 0.8, 1.15); sandbags(x + D[0] * 0.2, z + 1.9, 1.6, 0.8, 1.15); }
+  // ammo crate left behind inside the nest
+  addBox(x - D[0] * 0.6 + (D[1] ? 0.8 : 0), z - D[1] * 0.6 + (D[0] ? 0.8 : 0), 0.7, 0.45, 0.4, 0, MX.metal);
+  nests.push({ x, z, D });
+}
+// a body sitting slumped against a wall: back to the wall, legs out, head dropped
+function slumped(x, z, y0, face, kind) {
+  const g = new T.Group(); g.position.set(x, y0, z); g.rotation.y = face; build.add(g);
+  decal(x, y0, z, srnd(0.45, 0.65), MX.stain);
+  const cl = kind === 'marine' ? MX.synth : (srand() < 0.5 ? MX.cloth : MX.cloth2);
+  slab(g, 0.42, 0.55, 0.24, 0, 0.34, -0.06, cl, -0.25, 0, srnd(-0.15, 0.15));            // torso leaning back
+  slab(g, 0.22, 0.24, 0.24, srnd(-0.08, 0.08), 0.68, 0.0, kind === 'marine' ? MX.synth : MX.skin, 0.5, srnd(-0.4, 0.4), 0.3); // head dropped
+  slab(g, 0.16, 0.14, 0.7, -0.12, 0.08, 0.38, cl, 0, 0.12, 0); slab(g, 0.16, 0.14, 0.66, 0.14, 0.08, 0.36, cl, 0, -0.2, 0);   // legs out
+  slab(g, 0.12, 0.45, 0.13, -0.27, 0.22, 0.05, cl, 0.2, 0, 0.25); slab(g, 0.12, 0.45, 0.13, 0.27, 0.2, 0.12, cl, 0.6, 0, -0.2); // arms limp
+}
 function scatterCorpses(okSpot) {
+  // fallen defenders slumped behind their sandbags, and the synths they stopped out in front
+  nests.forEach((n, i) => {
+    const bx = n.x - n.D[0] * 0.9, bz = n.z - n.D[1] * 0.9;
+    if (i % 2 === 0) slumped(bx + (n.D[1] ? -0.8 : 0), bz + (n.D[0] ? -0.8 : 0), 0, Math.atan2(-n.D[0], -n.D[1]), i % 4 ? 'colonist' : 'marine');
+    corpse(n.x + n.D[0] * srnd(4, 7) + srnd(-2, 2), n.z + n.D[1] * srnd(4, 7) + srnd(-2, 2), 0, srand() * 6, 'synth');
+  });
+  // along the plaza line and against building walls
+  slumped(-6, 7.8, 0.9, Math.PI, 'marine'); slumped(12.0, 6.4, 0.9, -Math.PI / 2, 'colonist'); slumped(-12.0, -6.2, 0.9, Math.PI / 2, 'marine');
+  slumped(-26, 13.2, 0, 0, 'colonist'); slumped(-29.9, 7, 0, Math.PI / 2, 'marine'); slumped(28.5, 30, 0, -Math.PI / 2, 'colonist');
+  corpse(16, 12, 0, 1.2, 'synth'); corpse(-18, -12, 0, 2.5, 'synth'); corpse(4, 15, 0, 0.4, 'colonist');
+  return;
+}
+function _unusedScatter(okSpot) {
   const spots = [[-4, 12, 'colonist'], [12, 11, 'marine'], [-16, -4, 'colonist'], [3, -14, 'synth'], [18, 6, 'synth'], [-12, -14, 'marine']];
   for (const [x, z, k] of spots) corpse(x, z, groundAt(x, z, 5), srand() * 6, k);
   let n = 0, tries = 0;
@@ -1233,17 +1272,22 @@ function buildLevel() {
   addBox(3, 5.5, 0.4, 0.4, 3, 0.9); addBox(9, 5.5, 0.4, 0.4, 3, 0.9);
   addBox(6, 5.5, 7.2, 3.2, 0.3, 3.9, M.trim, false);
   // cover
-  sandbags(-3, 3, 4, 0.6, 1.1, 0.9); sandbags(5, 1.5, 0.6, 3.5, 1.1, 0.9);
-  sandbags(-9.5, 5, 3, 0.6, 1.1, 0.9); sandbags(10.5, 1, 2.5, 0.6, 1.1, 0.9);
+  // the defenders' line: sandbags along the plaza edges facing out, leaving the stairs and walkway open
+  sandbags(-7.6, 8.4, 7, 0.8, 1.1, 0.9); sandbags(5.8, 8.4, 4.4, 0.8, 1.1, 0.9);      // south edge, either side of the main stairs
+  sandbags(-1.2, -8.4, 7.4, 0.8, 1.1, 0.9);                                           // north edge between the stairs and the store
+  sandbags(12.4, 4.6, 0.8, 7.2, 1.1, 0.9); sandbags(12.4, -7.2, 0.8, 2.6, 1.1, 0.9);   // east edge, gap for the walkway
+  sandbags(-12.4, -3.4, 0.8, 8.6, 1.1, 0.9);                                          // west edge, gap for the west stairs
+  // inner fallback position around the centre
+  sandbags(-3, 3, 3.4, 0.7, 1.1, 0.9); sandbags(4.4, 1.6, 0.7, 3.2, 1.1, 0.9);
   addBox(0, -1, 2, 2, 0.5, 0.9, M.trim);
 
   // the plaza took a beating: scorch marks, cracks and loose rubble
   const onTop = (x, z, pad) => boxes.some(b => b.y1 > 1.0 && x > b.x0 - pad && x < b.x1 + pad && z > b.z0 - pad && z < b.z1 + pad);
-  for (let i = 0; i < 14; i++) { const x = srnd(-12, 12), z = srnd(-8, 8); if (!onTop(x, z, 0.3)) decal(x, 0.9, z, srnd(0.5, 1.6), MX.scorch); }
-  for (let i = 0; i < 18; i++) { const x = srnd(-12.5, 12.5), z = srnd(-8.5, 8.5); if (onTop(x, z, 0.4)) continue;
+  for (let i = 0; i < 6; i++) { const x = srnd(-12, 12), z = srnd(-8, 8); if (!onTop(x, z, 0.3)) decal(x, 0.9, z, srnd(0.5, 1.6), MX.scorch); }
+  for (let i = 0; i < 6; i++) { const x = srnd(-12.5, 12.5), z = srnd(-8.5, 8.5); if (onTop(x, z, 0.4)) continue;
     const L = srnd(0.8, 2.6); const c = new T.Mesh(new T.PlaneGeometry(0.05, L), MX.scorch); c.rotation.set(-Math.PI / 2, 0, srand() * 3); c.position.set(x, 0.925, z); build.add(c);
     const c2 = new T.Mesh(new T.PlaneGeometry(0.04, L * 0.5), MX.scorch); c2.rotation.set(-Math.PI / 2, 0, srand() * 3); c2.position.set(x + srnd(-0.3, 0.3), 0.925, z + srnd(-0.3, 0.3)); build.add(c2); }
-  for (let i = 0; i < 26; i++) { const x = srnd(-12.5, 12.5), z = srnd(-8.5, 8.5); if (onTop(x, z, 0.3)) continue; const m = new T.Mesh(new T.DodecahedronGeometry(srnd(0.06, 0.18), 0), i % 3 ? M.trim : MX.char); m.position.set(x, 0.95, z); m.rotation.set(srand() * 3, srand() * 3, 0); build.add(m); }
+  for (let i = 0; i < 5; i++) { const x = srnd(-12.5, 12.5), z = srnd(-8.5, 8.5); if (onTop(x, z, 0.3)) continue; const m = new T.Mesh(new T.DodecahedronGeometry(srnd(0.06, 0.18), 0), i % 3 ? M.trim : MX.char); m.position.set(x, 0.95, z); m.rotation.set(srand() * 3, srand() * 3, 0); build.add(m); }
   // grated walkway east
   addBox(21.5, -3, 17, 4, 0.9);
   addBox(21.5, -3, 17, 3.4, 0.06, 0.9, M.grate, true, 1.5);
@@ -1256,14 +1300,14 @@ function buildLevel() {
   // west pillbox and walls
   room(-26, 9, 7, 7, 3.2, 0, [{ side: 'e', off: 0, w: 2 }, { side: 'n', off: 1.5, w: 1.8 }, { side: 'w', off: -1.5, w: 2, h: 0.5, sill: 1.6 }], { roofW: 7.8, roofD: 7.8 });
   wreckInterior(-26, 9, 7, 7, 0, 'bunk');
-  sandbags(-26, 15.5, 6, 0.6, 1.2); sandbags(-31, 3, 0.6, 5, 1.2); sandbags(-20, 2.5, 4, 0.6, 1.2);
+  sandbags(-26, 15.3, 6, 0.8, 1.2); sandbags(-31.2, 4, 0.8, 5, 1.2);
   // north ruins
-  addBox(6, -24, 10, 1, 2.6); addBox(-10, -22, 1, 7, 2.1); sandbags(-3, -30, 4, 0.6, 1.2);
-  sandbags(18, -18, 0.8, 6, 1.4);
+  addBox(6, -24, 10, 1, 2.6); addBox(-10, -22, 1, 7, 2.1); 
+  addBox(18, -18, 0.6, 6, 1.6);
   room(-24, -16, 5, 5, 4, 0, [{ side: 's', off: 0.8, w: 1.8 }, { side: 'e', off: -0.6, w: 1.8 }, { side: 'n', off: 0, w: 1.8 }], { roofW: 5.6, roofD: 5.6 });
   wreckInterior(-24, -16, 5, 5, 0, 'lab');
   // south
-  addBox(14, 22, 8, 1, 2.2); sandbags(-14, 24, 0.9, 8, 1.3);
+  addBox(14, 22, 8, 1, 2.2); addBox(-14, 24, 1, 8, 1.8);
   room(24, 30, 5, 5, 3, 0, [{ side: 'n', off: -0.8, w: 1.6 }, { side: 'w', off: 0.6, w: 1.5 }], { roofW: 5.6, roofD: 5.6 });
   wreckInterior(24, 30, 5, 5, 0, 'store');
   // ---- outer colony, now that the map is bigger ----
@@ -1279,9 +1323,9 @@ function buildLevel() {
   wreckShuttle(43, 42);
   burntVehicle(-36, 22, 0.6); burntVehicle(22, 50, -1.1); burntVehicle(-14, -46, 2.2); burntVehicle(56, 14, 0.3);
   // extra cover out in the wider ring
-  sandbags(-50, -12, 6, 0.8, 1.3); sandbags(30, -52, 0.8, 7, 1.3); sandbags(-22, 52, 8, 0.8, 1.2); sandbags(54, 24, 0.8, 6, 1.3); sandbags(-58, 14, 0.8, 5, 1.2);
-  // a few extra sandbag nests around the wider map
-  for (const [x, z, w, d] of [[-8, 18, 3.5, 0.7], [12, -16, 0.7, 3.5], [-34, -6, 3, 0.7], [36, 8, 0.7, 3], [8, 34, 3.2, 0.7], [-6, -38, 3, 0.7], [-38, 40, 0.7, 3.2], [40, -26, 3, 0.7]]) sandbags(x, z, w, d, 1.15);
+  // forward fighting positions on every approach, open to the rear, facing where the attack came from
+  nest(3.5, -32, 'n'); nest(-3.5, 32, 's'); nest(-38, 3.5, 'w'); nest(42, -7, 'e');
+  nest(-34, -34, 'nw'); nest(34, -34, 'ne'); nest(-30, 40, 'sw'); nest(34, 19, 'se');
   for (const [x, z, sc] of [[-44, 4, 2.6], [36, 14, 2.2], [-14, 40, 2.4], [14, -44, 2.8], [52, -20, 2.4], [-56, -30, 3]]) rockAt(x, z, sc, sc * 0.8, sc, true);
   // crates
   for (const [x, z, s, y] of [[20, 15, 1.3, 0], [21.4, 15.1, 1.3, 0], [20.7, 15.2, 1.1, 1.3], [-18, -10, 1.3, 0], [-18.2, -8.6, 1.3, 0], [15, -14, 1.3, 0], [-12, 18, 1.3, 0], [-10.6, 18.3, 1.2, 0], [29, -18, 1.3, 0], [-34, -24, 1.3, 0], [33, 16, 1.3, 0], [-30, 28, 1.3, 0], [8, 32, 1.3, 0]])
