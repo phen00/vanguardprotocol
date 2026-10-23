@@ -674,7 +674,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 .interhud b { font: 700 16px var(--display); color: #5dff96; }
 .interhud span { font: 11px var(--mono); color: var(--muted); }
 #game.predator canvas#cv { filter: grayscale(1) contrast(1.35) brightness(1.1); }
-#game.predator #etags, #game.predator #dnums, #game.predator .hudbar, #game.predator .xp, #game.predator .cross, #game.predator .weapon, #game.predator .touch-ui .tb:not(.fire) { visibility: hidden; }
+#game.predator #etags, #game.predator #dnums, #game.predator .hudbar, #game.predator .xp, #game.predator .cross, #game.predator .weapon, #game.predator .touch-ui .tb { visibility: hidden; }
 .pred { position: absolute; inset: 0; pointer-events: none; }
 .pred .pbox { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,.75); }
 .pred .pcross { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; transform: translate(-50%, -50%); background: linear-gradient(#fff, #fff) center / 2px 100% no-repeat, linear-gradient(#fff, #fff) center / 100% 2px no-repeat; opacity: .8; }
@@ -729,6 +729,12 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 @keyframes hbswap { 0% { transform: translateY(-46px) scale(.6); opacity: .3; } 100% { transform: none; opacity: 1; } }
 @keyframes hbswap2 { 0% { transform: translateY(46px) scale(1.4); opacity: .3; } 100% { transform: none; opacity: .8; } }
 @media (pointer: coarse) { .hb-alt { display: none; } }
+.lookpad { position: absolute; width: 104px; height: 104px; right: max(18px, calc(env(safe-area-inset-right, 0px) + 6px)); bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 10px)); border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle, rgba(20,30,50,.35), rgba(20,30,50,.6)); box-shadow: inset 0 0 0 2px rgba(143,214,255,.55); pointer-events: auto; touch-action: none; }
+.lookpad span { font: 700 10px var(--display); letter-spacing: .14em; color: rgba(200,230,255,.6); pointer-events: none; }
+.lookpad i { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: rgba(143,214,255,.35); box-shadow: inset 0 0 0 2px rgba(200,235,255,.8); pointer-events: none; }
+@media (pointer: coarse) and (max-height: 500px) { .lookpad { width: 92px; height: 92px; bottom: max(14px, env(safe-area-inset-bottom, 0px)); } }
+#game.predator .lookpad { visibility: visible; }
 </style>
 
 <div id="game">
@@ -797,7 +803,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 
   <div class="touch-ui" id="touchUI" hidden>
     <div class="stick" id="stickBase" hidden></div><div class="knob" id="stickKnob" hidden></div>
-    <div class="tb fire" data-act="fire">FIRE</div>
+    <div class="lookpad" data-act="look" id="lookPad"><i id="lookKnob"></i><span>LOOK</span></div>
     <div class="tb jump" data-act="jump">JUMP</div>
     <div class="tb reload" data-act="reload">RELOAD</div>
     <div class="tb pulse" data-act="pulse" id="tPulse" hidden>DOME</div>
@@ -806,7 +812,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
     <div class="tb swap" data-act="swap" id="tSwap">SWAP</div>
     <div class="tb skip" data-act="skip" id="tSkip" hidden>SKIP</div>
     <div class="tb crouch" data-act="crouch" id="tCrouch">CROUCH</div>
-    <div class="tb zoom" data-act="zoom" id="tZoom">ZOOM</div>
+    <div class="tb zoom" data-act="zoom" id="tZoom" hidden>ZOOM</div>
     <div class="tb sq menu" data-act="menu">MENU</div>
     <div class="tb sq score" data-act="score">SCORE</div>
     <div class="tb use" data-act="use" id="tUse" hidden>USE</div>
@@ -2893,6 +2899,18 @@ function useVisor() {
   P.visArm = 0.55; P.reloadT = 0;
   sTone(500, 1400, 0.45, 0.08, 'square'); sNoise(0.3, 4000, 0.06, 'highpass');
 }
+function assistTarget() {
+  const P = S.p; let best = null, bd = 0.32; cam.updateMatrixWorld();
+  for (const e of enemies) {
+    if (e.dead || Math.hypot(e.x - P.x, e.z - P.z) > 60) continue;
+    const hy = e.y + (e.type === 'walker' ? 4.4 : 1.6 * e.D.scale);
+    _ta.set(e.x, hy, e.z).project(cam); if (_ta.z > 1) continue;
+    const d = Math.hypot(_ta.x, _ta.y * 0.8); if (d >= bd) continue;
+    if (!lineOfSight(cam.position.x, cam.position.y, cam.position.z, e.x, hy, e.z)) continue;
+    bd = d; best = { e };
+  }
+  return best;
+}
 function visorTarget() {
   const P = S.p; let best = null, bd = 1e9; cam.updateMatrixWorld();
   for (const e of enemies) {
@@ -3057,7 +3075,24 @@ function update(dt) {
   const crouching = !P.dead && (!!k.c || input.crouchToggle);
   P.ch += ((crouching ? 1 : 0) - P.ch) * Math.min(1, dt * 12);
   const sprint = (k.shift && iy > 0 && !input.fire && !crouching) ? 1.5 : 1;
-  const adsOn = input.ads || input.adsToggle;
+  if (isTouch && S.missile) { const lx = input.lx || 0, ly = input.ly || 0; if (Math.hypot(lx, ly) > 0.05) look(lx * 2.2 * dt / 0.0058, ly * 2.2 * dt / 0.0058, 0.0058); }
+  if (isTouch && !P.dead && !S.missile) {
+    const lx = input.lx || 0, ly = input.ly || 0, m = Math.hypot(lx, ly);
+    if (m > 0.05) { const c = m * m * 2.6 * CFG.touchSens * (1 - 0.45 * P.ads); look(lx / m * c * dt / 0.0058, ly / m * c * dt / 0.0058, 0.0058); }
+    // aim assist: drift onto the nearest head close to the crosshair, aim down sights when on target
+    P.assistT = (P.assistT || 0) - dt;
+    if (P.assistT <= 0) { P.assistT = 0.1; P.assist = CFG.autoFire !== false ? assistTarget() : null; }
+    P.assistAds = false;
+    if (P.assist && !P.assist.e.dead && !(P.visT > 0)) {
+      const tg = P.assist, hy = tg.e.y + (tg.e.type === 'walker' ? 4.4 : 1.6 * tg.e.D.scale);
+      const dx = tg.e.x - cam.position.x, dy = hy - cam.position.y, dz = tg.e.z - cam.position.z;
+      let dyaw = Math.atan2(-dx, -dz) - P.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+      const dp = Math.atan2(dy, Math.hypot(dx, dz)) - P.recoil - P.pitch, k = Math.min(1, dt * 4.5);
+      P.yaw += dyaw * k; P.pitch += dp * k;
+      P.assistAds = Math.abs(dyaw) < 0.12 && Math.abs(dp) < 0.12;
+    }
+  }
+  const adsOn = input.ads || input.adsToggle || !!P.assistAds;
   const speed = 5.4 * sprint * (adsOn ? 0.6 : 1) * (1 - 0.5 * P.ch) * (P.momT > 0 ? 1.12 : 1) * (GS.move || 1);
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   P.x += (fx * iy + rx * ix) * speed * dt; P.z += (fz * iy + rz * ix) * speed * dt;
@@ -3871,6 +3906,7 @@ game.addEventListener('touchstart', e => {
     const el = document.elementFromPoint(t.clientX, t.clientY);
     const btn = el && el.closest && el.closest('[data-act]');
     if (btn) {
+      if (btn.dataset.act === 'look') { const br = btn.getBoundingClientRect(); touches.lookStick = { id: t.identifier, ox: br.left + br.width / 2 - r.left, oy: br.top + br.height / 2 - r.top }; continue; }
       act(btn.dataset.act, true, btn);
       if (btn.dataset.act === 'fire') touches.look.push({ id: t.identifier, x, y, btn });
       else touches.look.push({ id: t.identifier, x, y, btn, noLook: true });
@@ -3895,6 +3931,12 @@ game.addEventListener('touchmove', e => {
       stickKnob.style.left = (touches.move.ox + dx) + 'px'; stickKnob.style.top = (touches.move.oy + dy) + 'px';
       continue;
     }
+    if (touches.lookStick && touches.lookStick.id === t.identifier) {
+      let dx = x - touches.lookStick.ox, dy = y - touches.lookStick.oy; const d = Math.hypot(dx, dy), max = 46;
+      if (d > max) { dx = dx / d * max; dy = dy / d * max; }
+      input.lx = dx / max; input.ly = dy / max; $('lookKnob').style.transform = `translate(${dx}px, ${dy}px)`;
+      continue;
+    }
     const l = touches.look.find(o => o.id === t.identifier);
     if (l && !l.noLook && S.running && !paused) { look(x - l.x, y - l.y, 0.0058 * CFG.touchSens); l.x = x; l.y = y; }
   }
@@ -3902,6 +3944,7 @@ game.addEventListener('touchmove', e => {
 function touchEnd(e) {
   for (const t of e.changedTouches) {
     if (touches.move && touches.move.id === t.identifier) { touches.move = null; input.mx = input.my = 0; stickBase.hidden = stickKnob.hidden = true; }
+    if (touches.lookStick && touches.lookStick.id === t.identifier) { touches.lookStick = null; input.lx = input.ly = 0; $('lookKnob').style.transform = ''; }
     const i = touches.look.findIndex(o => o.id === t.identifier);
     if (i >= 0) { const l = touches.look[i]; if (l.btn) act(l.btn.dataset.act, false, l.btn); touches.look.splice(i, 1); }
   }
