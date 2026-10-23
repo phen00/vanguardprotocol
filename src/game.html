@@ -669,6 +669,44 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 @keyframes pickn { 0% { opacity: 0; transform: translateX(-4px); } 10% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
 .tb.swap { width: 52px; height: 52px; right: max(30px, calc(env(safe-area-inset-right, 0px) + 18px)); bottom: max(196px, calc(env(safe-area-inset-bottom, 0px) + 180px)); }
 @media (pointer: coarse) and (max-height: 500px) { .tb.swap { bottom: 158px; width: 44px; height: 44px; } }
+.interhud { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 3px; padding: 8px 18px 9px; border-radius: 14px; pointer-events: none; text-shadow: 0 1px 2px #000;
+  background: radial-gradient(120% 160% at 50% 0%, rgba(6,14,28,.66), rgba(6,14,28,.12) 75%, transparent); }
+.interhud b { font: 700 16px var(--display); color: #5dff96; }
+.interhud span { font: 11px var(--mono); color: var(--muted); }
+#game.predator canvas#cv { filter: grayscale(1) contrast(1.35) brightness(1.1); }
+#game.predator #etags, #game.predator #dnums, #game.predator .hudbar, #game.predator .xp, #game.predator .cross, #game.predator .weapon, #game.predator .touch-ui .tb:not(.fire) { visibility: hidden; }
+.pred { position: absolute; inset: 0; pointer-events: none; }
+.pred .pbox { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,.75); }
+.pred .pcross { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; transform: translate(-50%, -50%); background: linear-gradient(#fff, #fff) center / 2px 100% no-repeat, linear-gradient(#fff, #fff) center / 100% 2px no-repeat; opacity: .8; }
+.pred .pinfo { position: absolute; left: 24px; top: 70px; display: grid; gap: 2px; font: 600 12px var(--mono); color: #fff; text-shadow: 0 1px 2px #000; }
+.pred .pinfo b { font: 800 18px var(--display); letter-spacing: .2em; }
+#ptags i { position: absolute; transform: translate(-50%, -50%); border: 2px solid #ff3a2a; box-shadow: 0 0 8px rgba(255,60,40,.8); }
+.shop { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(4,6,12,.72); overflow-y: auto; touch-action: pan-y; }
+.spanel { width: min(760px, 100%); display: grid; gap: 14px; padding: 18px; border-radius: 16px; background: rgba(10,14,24,.94); box-shadow: inset 0 0 0 1px rgba(255,181,71,.35); }
+.shead { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.shead h2 { margin: 0; font: 800 30px var(--display); }
+.spts { display: grid; justify-items: end; } .spts span { font: 700 9px var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--amber); }
+.spts b { font: 800 26px var(--display); color: #ffd28a; text-shadow: 0 0 10px rgba(255,181,71,.55); }
+.slist { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; }
+.kcard { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; text-align: left; padding: 12px; border-radius: 12px; background: rgba(20,26,42,.8); border: 1px solid var(--line); color: var(--ink); cursor: pointer; pointer-events: auto; font-family: var(--mono); }
+.kcard .kico { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,181,71,.12); color: #ffd28a; } .kcard .kico svg { width: 26px; height: 26px; }
+.kcard b { font: 700 14px var(--display); display: block; } .kcard .kt span { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+.kcard .kc { display: grid; justify-items: end; gap: 2px; } .kcard em { font: 800 16px var(--display); font-style: normal; color: #ffd28a; } .kcard small { font-size: 10px; color: var(--muted); }
+.kcard.can { border-color: rgba(93,255,150,.5); } .kcard.can small { color: #5dff96; }
+.kcard.soon { opacity: .45; cursor: default; } .kcard.soon .kico { background: rgba(255,255,255,.05); color: var(--muted); }
+.sfoot { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 11px var(--mono); color: var(--muted); }
+.tb.streak { width: 56px; height: 40px; border-radius: 10px; left: 50%; right: auto; transform: translateX(-50%); bottom: 110px; font-size: 9px; border-color: var(--amber); color: var(--amber); }
+.tb.skip { width: 56px; height: 34px; border-radius: 10px; left: 50%; right: auto; transform: translateX(-50%); top: 74px; font-size: 9px; border-color: #5dff96; color: #5dff96; }
+.streakbar { position: absolute; right: max(14px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); display: grid; gap: 8px; pointer-events: none; }
+.kslot { position: relative; width: 112px; display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 6px; padding: 7px 9px 7px 7px; border-radius: 12px; background: rgba(8,14,26,.45); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); color: rgba(255,255,255,.35); font: 600 9px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.kslot b { grid-row: span 2; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; background: rgba(255,255,255,.1); font: 700 11px var(--display); color: rgba(255,255,255,.6); }
+.kslot svg { width: 18px; height: 18px; }
+.kslot span { grid-column: 2; line-height: 1.2; }
+.kslot.on { color: #ffd28a; background: rgba(40,24,6,.7); box-shadow: inset 0 0 0 1px rgba(255,181,71,.65), 0 0 12px rgba(255,181,71,.3); pointer-events: auto; }
+.kslot.on b { background: #ffb547; color: #1a1006; }
+#game.predator .streakbar { visibility: hidden; }
+@media (pointer: coarse) { .streakbar { top: 40%; } .kslot { width: 92px; } }
+@media (pointer: coarse) and (max-height: 500px) { .streakbar { top: 44%; right: auto; left: max(16px, env(safe-area-inset-left, 0px)); } .kslot { width: 84px; padding: 4px 6px; } }
 </style>
 
 <div id="game">
@@ -691,6 +729,14 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
   <div class="edge radar"><canvas id="radar" width="120" height="120"></canvas></div>
   <div class="objhud" id="objHud" hidden><div class="ot"><span class="ol">Objective</span><b id="objTitle"></b><span class="otime" id="objTime">5:00</span></div><div class="obar"><i id="objFill"></i></div><div class="osub" id="objSub"></div></div>
   <div class="picknote" id="pickNote"></div>
+  <div class="interhud" id="interHud" hidden></div>
+  <div class="streakbar" id="streakBar"></div>
+  <div class="pred" id="pred" hidden><div class="pbox"></div><div class="pcross"></div><div class="pinfo"><b>PREDATOR</b><span id="predAlt">0 m</span><small>Steer with look · Fire to boost</small></div><div id="ptags"></div></div>
+  <div class="shop" id="shop" hidden><div class="spanel">
+    <div class="shead"><div><div class="eyebrow">Armory net terminal</div><h2>Tactical Support</h2></div><div class="spts"><span>Points</span><b id="shopPts">0</b></div></div>
+    <div class="slist" id="shopList"></div>
+    <div class="sfoot"><span>Up to three support calls fill your slots on the right. Use them with <b>3</b>, <b>4</b> and <b>5</b>, or tap them on touch screens.</span><button class="ghost" id="shopClose" type="button">Close</button></div>
+  </div></div>
   <div class="hudbar" id="hudbar">
     <div class="hb-l">
       <img class="hb-gun" id="hbGun" alt="">
@@ -733,6 +779,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
     <div class="tb pulse" data-act="pulse" id="tPulse" hidden>DOME</div>
     <div class="tb nade" data-act="nade" id="tNade">NADE</div>
     <div class="tb swap" data-act="swap" id="tSwap">SWAP</div>
+    <div class="tb skip" data-act="skip" id="tSkip" hidden>SKIP</div>
     <div class="tb crouch" data-act="crouch" id="tCrouch">CROUCH</div>
     <div class="tb zoom" data-act="zoom" id="tZoom">ZOOM</div>
     <div class="tb sq menu" data-act="menu">MENU</div>
@@ -1488,7 +1535,7 @@ function buildLevel() {
     stations.push({ mat, px: x + nx * 1.1, pz: z + nz * 1.1, y0, cd: 0, active: false });
   }
   bake(build);
-  buildAmmoBox();
+  buildAmmoBox(); buildTerminal();
   finalizeLevel();
 }
 
@@ -2567,6 +2614,7 @@ function newGame() {
   nades = []; booms = [];
   for (const d of domes) scene.remove(d.g); domes = [];
   if (typeof clearObjFx === 'function') { clearObjFx(); clearWeatherFx(); }
+  { const sh = $('shop'); if (sh) sh.hidden = true; const pr = $('pred'); if (pr) pr.hidden = true; $('game').classList.remove('predator'); }
   for (const d of debris) scene.remove(d.m);
   for (const k of pickups) scene.remove(k.m);
   enemies = []; bolts = []; debris = []; pickups = [];
@@ -2862,9 +2910,11 @@ function update(dt) {
   const P = S.p;
 
   // movement input
-  let ix = P.dead ? 0 : input.mx, iy = P.dead ? 0 : input.my;
+  if (S.missile) updateMissile(dt);
+  const noCtl = P.dead || !!S.missile;
+  let ix = noCtl ? 0 : input.mx, iy = noCtl ? 0 : input.my;
   const k = input.keys;
-  if (!P.dead && (!isTouch || (!ix && !iy))) {
+  if (!noCtl && (!isTouch || (!ix && !iy))) {
     if (k.w || k.arrowup) iy += 1; if (k.s || k.arrowdown) iy -= 1;
     if (k.a || k.arrowleft) ix -= 1; if (k.d || k.arrowright) ix += 1;
   }
@@ -2905,7 +2955,7 @@ function update(dt) {
     }
   } else P.autoOn = false;
   if (!input.fire) P.semiOk = true;
-  if ((input.fire || P.autoOn) && S.running && !(P.swapT > 0) && (!GS.semi || P.semiOk || P.autoOn)) { const m0 = P.mag; tryFire(); if (GS.semi && P.mag !== m0) P.semiOk = false; }
+  if ((input.fire || P.autoOn) && S.running && !S.missile && !(P.swapT > 0) && (!GS.semi || P.semiOk || P.autoOn)) { const m0 = P.mag; tryFire(); if (GS.semi && P.mag !== m0) P.semiOk = false; }
   if (P.swapT > 0) P.swapT = Math.max(0, P.swapT - dt);
   P.pulseCd = Math.max(0, P.pulseCd - dt);
   P.recoil *= Math.pow(0.012, dt);
@@ -2942,7 +2992,7 @@ function update(dt) {
       makeEnemy(S.queue.shift(), gx + rnd(-2, 2), gz + rnd(-2, 2));
       S.spawnCd = Math.max(0.35, 1.1 - S.wave * 0.05);
     }
-    if (!S.obj && !S.queue.length && !enemies.filter(e => !e.dead).length) { S.intermission = 6; waveCleared(); }
+    if (!S.obj && !S.queue.length && !enemies.filter(e => !e.dead).length) { S.intermission = DOWNTIME; S.votes = null; S.myVote = false; waveCleared(); }
   }
   }
 
@@ -2987,6 +3037,7 @@ function update(dt) {
     st.mat.color.setHex(st.active ? (Math.sin(S.t * 14) > 0 ? 0xffffff : 0x5dff96) : st.cd > 0 ? 0xff4b3a : 0x5dff96);
   }
   S.nearStation = near;
+  updateTerminal();
   updateAmmoBox();
   updateObjective(dt);
   // medical stations switch on by themselves when you step onto one hurt
@@ -3087,6 +3138,7 @@ function update(dt) {
 function addShake(v) { if (S) S.p.shake = Math.min(1, S.p.shake + v); }
 function placeCamera() {
   const P = S.p;
+  if (S.missile) { const m = S.missile; scene.fog.near = Math.max(scene.fog.near, 90); scene.fog.far = Math.max(scene.fog.far, 320); cam.position.set(m.x, m.y, m.z); cam.rotation.set(m.pitch, m.yaw, 0); if (Math.abs(cam.fov - 64) > 0.05) { cam.fov = 64; cam.updateProjectionMatrix(); } sky.position.copy(cam.position); predatorTags(); return; }
   const bob = reduceMotion ? 0 : Math.sin(P.bob * 2) * 0.03 * (1 - P.ads);
   const sh = reduceMotion ? 0 : P.shake * P.shake;
   cam.position.set(P.x + rnd(-1, 1) * sh * 0.018, P.y + 1.62 - 0.58 * P.ch + bob + rnd(-1, 1) * sh * 0.018, P.z);
@@ -3371,7 +3423,8 @@ function hud() {
     const t = el.querySelector('.t'), txt = cd > 0 ? String(Math.ceil(cd)) : '';
     if (t.textContent !== txt) t.textContent = txt;
   }
-  renderObjHud();
+  renderObjHud(); renderInterHud();
+  { const ks = P.streaks || [], key = ks.join(',') + (S.missile ? 'm' : ''); if ($('streakBar').dataset.k !== key) { $('streakBar').dataset.k = key; $('streakBar').innerHTML = [0, 1, 2].map(i => { const id = ks[i], k = id && STREAKS.find(x => x.id === id); return `<div class="kslot ${k ? 'on' : ''}" ${k ? `data-act="streak${i}"` : ''}><b>${i + 3}</b>${k ? KICON[id] + `<span>${k.name}</span>` : '<span>Empty</span>'}</div>`; }).join(''); } $('tSkip').hidden = !isTouch || !(S.intermission > 3.2 && S.wave > 0); }
   if (S.waveSeen !== S.wave) { S.waveSeen = S.wave; S.waveMax = 0; }
   S.waveMax = Math.max(S.waveMax || 0, enemies.length + S.queue.length);
   ui.obFill.style.transform = `scaleX(${S.waveMax ? (enemies.length + S.queue.length) / S.waveMax : 0})`;
@@ -3390,10 +3443,12 @@ function hud() {
   if (ui.npStatusT.textContent !== stt) { ui.npStatusT.textContent = stt; ui.npStatus.style.setProperty('--c', sc); }
   const st = S.nearStation; let msg = '';
   if (st && S.running) msg = st.active ? 'Healing…' : st.cd > 0 ? `Medical station recharging · ${Math.ceil(st.cd)}s` : P.hp >= 100 ? 'Health full' : (isTouch ? 'Tap USE to heal' : 'Press E to heal');
-  if (!msg && S.nearAmmo) { const c = ammoCost().toLocaleString(); msg = S.nearAmmo === 'full' ? 'Ammo full' : S.nearAmmo === 'poor' ? `Resupply costs ${c} points` : `${isTouch ? 'Tap USE' : 'Press X'} · resupply ammo for ${c} points`; }
+  if (S.missile) msg = '';
+  else if (!msg && S.nearTerm) msg = `${isTouch ? 'Tap USE' : 'Press X'} · tactical support terminal`;
+  if (!msg && !S.missile && S.nearAmmo) { const c = ammoCost().toLocaleString(); msg = S.nearAmmo === 'full' ? 'Ammo full' : S.nearAmmo === 'poor' ? `Resupply costs ${c} points` : `${isTouch ? 'Tap USE' : 'Press X'} · resupply ammo for ${c} points`; }
   if (ui.prompt.textContent !== msg) ui.prompt.textContent = msg;
   ui.prompt.hidden = !msg;
-  ui.tUse.hidden = !(S.nearAmmo === 'ready' || (st && S.running && !st.active && st.cd <= 0 && P.hp < 100));
+  ui.tUse.hidden = !(S.nearTerm || S.nearAmmo === 'ready' || (st && S.running && !st.active && st.cd <= 0 && P.hp < 100));
   const scoped = S.running && GS.optic === 'acog' && P.ads > 0.85;
   ui.scope.hidden = !scoped;
   if (scoped) ui.scope.style.setProperty('--d', scopeD() + 'px');
@@ -3485,6 +3540,7 @@ let lookMode = 'lock'; // or 'drag' if pointer lock is refused
 let paused = false;
 addEventListener('keydown', e => {
   if (e.key === 'Tab') { e.preventDefault(); if (mode === 'game' && S) showScore(true); return; }
+  if (e.key === 'Escape' && !$('shop').hidden) { e.preventDefault(); closeShop(); return; }
   if (e.key === 'Escape' && mode === 'game' && S && S.running && document.pointerLockElement !== cv && performance.now() - unlockedAt > 400) {
     e.preventDefault();
     if (!$('settings').hidden) closeSettings(); else if (paused) resume(); else openPause();
@@ -3497,6 +3553,8 @@ addEventListener('keydown', e => {
   if (k === '1' && curW !== loadout.primary) switchWeapon();
   if (k === '2' && curW === loadout.primary) switchWeapon();
   if (k === 'x') input.use = true;
+  if (k === 'v') voteSkip();
+  if (k === '3' || k === '4' || k === '5') useStreak(+k - 3);
   if (k === 'e') useBubble();
   if (k === 'f') useOverdrive();
 });
@@ -3507,6 +3565,7 @@ addEventListener('keyup', e => {
 addEventListener('blur', () => { input.keys = {}; input.fire = false; input.ads = false; showScore(false); });
 const SENS = 0.0022;
 function look(dx, dy, sens = SENS) {
+  if (S && S.missile) { const m = S.missile; if (CFG.invertY) dy = -dy; m.yaw -= dx * sens * 0.6; m.pitch = Math.max(-1.5, Math.min(-0.2, m.pitch - dy * sens * 0.6)); return; }
   const P = S.p; const z = 1 - S.p.ads * GS.sens;
   if (CFG.invertY) dy = -dy;
   P.yaw -= dx * sens * z; P.pitch -= dy * sens * z;
@@ -3551,7 +3610,7 @@ document.addEventListener('pointerlockerror', () => {
 document.addEventListener('pointerlockchange', () => {
   if (document.pointerLockElement === cv) {
     lockedAt = performance.now(); everLocked = true; lookMode = 'lock';
-    if (paused && $('settings').hidden) { paused = false; $('pause').hidden = true; }
+    if (paused && $('settings').hidden) { paused = false; $('pause').hidden = true; $('shop').hidden = true; }
     return;
   }
   unlockedAt = performance.now();
@@ -3640,6 +3699,8 @@ function act(name, down, el) {
   if (down && name === 'swap') switchWeapon();
   if (down && name === 'crouch') { input.crouchToggle = !input.crouchToggle; $('tCrouch').classList.toggle('on', input.crouchToggle); }
   if (down && name === 'use') input.use = true;
+  if (down && name === 'skip') voteSkip();
+  if (down && name.startsWith('streak')) useStreak(+name.slice(6) || 0);
   if (down && name === 'score') { if ($('score').hidden) showScore(true, true); else showScore(false, false); }
   if (down && name === 'menu') openPause();
   if (down && name === 'zoom') { input.adsToggle = !input.adsToggle; $('tZoom').classList.toggle('on', input.adsToggle); }
@@ -4369,6 +4430,8 @@ function onNet(m) {
       if (!NET.host) { const e = enemies.find(x => x.nid === m.n && !x.dead); if (e) killEnemy(e, !!m.h, m.c, m.by); else if (m.by === NET.id) creditKill(ETYPES[m.ty] || 'trooper', !!m.h, m.c); }
       break;
     case 'dome': if (S && S.running) spawnDome(m.x, m.y, m.z); break;
+    case 'vskip': if (NET.host && S && S.running) hostVote(m.from); break;
+    case 'mx': if (NET.host && S && S.running) applyMissile(+m.x, +m.y, +m.z, m.from); break;
     case 'gl': if (S && S.running) { spawnNade(m.o[0], m.o[1], m.o[2], m.v[0], m.v[1], m.v[2], m.from); SFX.thump(Math.hypot(S.p.x - m.o[0], S.p.z - m.o[2])); } break;
     case 'pulse': if (NET.host) applyPulse(+m.x, +m.z, m.from); break;
     case 'dmg': if (S && S.running) damagePlayer(Math.min(60, +m.d || 0)); break;
@@ -4385,7 +4448,7 @@ function applySnapshot(m) {
   if (m.w !== NET.lastW && m.w > 0) { banner(`Wave ${m.w}`, 'Hostiles inbound', 2); SFX.wave(); }
   NET.lastW = m.w; S.wave = m.w;
   if (m.i && !NET.lastI && S.wave > 0) waveCleared();
-  NET.lastI = m.i; S.intermission = m.i ? 1 : 0;
+  NET.lastI = m.i; S.intermission = m.i || 0; S.voteN = m.vv || 0;
   S.queue = new Array(m.q | 0).fill('trooper');
   const seen = new Set();
   for (const r of m.e) {
@@ -4438,7 +4501,7 @@ function netTick(dt) {
     NET.snapT -= dt;
     if (NET.snapT <= 0) {
       NET.snapT = 0.1;
-      netSend({ t: 's', w: S.wave, i: S.intermission > 0 ? 1 : 0, q: S.queue.length, o: S.obj ? [Math.round(S.obj.t), r2(S.obj.prog), S.obj.k, r2(S.obj.dx || 0), r2(S.obj.dz || 0), r2(S.obj.dy || 0), S.obj.pts.map(p => r2(p[3]))] : 0,
+      netSend({ t: 's', w: S.wave, i: S.intermission > 0 ? Math.ceil(S.intermission) : 0, vv: S.votes ? S.votes.size : 0, q: S.queue.length, o: S.obj ? [Math.round(S.obj.t), r2(S.obj.prog), S.obj.k, r2(S.obj.dx || 0), r2(S.obj.dz || 0), r2(S.obj.dy || 0), S.obj.pts.map(p => r2(p[3]))] : 0,
         e: enemies.filter(e => !e.dead).map(e => [e.nid, ETYPES.indexOf(e.type), Math.round(e.x * 100), Math.round(e.y * 100), Math.round(e.z * 100), Math.round(e.g.rotation.y * 100), Math.round(e.hp), Math.round(e.max)]) });
     }
     if (P.dead && [...NET.peers.values()].every(p => !p.a)) { netSend({ t: 'over' }); gameOver(); return; }
@@ -5297,6 +5360,163 @@ try { initAudio(); if (AC) { AC.onstatechange = soundHint; musicPlay(); } } catc
 setTimeout(soundHint, 600);
 for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, wakeMusic, { once: true, capture: true });
 
+// ---------------- tactical support terminal & shop ----------------
+const STREAKS = [
+  { id: 'predator', name: 'Predator Missile', cost: 5000, desc: 'Take control of a missile from high above. Enemies are marked; steer into them. Click or hold FIRE to boost.', live: true },
+  { id: 'sentry', name: 'Sentry Turret', cost: 3500, desc: 'Deployable auto-turret that covers a lane.' },
+  { id: 'drone', name: 'Recon Drone', cost: 2000, desc: 'Marks every hostile on the map for your squad.' },
+  { id: 'strike', name: 'Precision Airstrike', cost: 7500, desc: 'A line of jets carpet a strip of ground.' },
+  { id: 'pylon', name: 'Shield Pylon', cost: 4000, desc: 'Projects a dome that recharges everyone inside.' },
+  { id: 'gunship', name: 'Overwatch Gunship', cost: 15000, desc: 'Circle the outpost in an armed gunship.' }
+];
+let terminal = null;
+function buildTerminal() {
+  // on the south face of the store building, facing the plaza
+  const x = 7.8, z = -2.62, y0 = 0.9;
+  const g = new T.Group(); g.position.set(x, y0, z);
+  const frame = new T.Mesh(new T.BoxGeometry(1.1, 1.5, 0.18), new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x4a5058 })); frame.position.y = 1.0; g.add(frame);
+  const screenMat = new T.MeshBasicMaterial({ color: 0x2a8ab0 });
+  const scr = new T.Mesh(new T.BoxGeometry(0.86, 0.6, 0.02), screenMat); scr.position.set(0, 1.22, 0.1); g.add(scr);
+  const sc = document.createElement('canvas'); sc.width = 128; sc.height = 96; const sg = sc.getContext('2d');
+  sg.fillStyle = '#082a3a'; sg.fillRect(0, 0, 128, 96); sg.fillStyle = '#7fe0ff'; sg.font = 'bold 13px monospace'; sg.fillText('ARMORY NET', 22, 22);
+  sg.fillStyle = '#ffb547'; sg.fillRect(14, 34, 100, 3); sg.fillStyle = '#9fe4ff'; sg.font = '10px monospace'; ['PREDATOR  5000', 'SENTRY    ----', 'AIRSTRIKE ----'].forEach((t, i) => sg.fillText(t, 14, 54 + i * 14));
+  screenMat.map = new T.CanvasTexture(sc); screenMat.needsUpdate = true;
+  const pad = new T.Mesh(new T.BoxGeometry(0.7, 0.08, 0.3), new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x5a6068 })); pad.position.set(0, 0.68, 0.2); pad.rotation.x = 0.4; g.add(pad);
+  const lampMat = new T.MeshBasicMaterial({ color: 0xffb547 });
+  const lamp = new T.Mesh(new T.BoxGeometry(1.14, 0.05, 0.2), lampMat); lamp.position.y = 1.77; g.add(lamp);
+  const beam = new T.Mesh(new T.CylinderGeometry(0.5, 0.9, 6, 12, 1, true), new T.MeshBasicMaterial({ color: 0xffb547, transparent: true, opacity: 0, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending }));
+  beam.position.set(0, 3.0, 0.6); g.add(beam);
+  scene.add(g);
+  boxes.push({ x0: x - 0.55, x1: x + 0.55, z0: z - 0.12, z1: z + 0.12, y0, y1: y0 + 1.8 });
+  terminal = { g, x, z: z + 0.9, y0, lampMat, beam, screenMat };
+}
+function updateTerminal() {
+  if (!terminal || !S) return;
+  const P = S.p, inter = S.intermission > 0 && S.wave > 0;
+  const pulse = 0.5 + 0.5 * Math.sin(S.t * 5);
+  terminal.lampMat.color.setHex(inter ? (pulse > 0.5 ? 0xffd27a : 0xffb547) : 0x6a5a40);
+  terminal.beam.material.opacity = inter ? 0.12 + 0.1 * pulse : 0;
+  const near = !P.dead && !S.missile && Math.hypot(P.x - terminal.x, P.z - terminal.z) < 1.6 && Math.abs(P.y - terminal.y0) < 1.3;
+  S.nearTerm = near;
+  if (near && input.use) { input.use = false; openShop(); }
+}
+function openShop() {
+  if (!S || $('shop').hidden === false) return;
+  paused = true; input.fire = false; input.ads = false;
+  $('shop').hidden = false; renderShop();
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+$('shopClose').addEventListener('click', () => closeShop());
+function closeShop() {
+  $('shop').hidden = true; paused = false;
+  if (lookMode === 'lock' && !isTouch) lockPointer();
+}
+function renderShop() {
+  const P = S.p; P.streaks = P.streaks || [];
+  $('shopPts').textContent = S.score.toLocaleString();
+  const box = $('shopList'); box.innerHTML = '';
+  for (const k of STREAKS) {
+    const owned = P.streaks.filter(x => x === k.id).length, full = P.streaks.length >= 3, can = k.live && S.score >= k.cost && !full;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'kcard' + (k.live ? '' : ' soon') + (can ? ' can' : '');
+    b.innerHTML = `<div class="kico">${KICON[k.id] || ''}</div><div class="kt"><b>${k.name}</b><span>${k.desc}</span></div><div class="kc">${k.live ? `<em>${k.cost.toLocaleString()}</em><small>${full ? 'Slots full (3/3)' : can ? (owned ? `Owned ×${owned} · buy another` : 'Buy') : 'Not enough points'}</small>` : '<small>Coming soon</small>'}</div>`;
+    b.addEventListener('click', () => {
+      if (!k.live || S.score < k.cost || P.streaks.length >= 3) return;
+      S.score -= k.cost; P.streaks.push(k.id); spendNote(k.cost); SFX.level(); renderShop(); lastHud = '';
+    });
+    box.append(b);
+  }
+}
+const KICON = {
+  predator: '<svg viewBox="0 0 24 24"><path d="M12 2l3 6v9l-3 3-3-3V8z" fill="currentColor"/><path d="M9 14l-4 4v2l4-2M15 14l4 4v2l-4-2" fill="currentColor"/></svg>',
+  sentry: '<svg viewBox="0 0 24 24"><rect x="6" y="9" width="12" height="6" rx="2" fill="currentColor"/><path d="M18 11h4M8 15l-3 7M16 15l3 7M12 15v7" stroke="currentColor" stroke-width="2"/></svg>',
+  drone: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M4 4l5 5M20 4l-5 5M4 20l5-5M20 20l-5-5" stroke="currentColor" stroke-width="2"/><circle cx="4" cy="4" r="2" fill="currentColor"/><circle cx="20" cy="4" r="2" fill="currentColor"/><circle cx="4" cy="20" r="2" fill="currentColor"/><circle cx="20" cy="20" r="2" fill="currentColor"/></svg>',
+  strike: '<svg viewBox="0 0 24 24"><path d="M2 12l8-2 8-6 2 2-5 7 5 7-2 2-8-6-8-2z" fill="currentColor"/></svg>',
+  pylon: '<svg viewBox="0 0 24 24"><path d="M3 20a9 9 0 0 1 18 0" fill="none" stroke="currentColor" stroke-width="2"/><rect x="11" y="8" width="2" height="12" fill="currentColor"/></svg>',
+  gunship: '<svg viewBox="0 0 24 24"><path d="M2 11h14l4-3h2v8h-2l-4-3H2z" fill="currentColor"/><path d="M8 13v5M12 13v4" stroke="currentColor" stroke-width="2"/></svg>'
+};
+// ---------------- predator missile ----------------
+function useStreak(i = 0) {
+  const P = S && S.p; if (!P || P.dead || !S.running || S.missile || !(P.streaks && P.streaks[i])) return;
+  const id = P.streaks.splice(i, 1)[0];
+  if (id === 'predator') launchPredator();
+  lastHud = '';
+}
+function launchPredator() {
+  const P = S.p;
+  // straight down from high above the outpost, top-down view
+  S.missile = { x: P.x * 0.6, y: 150, z: P.z * 0.6 + 6, yaw: 0, pitch: -1.48, v: 24, t: 0 };
+  input.fire = false; input.ads = false;
+  $('game').classList.add('predator'); $('pred').hidden = false;
+  sTone(200, 90, 1.2, 0.16, 'sawtooth'); sNoise(1.4, 600, 0.25);
+  banner('Predator Missile', 'Steer with look · Fire to boost', 1.6);
+}
+function updateMissile(dt) {
+  const m = S.missile; if (!m) return;
+  m.t += dt;
+  const boost = input.fire || (isTouch && m.t > 1.5);
+  m.v = Math.min(boost ? 85 : 30, m.v + (boost ? 60 : 10) * dt);
+  const cp = Math.cos(m.pitch);
+  m.x += -Math.sin(m.yaw) * cp * m.v * dt; m.z += -Math.cos(m.yaw) * cp * m.v * dt; m.y += Math.sin(m.pitch) * m.v * dt;
+  // engine hum gets higher as it speeds up
+  m.humT = (m.humT || 0) - dt; if (m.humT <= 0) { m.humT = 0.18; sTone(120 + m.v * 3, 110 + m.v * 3, 0.2, 0.05, 'sawtooth'); }
+  let hit = m.t > 16 || m.y <= groundAt(m.x, m.z, m.y) + 0.3 || inSolid(m.x, m.y, m.z) || Math.abs(m.x) > 90 || Math.abs(m.z) > 90;
+  for (const e of enemies) if (!e.dead && Math.hypot(e.x - m.x, (e.y + 1.2 * e.D.scale) - m.y, e.z - m.z) < 1.4 + e.D.r) hit = true;
+  if (hit) missileImpact();
+}
+function missileImpact() {
+  const m = S.missile; S.missile = null;
+  $('game').classList.remove('predator'); $('pred').hidden = true; $('ptags').innerHTML = '';
+  const p = new T.Vector3(m.x, Math.max(m.y, groundAt(m.x, m.z, m.y) + 0.5), m.z);
+  for (let i = 0; i < 6; i++) spark(p.x, p.y + 0.4, p.z, [0xffc070, 0xff7a1a, 0xfff2c0, 0x8a8a8a, 0xff5a2a, 0xffe0a0][i], 22, 12, 9);
+  const fb = new T.Sprite(new T.SpriteMaterial({ map: boomTex, color: 0xffa050, blending: T.AdditiveBlending, depthWrite: false, transparent: true }));
+  fb.position.copy(p); fb.position.y += 1; scene.add(fb); booms.push({ s: fb, t: 0, life: 0.9, grow: 24 });
+  SFX.boom(Math.hypot(S.p.x - p.x, S.p.z - p.z) * 0.5); sTone(70, 25, 1.2, 0.4, 'sine');
+  addShake(Math.max(0.2, 1 - Math.hypot(S.p.x - p.x, S.p.z - p.z) / 40));
+  if (isAuth()) applyMissile(p.x, p.y, p.z); else netSend({ t: 'mx', x: r2(p.x), y: r2(p.y), z: r2(p.z) });
+}
+function applyMissile(x, y, z, by) {
+  const R = 10;
+  for (const e of enemies) {
+    if (e.dead) continue;
+    const dx = e.x - x, dz = e.z - z, d = Math.hypot(dx, (e.y + 1) - y, dz);
+    if (d < R) { const f = 1 - d / R; e.kx += dx / (d || 1) * 20 * f; e.kz += dz / (d || 1) * 20 * f; e.vy = 7 * f; hurtEnemy(e, 180 + 900 * f, false, 'missile', by); }
+  }
+}
+// mark enemies on screen while flying the missile
+function predatorTags() {
+  const box = $('ptags'); if (!S.missile) return;
+  let html = '';
+  for (const e of enemies) {
+    if (e.dead) continue;
+    _ta.set(e.x, e.y + 1 * e.D.scale, e.z).project(cam);
+    if (_ta.z > 1 || Math.abs(_ta.x) > 1.1 || Math.abs(_ta.y) > 1.1) continue;
+    const x = (_ta.x * 0.5 + 0.5) * 100, y = (-_ta.y * 0.5 + 0.5) * 100, s = e.type === 'walker' ? 34 : e.type === 'heavy' ? 22 : 16;
+    html += `<i style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;width:${s}px;height:${s}px"></i>`;
+  }
+  box.innerHTML = html;
+  $('predAlt').textContent = Math.max(0, Math.round(S.missile.y)) + ' m';
+}
+// ---------------- downtime between waves ----------------
+const DOWNTIME = 30;
+function voteSkip() {
+  if (!S || !(S.intermission > 0) || S.wave === 0) return;
+  if (!NET.on) { S.intermission = Math.min(S.intermission, 3); return; }
+  if (S.myVote) return; S.myVote = true;
+  if (NET.host) hostVote(NET.id); else netSend({ t: 'vskip' });
+}
+function hostVote(id) {
+  S.votes = S.votes || new Set(); S.votes.add(id);
+  const need = 1 + [...NET.peers.values()].filter(p => p.a !== 0 || true).length;
+  if (S.votes.size >= need) S.intermission = Math.min(S.intermission, 3);
+}
+function renderInterHud() {
+  const el = $('interHud'), on = S && S.running && S.intermission > 3.2 && S.wave > 0;
+  el.hidden = !on; if (!on) { S && (S.myVote = false, S.votes = null); return; }
+  const t = Math.ceil(S.intermission);
+  const need = NET.on ? 1 + NET.peers.size : 1, have = NET.on ? (NET.host ? (S.votes ? S.votes.size : 0) : (S.voteN || (S.myVote ? 1 : 0))) : 0;
+  el.innerHTML = `<b>Next wave in ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}</b><span>${isTouch ? 'Tap SKIP' : 'Press V'} to ${NET.on ? `vote to skip · ${have}/${need}` : 'skip'} · Support terminal open</span>`;
+}
+
 // ---------------- loop & flow ----------------
 let last = performance.now(), mode = 'menu', mt = 0;
 function frame(now) {
@@ -5309,7 +5529,7 @@ function frame(now) {
     placeCamera();
     R.clear(); R.render(scene, cam);
     if (S.running && GS.optic === 'acog' && S.p.ads > 0.85) renderScopeLens();
-    else if (S.running && !S.p.dead) { R.clearDepth(); R.render(gunScene, gunCam); }
+    else if (S.running && !S.p.dead && !S.missile) { R.clearDepth(); R.render(gunScene, gunCam); }
     hud();
   }
   requestAnimationFrame(frame);
