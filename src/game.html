@@ -585,6 +585,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 .omk { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; pointer-events: none; text-shadow: 0 1px 2px #000; }
 .omk i { width: 20px; height: 20px; transform: rotate(45deg); border: 2px solid var(--amber); border-radius: 4px; background: rgba(255,181,71,.18); box-shadow: 0 0 10px rgba(255,181,71,.5); display: grid; place-items: center; font: 700 10px var(--display); font-style: normal; color: #fff; }
 .omk span { font: 600 10px var(--mono); color: #ffe2b0; margin-top: 4px; }
+.sndhint { position: fixed; right: 18px; bottom: 18px; z-index: 30; pointer-events: auto; font: 600 11px var(--mono); letter-spacing: .1em; color: #cfeeff; background: rgba(10,20,36,.75); border: 1px solid rgba(120,200,255,.4); border-radius: 999px; padding: 8px 14px; cursor: pointer; animation: lowp 1.2s ease-in-out infinite alternate; }
 </style>
 
 <div id="game">
@@ -655,6 +656,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 
   <div class="overlay menu" id="menu">
     <div class="mpanel">
+      <button class="sndhint" id="sndHint" type="button" hidden>♪ Click anywhere for sound</button>
       <div class="eyebrow">Frigate Aster Vale · High orbit, Earth</div>
       <h1>Vanguard <em>Protocol</em></h1>
       <p class="brief">The colony on Kessa-4 has gone dark and synth patrols are pouring out of the jungle. Drop to the outpost and hold it for as long as you can.</p>
@@ -744,7 +746,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
       </div>
       <details class="ctrl"><summary>Controls</summary>
         <dl class="controls">
-          <span class="mouse-only"><dt>WASD</dt><dd>Move · Shift sprint · Space jump · Hold C to crouch</dd><dt>Mouse</dt><dd>Look · Left click fire · Right click aim</dd><dt>R · Q · E · F · G</dt><dd>Reload · Shoulder launcher · Ability 2 · Ability 3 · Use ammo box</dd></span>
+          <span class="mouse-only"><dt>WASD</dt><dd>Move · Shift sprint · Space jump · Hold C to crouch</dd><dt>Mouse</dt><dd>Look · Left click fire · Right click aim</dd><dt>R · Q · E · F · X</dt><dd>Reload · Shoulder launcher · Ability 2 · Ability 3 · Use ammo box</dd></span>
           <span class="touch-only"><dt>Left thumb</dt><dd>Drag to move</dd><dt>Right thumb</dt><dd>Drag to look. Hold FIRE and slide it to aim while shooting.</dd></span>
           <dt>Health</dt><dd>Shields recharge, health does not. Heal at the green medical station on the main plaza.</dd>
         </dl>
@@ -1946,7 +1948,7 @@ function tryFire() {
   // recoil moves your aim: part of the climb stays (pull down to compensate), part springs back
   const climb = GS.recoil * (1 - 0.35 * P.ads) * (1 - 0.25 * P.ch);
   // the view kicks as hard as the gun does, so the crosshair jumps with the muzzle
-  P.pitch = Math.min(1.45, P.pitch + climb * 0.5); P.recoil += climb * 0.6 + GS.kick * 0.42 * (1 - 0.4 * P.ads);
+  P.pitch = Math.min(1.45, P.pitch + climb * 0.5); P.recoil += climb * (GS.pellets > 1 ? 0.6 : 0.25) + GS.kick * (GS.pellets > 1 ? 0.42 : 0.08) * (1 - 0.4 * P.ads);
   P.bloom = Math.min(1.6, (P.bloom || 0) + (GS.pellets > 1 ? 1.2 : 0.35));
   GS.pellets > 1 ? SFX.blast() : SFX.shot();
   flash.visible = true; flash.material.rotation = rnd(0, 6); flash.userData.t = GS.pellets > 1 ? 0.07 : 0.045;
@@ -2635,7 +2637,7 @@ function hud() {
   const st = S.nearStation; let msg = '';
   if (st && S.running) msg = st.active ? 'Healing…' : st.cd > 0 ? `Medical station recharging · ${Math.ceil(st.cd)}s` : P.hp >= 100 ? 'Health full' : (isTouch ? 'Tap USE to heal' : 'Press E to heal');
   if (!msg && S.nearAmmo === 'used') msg = 'Ammo box used · refills next wave';
-  if (!msg && S.nearAmmo === 'ready') msg = isTouch ? 'Tap USE to resupply' : 'Press G to resupply ammo';
+  if (!msg && S.nearAmmo === 'ready') msg = isTouch ? 'Tap USE to resupply' : 'Press X to resupply ammo';
   if (ui.prompt.textContent !== msg) ui.prompt.textContent = msg;
   ui.prompt.hidden = !msg;
   ui.tUse.hidden = !(S.nearAmmo === 'ready' || (st && S.running && !st.active && st.cd <= 0 && P.hp < 100));
@@ -2738,7 +2740,7 @@ addEventListener('keydown', e => {
   if (!S || !S.running || paused) return;
   if (k === ' ') { e.preventDefault(); input.jump = true; }
   if (k === 'q') fireNade();
-  if (k === 'g') input.use = true;
+  if (k === 'x') input.use = true;
   if (k === 'e') useBubble();
   if (k === 'f') useOverdrive();
 });
@@ -4437,8 +4439,11 @@ function musicStop(fade = 2.5) {
   music.bus.gain.linearRampToValueAtTime(0, AC.currentTime + fade);
 }
 // browsers only allow sound after the first click or key press
-const wakeMusic = () => { initAudio(); if (mode !== 'game' && mode !== 'travel') musicPlay(); };
-addEventListener('pointerdown', wakeMusic, { once: true }); addEventListener('keydown', wakeMusic, { once: true });
+const wakeMusic = () => { initAudio(); if (AC && AC.resume) AC.resume(); if (mode !== 'game' && mode !== 'travel') musicPlay(); setTimeout(soundHint, 300); };
+function soundHint() { const h = $('sndHint'); if (h) h.hidden = !AC || AC.state === 'running'; }
+try { initAudio(); if (AC) { AC.onstatechange = soundHint; musicPlay(); } } catch (e) {}
+setTimeout(soundHint, 600);
+for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, wakeMusic, { once: true, capture: true });
 
 // ---------------- loop & flow ----------------
 let last = performance.now(), mode = 'menu', mt = 0;
