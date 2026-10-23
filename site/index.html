@@ -713,6 +713,19 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 #game.predator .streakbar { visibility: hidden; }
 @media (pointer: coarse) { .streakbar { top: 40%; } .kslot { width: 92px; } }
 @media (pointer: coarse) and (max-height: 500px) { .streakbar { top: 44%; right: auto; left: max(16px, env(safe-area-inset-left, 0px)); } .kslot { width: 84px; padding: 4px 6px; } }
+.visor { position: absolute; inset: 0; pointer-events: none; }
+.visor .vscan { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(255,40,30,0) 45%, rgba(255,30,20,.28) 100%), repeating-linear-gradient(0deg, rgba(255,60,40,.07) 0 2px, transparent 2px 4px); mix-blend-mode: screen; animation: vflick .12s steps(2) infinite; }
+@keyframes vflick { 50% { opacity: .85; } }
+.visor .vtxt { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); display: grid; justify-items: center; gap: 2px; font: 600 11px var(--mono); color: #ff7a6a; text-shadow: 0 0 6px rgba(255,60,40,.8); letter-spacing: .2em; }
+.visor .vtxt b { font: 800 14px var(--display); letter-spacing: .3em; color: #ffb0a0; }
+.visor .vtxt em { font-style: normal; color: #fff; }
+#vtags i { position: absolute; width: 26px; height: 26px; transform: translate(-50%, -50%); border: 2px solid rgba(255,120,100,.75); border-radius: 4px; }
+#vtags i.lk { width: 34px; height: 34px; border-color: #ff2a1a; box-shadow: 0 0 10px rgba(255,40,20,.9); }
+#vtags i.lk::after { content: ''; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; transform: translate(-50%, -50%); background: #ff2a1a; border-radius: 50%; }
+.ab.ult { color: #ffd28a; box-shadow: inset 0 0 0 1px rgba(255,181,71,.55); }
+.ab.ult.ready { background: rgba(110,60,10,.75); box-shadow: inset 0 0 12px rgba(255,181,71,.7), inset 0 0 0 1px rgba(255,210,140,.8), 0 0 12px rgba(255,170,60,.5); }
+.tb.ultb { width: 52px; height: 52px; right: max(234px, calc(env(safe-area-inset-right, 0px) + 222px)); bottom: max(146px, calc(env(safe-area-inset-bottom, 0px) + 130px)); border-color: #ffd28a; color: #ffd28a; }
+@media (pointer: coarse) and (max-height: 500px) { .tb.ultb { bottom: 118px; right: max(214px, calc(env(safe-area-inset-right, 0px) + 202px)); width: 46px; height: 46px; } }
 </style>
 
 <div id="game">
@@ -736,6 +749,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
   <div class="objhud" id="objHud" hidden><div class="ot"><span class="ol">Objective</span><b id="objTitle"></b><span class="otime" id="objTime">5:00</span></div><div class="obar"><i id="objFill"></i></div><div class="osub" id="objSub"></div></div>
   <div class="picknote" id="pickNote"></div>
   <div class="interhud" id="interHud" hidden></div>
+  <div class="visor" id="visor" hidden><div class="vscan"></div><div class="vtxt"><b>TACTICAL VISOR</b><span>TARGET LOCK ACTIVE · <em id="visT">6.0</em>s</span></div><div id="vtags"></div></div>
   <div class="streakbar" id="streakBar"></div>
   <div class="pred" id="pred" hidden><div class="pbox"></div><div class="pcross"></div><div class="pinfo"><b>PREDATOR</b><span id="predAlt">0 m</span><small>Steer with look · Fire to boost</small></div><div id="ptags"></div></div>
   <div class="shop" id="shop" hidden><div class="spanel">
@@ -758,7 +772,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
       <div class="abil">
         <div class="ab" id="ab1"><svg viewBox="0 0 24 24"><rect x="7" y="8" width="10" height="12" rx="4" fill="currentColor"/><rect x="9.5" y="4" width="5" height="4" fill="currentColor"/><path d="M14.5 5.5 L19 3" stroke="currentColor" stroke-width="2"/></svg><i class="cd"></i><b class="t"></b><span>Q</span></div>
         <div class="ab locked" id="ab2"><svg viewBox="0 0 24 24"><rect x="6" y="11" width="12" height="9" rx="1.5" fill="currentColor"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>E</span></div>
-        <div class="ab locked" id="ab3"><svg viewBox="0 0 24 24"><rect x="6" y="11" width="12" height="9" rx="1.5" fill="currentColor"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>F</span></div>
+        <div class="ab ult" id="ab3"><i class="cd"></i><b class="t"></b><svg viewBox="0 0 24 24"><path d="M2 11c3-4 6-6 10-6s7 2 10 6c-3 4-6 6-10 6s-7-2-10-6z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="11" r="3.2" fill="currentColor"/><path d="M12 2v2M12 18v2M3 3l2 2M21 3l-2 2" stroke="currentColor" stroke-width="1.6"/></svg><span>F</span></div>
       </div>
     </div>
     <div class="hb-r">
@@ -784,6 +798,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
     <div class="tb reload" data-act="reload">RELOAD</div>
     <div class="tb pulse" data-act="pulse" id="tPulse" hidden>DOME</div>
     <div class="tb nade" data-act="nade" id="tNade">NADE</div>
+    <div class="tb ultb" data-act="ult" id="tUlt">ULT</div>
     <div class="tb swap" data-act="swap" id="tSwap">SWAP</div>
     <div class="tb skip" data-act="skip" id="tSkip" hidden>SKIP</div>
     <div class="tb crouch" data-act="crouch" id="tCrouch">CROUCH</div>
@@ -877,7 +892,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
         <div class="cab">
           <div class="attlbl">Class ability</div>
           <b>Shoulder launcher</b>
-          <p>A launcher swings down over your left shoulder and fires a grenade that bounces, then explodes after a short fuse or when it touches an enemy. Press Q, or NADE on touch screens. Recharges in 9 seconds. Talents add an E ability (Bubble Shield) and an F ability (Overdrive).</p>
+          <p>A launcher swings down over your left shoulder and fires a grenade that bounces, then explodes after a short fuse or when it touches an enemy. Press Q, or NADE on touch screens. Recharges in 9 seconds. Ultimate on F: Tactical Visor locks your aim onto heads while you hold fire (2 minute cooldown). The Bubble Shield talent adds an E ability.</p>
         </div>
         <div class="tright"><div class="tthead"><div class="attlbl">Talents</div><div class="tpts">Points available <b id="tPts">0</b></div><button class="link" id="tReset" type="button">Reset talents</button></div>
         <div class="tbar"><div class="track"><i id="tFill2"></i></div><span id="tVal2"></span></div>
@@ -2476,15 +2491,23 @@ const pickGeo = new T.BoxGeometry(0.45, 0.45, 0.45);
 const pickMats = { health: new T.MeshLambertMaterial({ color: 0x5dff96, emissive: 0x1e6a35 }), ammo: new T.MeshLambertMaterial({ color: 0xffb547, emissive: 0x6a4210 }) };
 // ammo pickup: olive ammo can with a white band, rounds sticking out of the top and a soft glow beneath
 const canMats = { body: new T.MeshLambertMaterial({ color: 0x4d5a34, emissive: 0x141a0a }), band: new T.MeshBasicMaterial({ color: 0xf2f2e8 }), brass: new T.MeshLambertMaterial({ color: 0xd8b04a, emissive: 0x5a4210 }), tip: new T.MeshLambertMaterial({ color: 0xb87333 }), glow: new T.MeshBasicMaterial({ color: 0xffd060, transparent: true, opacity: 0.35, depthWrite: false, blending: T.AdditiveBlending }) };
+const ammoLabelTex = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 48; const g = c.getContext('2d');
+  g.fillStyle = 'rgba(20,14,4,.75)'; g.beginPath(); g.roundRect ? g.roundRect(4, 4, 120, 40, 12) : g.rect(4, 4, 120, 40); g.fill();
+  g.strokeStyle = '#ffd060'; g.lineWidth = 3; g.stroke(); g.fillStyle = '#ffe9a8'; g.font = 'bold 26px sans-serif'; g.textAlign = 'center'; g.fillText('AMMO', 64, 34);
+  return new T.CanvasTexture(c); })();
+const canOutline = new T.MeshBasicMaterial({ color: 0xffc040, side: T.BackSide, transparent: true, opacity: 0.85 });
 function ammoCan() {
   const g = new T.Group();
   const add = (geo, mat, x, y, z) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
-  add(new T.BoxGeometry(0.46, 0.3, 0.24), canMats.body, 0, 0, 0);
-  add(new T.BoxGeometry(0.48, 0.05, 0.26), canMats.body, 0, 0.17, 0);
-  add(new T.BoxGeometry(0.47, 0.06, 0.245), canMats.band, 0, 0.02, 0);
-  add(new T.BoxGeometry(0.16, 0.03, 0.04), canMats.body, 0, 0.21, 0);
-  for (let i = 0; i < 5; i++) { const x = -0.16 + i * 0.08; add(new T.CylinderGeometry(0.018, 0.018, 0.12, 6), canMats.brass, x, 0.25, 0.05); add(new T.ConeGeometry(0.018, 0.04, 6), canMats.tip, x, 0.33, 0.05); }
-  const ring = new T.Mesh(new T.RingGeometry(0.28, 0.42, 24), canMats.glow); ring.rotation.x = -Math.PI / 2; ring.position.y = -0.4; g.add(ring);
+  add(new T.BoxGeometry(0.56, 0.36, 0.3), canMats.body, 0, 0, 0);
+  add(new T.BoxGeometry(0.66, 0.46, 0.4), canOutline, 0, 0.04, 0);          // glowing outline shell
+  add(new T.BoxGeometry(0.58, 0.05, 0.32), canMats.body, 0, 0.2, 0);
+  add(new T.BoxGeometry(0.57, 0.08, 0.305), canMats.band, 0, 0.02, 0);
+  add(new T.BoxGeometry(0.18, 0.035, 0.05), canMats.body, 0, 0.245, 0);
+  for (let i = 0; i < 6; i++) { const x = -0.2 + i * 0.08; add(new T.CylinderGeometry(0.022, 0.022, 0.16, 6), canMats.brass, x, 0.3, 0.06); add(new T.ConeGeometry(0.022, 0.05, 6), canMats.tip, x, 0.405, 0.06); }
+  const beam = add(new T.CylinderGeometry(0.22, 0.32, 2.4, 10, 1, true), new T.MeshBasicMaterial({ color: 0xffc040, transparent: true, opacity: 0.18, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending }), 0, 0.9, 0);
+  const lbl = new T.Sprite(new T.SpriteMaterial({ map: ammoLabelTex, transparent: true, depthWrite: false, depthTest: false })); lbl.position.y = 0.95; lbl.scale.set(0.85, 0.32, 1); g.add(lbl);
+  const ring = new T.Mesh(new T.RingGeometry(0.3, 0.5, 24), canMats.glow); ring.rotation.x = -Math.PI / 2; ring.position.y = -0.42; g.add(ring);
   return g;
 }
 function dropPickup(x, z, kind, id, fromNet) {
@@ -2620,7 +2643,7 @@ function newGame() {
   nades = []; booms = [];
   for (const d of domes) scene.remove(d.g); domes = [];
   if (typeof clearObjFx === 'function') { clearObjFx(); clearWeatherFx(); }
-  { const sh = $('shop'); if (sh) sh.hidden = true; const pr = $('pred'); if (pr) pr.hidden = true; $('game').classList.remove('predator'); }
+  { const vs = $('visor'); if (vs) vs.hidden = true; const sh = $('shop'); if (sh) sh.hidden = true; const pr = $('pred'); if (pr) pr.hidden = true; $('game').classList.remove('predator'); }
   for (const d of debris) scene.remove(d.m);
   for (const k of pickups) scene.remove(k.m);
   enemies = []; bolts = []; debris = []; pickups = [];
@@ -2693,8 +2716,9 @@ function tryFire() {
   if (P.mag <= 0) { P.fireCd = 0.25; SFX.empty(); if (P.reserve > 0) startReload(); return; }
   P.fireCd = GS.rate * (P.odT > 0 ? 0.7 : 1); if (!(P.odT > 0)) P.mag--; P.pumped = false; P.trigT = 0.08;
   // recoil moves your aim: part of the climb stays (pull down to compensate), part springs back
-  const climb = GS.recoil * (1 - 0.35 * P.ads) * (1 - 0.25 * P.ch);
+  let climb = GS.recoil * (1 - 0.35 * P.ads) * (1 - 0.25 * P.ch);
   // the view kicks as hard as the gun does, so the crosshair jumps with the muzzle
+  if (P.visT > 0) climb *= 0.1;
   P.pitch = Math.min(1.45, P.pitch + climb * 0.5); P.recoil += climb * (GS.pellets > 1 ? 0.6 : 0.25) + GS.kick * (GS.pellets > 1 ? 0.42 : 0.08) * (1 - 0.4 * P.ads);
   P.bloom = Math.min(1.6, (P.bloom || 0) + (GS.pellets > 1 ? 1.2 : 0.35));
   GS.pellets > 1 ? SFX.blast() : SFX.shot(GS.pitch || 1);
@@ -2706,7 +2730,7 @@ function tryFire() {
   P.yaw += rnd(-1, 1) * GS.recoil * 0.35;
   addShake((P.ads > 0.5 ? 0.55 : 1) * GS.shake);
   const moving = Math.hypot(input.mx, input.my) > 0.1;
-  const cone = (1 + (P.ads > 0.5 ? 0 : (P.bloom || 0) * 0.45)) * (GS.pellets > 1 ? (P.ads > 0.5 ? 0.045 : 0.06) : (P.ads > 0.5 ? 0.004 : (moving ? 0.03 : 0.016)) * GS.spreadMul) * (1 - 0.3 * P.ch);
+  const cone = (P.visT > 0 ? 0 : 1) * (1 + (P.ads > 0.5 ? 0 : (P.bloom || 0) * 0.45)) * (GS.pellets > 1 ? (P.ads > 0.5 ? 0.045 : 0.06) : (P.ads > 0.5 ? 0.004 : (moving ? 0.03 : 0.016)) * GS.spreadMul) * (1 - 0.3 * P.ch);
   cam.updateMatrixWorld();
   const targets = [].concat(...enemies.map(e => e.hit));
   const start = new T.Vector3(0.18, -0.16, -0.7).applyQuaternion(cam.quaternion).add(cam.position);
@@ -2805,6 +2829,55 @@ function domeBlocks(x0, y0, z0, x1, y1, z1) {
     if (!i0 && i1) { d.fm.opacity = 0.5; return true; }
   }
   return false;
+}
+// ---------------- Soldier ultimate: Tactical Visor ----------------
+// The left hand reaches up and taps the helmet; a targeting HUD comes up and while you hold fire the
+// gun tracks onto the heads of enemies in view.
+const VIS_CD = 120, VIS_DUR = 6;
+function useVisor() {
+  const P = S && S.p; if (!P || !S.running || P.dead || S.missile || P.visCd > 0 || P.visT > 0 || P.visArm > 0) return;
+  P.visArm = 0.55; P.reloadT = 0;
+  sTone(500, 1400, 0.45, 0.08, 'square'); sNoise(0.3, 4000, 0.06, 'highpass');
+}
+function visorTarget() {
+  const P = S.p; let best = null, bd = 1e9; cam.updateMatrixWorld();
+  for (const e of enemies) {
+    if (e.dead) continue;
+    const hy = e.y + (e.type === 'walker' ? 4.4 : 1.86 * e.D.scale);
+    _ta.set(e.x, hy, e.z).project(cam);
+    if (_ta.z > 1 || Math.abs(_ta.x) > 0.95 || Math.abs(_ta.y) > 0.95) continue;
+    if (!lineOfSight(cam.position.x, cam.position.y, cam.position.z, e.x, hy, e.z)) continue;
+    const d = Math.hypot(_ta.x, _ta.y) + Math.hypot(e.x - P.x, e.z - P.z) * 0.004;
+    if (d < bd) { bd = d; best = { e, x: e.x, y: hy, z: e.z }; }
+  }
+  return best;
+}
+function updateVisor(dt) {
+  const P = S.p;
+  if (P.visArm > 0) { P.visArm -= dt; if (P.visArm <= 0) { P.visT = VIS_DUR + (hasT('g5') ? 3 : 0); if (hasT('g5')) P.odT = P.visT; $('visor').hidden = false; banner('Tactical Visor', 'Hold fire to lock on', 1.2); sTone(220, 880, 0.4, 0.1, 'sawtooth'); } }
+  if (P.visCd > 0) P.visCd = Math.max(0, P.visCd - dt);
+  if (!(P.visT > 0)) return;
+  P.visT -= dt;
+  if (P.visT <= 0 || P.dead) { P.visT = 0; P.visCd = VIS_CD; $('visor').hidden = true; $('vtags').innerHTML = ''; return; }
+  // lock the aim onto the best head while fire is held
+  const tg = visorTarget(); P.visTarget = tg;
+  if (tg && input.fire) {
+    const dx = tg.x - cam.position.x, dy = tg.y - cam.position.y, dz = tg.z - cam.position.z;
+    const wy = Math.atan2(-dx, -dz), wp = Math.atan2(dy, Math.hypot(dx, dz));
+    let dyaw = wy - P.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+    const k = Math.min(1, dt * 22); P.yaw += dyaw * k; P.pitch += (wp - P.recoil - P.pitch) * k;
+  }
+  // brackets on every head in view, the locked one in red
+  let html = '';
+  for (const e of enemies) {
+    if (e.dead) continue;
+    _ta.set(e.x, e.y + (e.type === 'walker' ? 4.4 : 1.86 * e.D.scale), e.z).project(cam);
+    if (_ta.z > 1 || Math.abs(_ta.x) > 1 || Math.abs(_ta.y) > 1) continue;
+    const on = tg && tg.e === e;
+    html += `<i class="${on ? 'lk' : ''}" style="left:${((_ta.x * 0.5 + 0.5) * 100).toFixed(2)}%;top:${((-_ta.y * 0.5 + 0.5) * 100).toFixed(2)}%"></i>`;
+  }
+  $('vtags').innerHTML = html;
+  $('visT').textContent = P.visT.toFixed(1);
 }
 function useOverdrive() {
   const P = S.p;
@@ -2911,6 +2984,7 @@ function showHit(kill) {
 function update(dt) {
   updateShuttle(dt);
   updateWeather(dt); updateFires(performance.now() / 1000); updateSmoke(dt);
+  if (!S.intro) updateVisor(dt);
   if (!S.missile && MSL.visible && S.t - (S.mslSeen || 0) > 1) MSL.visible = false;
   if (S.intro) { updateIntro(dt); updateSteam(dt); return; }
   S.t += dt;
@@ -2962,7 +3036,7 @@ function update(dt) {
     }
   } else P.autoOn = false;
   if (!input.fire) P.semiOk = true;
-  if ((input.fire || P.autoOn) && S.running && !S.missile && !(P.swapT > 0) && (!GS.semi || P.semiOk || P.autoOn)) { const m0 = P.mag; tryFire(); if (GS.semi && P.mag !== m0) P.semiOk = false; }
+  if ((input.fire || P.autoOn) && S.running && !S.missile && !(P.visArm > 0) && !(P.swapT > 0) && (!GS.semi || P.semiOk || P.autoOn)) { const m0 = P.mag; tryFire(); if (GS.semi && P.mag !== m0) P.semiOk = false; }
   if (P.swapT > 0) P.swapT = Math.max(0, P.swapT - dt);
   P.pulseCd = Math.max(0, P.pulseCd - dt);
   P.recoil *= Math.pow(0.012, dt);
@@ -3077,7 +3151,7 @@ function update(dt) {
   gun.position.y += (target.y - 0.3 * Math.sin(Math.min(1, (P.swapT || 0) / 0.32) * Math.PI) + P.recoil * 0.12 * (1 - 0.75 * P.ads) - Math.abs(Math.sin(P.bob)) * bobA + (ventGun ? 0.05 * lift : smg ? -0.035 * tilt : venting ? -0.12 : 0) - gun.position.y) * Math.min(1, dt * 14);
   gun.position.z += (target.z - gun.position.z) * Math.min(1, dt * 18);
   gun.position.z = Math.min(gun.position.z, target.z + 0.05);
-  gun.rotation.x += ((ventGun ? 0.6 * lift : smg ? 0.22 * tilt : venting ? -0.5 : 0) + P.recoil * (0.5 - 0.28 * P.ads) - gun.rotation.x) * Math.min(1, dt * 12);
+  gun.rotation.x += ((P.visArm > 0 ? -0.18 * Math.sin((1 - P.visArm / 0.55) * Math.PI) : 0) + (ventGun ? 0.6 * lift : smg ? 0.22 * tilt : venting ? -0.5 : 0) + P.recoil * (0.5 - 0.28 * P.ads) - gun.rotation.x) * Math.min(1, dt * 12);
   if (gunModel && gunModel.userData.pump) {
     let off = 0;
     if (GS.pellets > 1 && P.fireCd > 0) {
@@ -3091,7 +3165,10 @@ function update(dt) {
   if (gunModel && gunModel.userData.lh) {
     const lh = gunModel.userData.lh, base = gunModel.userData.lhBase;
     let ox = 0, oy = 0, oz = 0;
-    if (ventGun) {   // let go of the handguard while the heat sinks vent, then grab it again
+    if (P.visArm > 0) {   // reach up and tap the side of the helmet
+      const r = 1 - P.visArm / 0.55, k = Math.sin(Math.min(1, r * 1.3) * Math.PI);
+      ox = -0.2 * k; oy = 0.32 * k; oz = 0.36 * k;
+    } else if (ventGun) {   // let go of the handguard while the heat sinks vent, then grab it again
       const off0 = vr < 0.08 ? 0 : vr < 0.25 ? (vr - 0.08) / 0.17 : vr < 0.75 ? 1 : vr < 0.92 ? 1 - (vr - 0.75) / 0.17 : 0;
       const off = off0 * off0 * (3 - 2 * off0);
       ox = -0.12 * off; oy = -0.2 * off; oz = 0.14 * off;
@@ -3242,7 +3319,7 @@ const TALENTS = [
   { id: 'g2', c: 0, r: 2, name: 'Quick Vent', desc: 'Reloads and vents 20% faster.', req: ['g1'] },
   { id: 'g3', c: 0, r: 3, name: 'Extended Cells', desc: '25% larger magazine.', req: ['g2'] },
   { id: 'g4', c: 0, r: 4, name: 'Armour Piercing', desc: '12% more weapon damage.', req: ['g3', 's3'] },
-  { id: 'g5', c: 0, r: 5, name: 'Overdrive', desc: 'F ability: 6 seconds of bottomless magazine and 30% faster fire. 45 second cooldown.', req: ['g4'], ab: 'F' },
+  { id: 'g5', c: 0, r: 5, name: 'Visor Overdrive', desc: 'Tactical Visor lasts 3 seconds longer, and while it runs your magazine never empties and you fire 30% faster.', req: ['g4'] },
   { id: 's1', c: 1, r: 1, name: 'Bubble Shield', desc: 'E ability: drop a dome for 8 seconds that stops enemy fire. You can shoot out of it. 30 second cooldown.', ab: 'E' },
   { id: 's2', c: 1, r: 2, name: 'Quick Recovery', desc: 'Shields start recharging a second sooner.', req: ['s1'] },
   { id: 's3', c: 1, r: 3, name: 'Hardened Shields', desc: 'Take 20% less damage.', req: ['s2'] },
@@ -3418,13 +3495,13 @@ function hud() {
   updateParty();
   if (!$('score').hidden && (scoreT = (scoreT || 0) + 1) % 15 === 0) renderScore();
   arcFill(ui.aSh, P.shield / 100); arcFill(ui.aHp, Math.max(0, P.hp) / 100); arcFill(ui.aHpLag, Math.max(0, P.lagHp) / 100);
-  for (const [el, id] of [[ui.ab2, 's1'], [ui.ab3, 'g5']]) if (el.classList.contains('locked') === hasT(id)) {
+  for (const [el, id] of [[ui.ab2, 's1']]) if (el.classList.contains('locked') === hasT(id)) {
     el.classList.toggle('locked', !hasT(id));
     el.querySelector('svg').innerHTML = hasT(id) ? (id === 's1' ? '<path d="M3 18 A9 9 0 0 1 21 18 Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 18 A5 5 0 0 1 17 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/>' : '<path d="M13 2 L5 13 H11 L9 22 L19 9 H13 Z" fill="currentColor"/>') : '<rect x="6" y="11" width="12" height="9" rx="1.5" fill="currentColor"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="2"/>';
     if (!el.querySelector('.cd')) el.insertAdjacentHTML('afterbegin', '<i class="cd"></i><b class="t"></b>');
     if (id === 's1') ui.tPulse.hidden = !hasT('s1') || !isTouch;
   }
-  for (const [el, cd, max] of [[ui.ab1, P.nadeCd, NADE_CD], ...(hasT('s1') ? [[ui.ab2, P.bubCd || 0, BUB_CD]] : []), ...(hasT('g5') ? [[ui.ab3, P.odT > 0 ? 0 : P.odCd || 0, OD_CD]] : [])]) {
+  for (const [el, cd, max] of [[ui.ab1, P.nadeCd, NADE_CD], ...(hasT('s1') ? [[ui.ab2, P.bubCd || 0, BUB_CD]] : []), [ui.ab3, P.visT > 0 ? 0 : P.visCd || 0, VIS_CD]]) {
     el.classList.toggle('ready', cd <= 0 && !P.dead);
     el.style.setProperty('--p', (cd / max).toFixed(3));
     const t = el.querySelector('.t'), txt = cd > 0 ? String(Math.ceil(cd)) : '';
@@ -3563,7 +3640,7 @@ addEventListener('keydown', e => {
   if (k === 'v') voteSkip();
   if (k === '3' || k === '4' || k === '5') useStreak(+k - 3);
   if (k === 'e') useBubble();
-  if (k === 'f') useOverdrive();
+  if (k === 'f') useVisor();
 });
 addEventListener('keyup', e => {
   if (e.key === 'Tab') { e.preventDefault(); showScore(false); return; }
@@ -3703,6 +3780,7 @@ function act(name, down, el) {
   if (down && name === 'reload') startReload();
   if (down && name === 'pulse') useBubble();
   if (down && name === 'nade') fireNade();
+  if (down && name === 'ult') useVisor();
   if (down && name === 'swap') switchWeapon();
   if (down && name === 'crouch') { input.crouchToggle = !input.crouchToggle; $('tCrouch').classList.toggle('on', input.crouchToggle); }
   if (down && name === 'use') input.use = true;
