@@ -351,6 +351,28 @@ h1 em { font-style: normal; color: var(--hull); }
 .mtrack { flex: 1; max-width: 160px; height: 4px; background: rgba(255,255,255,.14); position: relative; overflow: hidden; }
 .mtrack i { position: absolute; inset: 0; background: var(--amber); transform-origin: left; }
 .lbtns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mnav { display: grid; gap: 8px; max-width: 260px; }
+.mnav button { width: 100%; text-align: left; }
+.pcols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.pcard { display: grid; gap: 10px; align-content: start; padding: 14px; background: rgba(8,12,20,.6); border: 1px solid var(--line); }
+.pnote { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.55; opacity: .8; }
+.prow { display: flex; gap: 14px; align-items: center; }
+.prow h2 { margin: 0; }
+.pstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.pstats div { padding: 10px; background: rgba(8,12,20,.6); border: 1px solid var(--line); font-family: var(--mono); }
+.pstats b { display: block; font-size: 20px; font-family: inherit; color: var(--ink); }
+.pstats span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; opacity: .7; }
+.bpass { padding: 12px; background: rgba(8,12,20,.6); border: 1px dashed var(--line); display: grid; gap: 10px; }
+.bphead { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; }
+.bphead span { opacity: .6; }
+.bptiers { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.bptiers i { aspect-ratio: 1; border: 1px solid var(--line); background: rgba(255,255,255,.03); display: grid; place-items: center; font-style: normal; font-family: var(--mono); font-size: 10px; opacity: .55; }
+.rewards { display: grid; gap: 4px; max-height: 260px; overflow-y: auto; padding-right: 4px; }
+.rewards div { display: grid; grid-template-columns: 54px 1fr auto; gap: 10px; align-items: center; padding: 7px 10px; background: rgba(8,12,20,.55); border: 1px solid var(--line); font-family: var(--mono); font-size: 12px; }
+.rewards div.got { border-color: rgba(93,255,150,.35); }
+.rewards div b { font-family: inherit; }
+.rewards div em { font-style: normal; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+.rewards div.got em { color: #5dff96; opacity: 1; }
 .ghost { pointer-events: auto; font: 700 13px var(--display); letter-spacing: .14em; text-transform: uppercase; background: rgba(8,12,20,.4); color: var(--ink); border: 1px solid var(--line); padding: 12px 18px; cursor: pointer; }
 .ghost:focus-visible { outline: 2px solid var(--shield); outline-offset: 3px; }
 .loadout { background: rgba(6,8,16,.8); }
@@ -529,9 +551,9 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
         <path id="aHpBg" class="bg" pathLength="100"></path><path id="aHpLag" pathLength="100"></path><path id="aHp" pathLength="100"></path>
       </svg>
       <div class="abil">
-        <div class="ab" id="ab1"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5" fill="currentColor"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17M12 20.5a8.5 8.5 0 0 1 0-17" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/></svg><i class="cd"></i><b class="t"></b><span>Q</span></div>
-        <div class="ab" id="ab2"><svg viewBox="0 0 24 24"><rect x="7" y="8" width="10" height="12" rx="4" fill="currentColor"/><rect x="9.5" y="4" width="5" height="4" fill="currentColor"/><path d="M14.5 5.5 L19 3" stroke="currentColor" stroke-width="2"/></svg><i class="cd"></i><b class="t"></b><span>G</span></div>
-        <div class="ab locked" id="ab3"><svg viewBox="0 0 24 24"><rect x="6" y="11" width="12" height="9" rx="1.5" fill="currentColor"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>—</span></div>
+        <div class="ab" id="ab1"><svg viewBox="0 0 24 24"><rect x="7" y="8" width="10" height="12" rx="4" fill="currentColor"/><rect x="9.5" y="4" width="5" height="4" fill="currentColor"/><path d="M14.5 5.5 L19 3" stroke="currentColor" stroke-width="2"/></svg><i class="cd"></i><b class="t"></b><span>Q</span></div>
+        <div class="ab locked" id="ab2"><svg viewBox="0 0 24 24"><rect x="6" y="11" width="12" height="9" rx="1.5" fill="currentColor"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>E</span></div>
+        <div class="ab locked" id="ab3"><svg viewBox="0 0 24 24"><rect x="6" y="11" width="12" height="9" rx="1.5" fill="currentColor"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>F</span></div>
       </div>
     </div>
     <div class="hb-r">
@@ -554,7 +576,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
     <div class="tb fire" data-act="fire">FIRE</div>
     <div class="tb jump" data-act="jump">JUMP</div>
     <div class="tb reload" data-act="reload">RELOAD</div>
-    <div class="tb pulse" data-act="pulse" id="tPulse">WAVE</div>
+    <div class="tb pulse" data-act="pulse" id="tPulse" hidden>WAVE</div>
     <div class="tb nade" data-act="nade" id="tNade">NADE</div>
     <div class="tb crouch" data-act="crouch" id="tCrouch">CROUCH</div>
     <div class="tb zoom" data-act="zoom" id="tZoom">ZOOM</div>
@@ -569,7 +591,23 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
       <div class="eyebrow">Frigate Aster Vale · High orbit, Earth</div>
       <h1>Vanguard <em>Protocol</em></h1>
       <p class="brief">The colony on Kessa-4 has gone dark and synth patrols are pouring out of the jungle. Drop to the outpost and hold it for as long as you can.</p>
-      <div class="pick">
+      <div class="mnav"><button class="go" id="playBtn" hidden>Play</button><button class="ghost" id="loadoutBtn" type="button">Loadouts</button><button class="ghost" id="profileBtn" type="button">Profile</button><button class="ghost" id="menuSettingsBtn" type="button">Settings</button><span class="loading" id="loading">Loading…</span></div>
+      <div class="mrank"><span id="mBadge"></span><div class="mrt">
+        <label class="cs"><span>Callsign</span><input id="callsign" maxlength="16" autocomplete="off" spellcheck="false"></label>
+        <div class="mrn" id="mRankName"></div>
+        <div class="rank"><div class="mtrack"><i id="mFill"></i></div><span id="mXp"></span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="overlay loadout" id="playMenu" hidden>
+    <div class="lpanel">
+      <div class="eyebrow">Frigate Aster Vale · Mission select</div>
+      <h2>Play</h2>
+      <div class="pcols">
+        <section class="pcard">
+          <div class="attlbl">Singleplayer</div>
+          <div class="pick">
         <div class="picklbl">Game mode</div>
         <div class="seg modes"><button type="button" aria-pressed="true">Holdout</button><button type="button" disabled>More soon</button></div>
         <div class="picklbl">Map</div>
@@ -579,12 +617,29 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
           <div class="mapc soon"><div class="ph">?</div><span><b>Classified</b><i>Coming soon</i></span></div>
         </div>
       </div>
-      <div class="lbtns"><button class="go" id="playBtn" hidden>Play</button><button class="ghost" id="mpBtn" hidden>Multiplayer</button><button class="ghost" id="menuSettingsBtn" type="button">Settings</button><span class="loading" id="loading">Loading…</span></div>
-      <div class="mrank"><span id="mBadge"></span><div class="mrt">
-        <label class="cs"><span>Callsign</span><input id="callsign" maxlength="16" autocomplete="off" spellcheck="false"></label>
-        <div class="mrn" id="mRankName"></div>
-        <div class="rank"><div class="mtrack"><i id="mFill"></i></div><span id="mXp"></span></div>
-      </div></div>
+          <div class="lbtns"><button class="go" id="soloDeploy" type="button">Deploy</button><button class="ghost" id="soloLoadout" type="button">Loadout</button></div>
+        </section>
+        <section class="pcard">
+          <div class="attlbl">Multiplayer</div>
+          <p class="pnote">Co-op Holdout for up to four. Create a squad and send the code, or join a friend's.</p>
+          <div class="lbtns"><button class="go" id="mpBtn" type="button" hidden>Squad lobby</button></div>
+        </section>
+      </div>
+      <div class="lbtns"><button class="ghost" id="playBack" type="button">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay loadout" id="profile" hidden>
+    <div class="lpanel">
+      <div class="eyebrow">Service record</div>
+      <div class="prow"><span id="pBadge"></span><div><h2 id="pName">Operator</h2><div class="mrn" id="pRank"></div><div class="rank"><div class="mtrack"><i id="pFill"></i></div><span id="pXp"></span></div></div></div>
+      <div class="attlbl">Stats</div>
+      <div class="pstats" id="pStats"></div>
+      <div class="attlbl">Battle pass</div>
+      <div class="bpass"><div class="bphead"><b>Season 1 · Kessa Rising</b><span>Coming in a later update</span></div><div class="bptiers" id="bpTiers"></div></div>
+      <div class="attlbl">Rank-up rewards</div>
+      <div class="rewards" id="pRewards"></div>
+      <div class="lbtns"><button class="ghost" id="profileBack" type="button">Back</button></div>
     </div>
   </div>
 
@@ -610,14 +665,14 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
         <div class="cab">
           <div class="attlbl">Class ability</div>
           <b>Shoulder launcher</b>
-          <p>A launcher unfolds over your left shoulder and fires a grenade that bounces, then explodes after a short fuse or when it touches an enemy. Press G, or NADE on touch screens. Recharges in 9 seconds.</p>
+          <p>A launcher swings down over your left shoulder and fires a grenade that bounces, then explodes after a short fuse or when it touches an enemy. Press Q, or NADE on touch screens. Recharges in 9 seconds. E and F ability slots unlock with talents later.</p>
         </div>
         <div class="attlbl">Talents · coming in a later update</div>
         <div class="talents" id="talents"></div>
       </div>
       <details class="ctrl"><summary>Controls</summary>
         <dl class="controls">
-          <span class="mouse-only"><dt>WASD</dt><dd>Move · Shift sprint · Space jump · Hold C to crouch</dd><dt>Mouse</dt><dd>Look · Left click fire · Right click aim</dd><dt>R · Q · G · E</dt><dd>Reload · Shockwave · Grenade · Use medical station</dd></span>
+          <span class="mouse-only"><dt>WASD</dt><dd>Move · Shift sprint · Space jump · Hold C to crouch</dd><dt>Mouse</dt><dd>Look · Left click fire · Right click aim</dd><dt>R · Q · E · F</dt><dd>Reload · Shoulder launcher · Ability 2 · Ability 3 (locked)</dd></span>
           <span class="touch-only"><dt>Left thumb</dt><dd>Drag to move</dd><dt>Right thumb</dt><dd>Drag to look. Hold FIRE and slide it to aim while shooting.</dd></span>
           <dt>Health</dt><dd>Shields recharge, health does not. Heal at the green medical station on the main plaza.</dd>
         </dl>
@@ -972,9 +1027,6 @@ function buildLevel() {
     rockAt(x, z, srnd(6, 10), srnd(8, 20), srnd(6, 10), false);
   }
   // gate beacons
-  for (const [x, z] of GATES) {
-    const b = new T.Mesh(new T.BoxGeometry(0.5, 30, 0.5), M.beacon); b.position.set(x, 15, z); build.add(b);
-  }
 
   // palms
   const frondGeo = new T.PlaneGeometry(1.5, 4.6); frondGeo.rotateX(Math.PI / 2); frondGeo.translate(0, 0, 2.3);
@@ -1317,8 +1369,8 @@ const launcher = new T.Group();
 const lFlash = new T.Sprite(new T.SpriteMaterial({ map: TX.flash, color: 0xffc070, blending: T.AdditiveBlending, depthWrite: false, transparent: true }));
 lFlash.position.set(0, 0.005, -0.4); lFlash.scale.setScalar(0.3); lFlash.visible = false; launcher.add(lFlash);
 launcher.visible = false; gunScene.add(launcher);
-const L_FOLD = { p: new T.Vector3(-0.5, -0.62, -0.25), r: new T.Euler(1.3, 0.3, 0.4) };
-const L_OUT = { p: new T.Vector3(-0.36, -0.13, -0.66), r: new T.Euler(0.05, 0.07, -0.05) };
+const L_FOLD = { p: new T.Vector3(-0.42, 0.52, -0.18), r: new T.Euler(-1.15, 0.25, -0.35) };
+const L_OUT = { p: new T.Vector3(-0.34, 0.16, -0.6), r: new T.Euler(-0.04, 0.1, 0.08) };
 function poseLauncher(a, kick) {
   launcher.visible = a > 0.01;
   launcher.position.lerpVectors(L_FOLD.p, L_OUT.p, a); launcher.position.z += kick;
@@ -1849,7 +1901,7 @@ function fireNade() {
 function launchNade() {
   const P = S.p;
   cam.updateMatrixWorld();
-  const o = new T.Vector3(-0.32, -0.1, -0.7).applyQuaternion(cam.quaternion).add(cam.position);
+  const o = new T.Vector3(-0.3, 0.12, -0.75).applyQuaternion(cam.quaternion).add(cam.position);
   const v = new T.Vector3(0, 0, -1).applyQuaternion(cam.quaternion).multiplyScalar(21).add(new T.Vector3(0, 4.5, 0));
   spawnNade(o.x, o.y, o.z, v.x, v.y, v.z, null);
   if (NET.on) netSend({ t: 'gl', o: [r2(o.x), r2(o.y), r2(o.z)], v: [r2(v.x), r2(v.y), r2(v.z)] });
@@ -2054,7 +2106,8 @@ function update(dt) {
     st.mat.color.setHex(st.active ? (Math.sin(S.t * 14) > 0 ? 0xffffff : 0x5dff96) : st.cd > 0 ? 0xff4b3a : 0x5dff96);
   }
   S.nearStation = near;
-  if (input.use) { input.use = false; if (near && near.cd <= 0 && !near.active && P.hp < 100) { near.active = true; SFX.heal(); } }
+  // medical stations switch on by themselves when you step onto one hurt
+  if (input.use || (near && near.cd <= 0 && !near.active && P.hp < 100)) { input.use = false; if (near && near.cd <= 0 && !near.active && P.hp < 100) { near.active = true; SFX.heal(); } }
 
   netTick(dt);
   if (!S.running) return;
@@ -2343,7 +2396,7 @@ function hud() {
   updateParty();
   if (!$('score').hidden && (scoreT = (scoreT || 0) + 1) % 15 === 0) renderScore();
   arcFill(ui.aSh, P.shield / 100); arcFill(ui.aHp, Math.max(0, P.hp) / 100); arcFill(ui.aHpLag, Math.max(0, P.lagHp) / 100);
-  for (const [el, cd, max] of [[ui.ab1, P.pulseCd, 10], [ui.ab2, P.nadeCd, NADE_CD]]) {
+  for (const [el, cd, max] of [[ui.ab1, P.nadeCd, NADE_CD]]) {
     el.classList.toggle('ready', cd <= 0 && !P.dead);
     el.style.setProperty('--p', (cd / max).toFixed(3));
     const t = el.querySelector('.t'), txt = cd > 0 ? String(Math.ceil(cd)) : '';
@@ -2388,8 +2441,6 @@ function hud() {
     ui.ammoRes.textContent = P.reserve;
     ui.mAmmo.innerHTML = venting ? 'VENT' : `${P.mag} <small>/ ${P.reserve}</small>`;
     $('tNade').classList.toggle('cool', P.nadeCd > 0); $('tNade').textContent = P.nadeCd > 0 ? Math.ceil(P.nadeCd) : 'NADE';
-    ui.tPulse.classList.toggle('cool', P.pulseCd > 0);
-    ui.tPulse.textContent = P.pulseCd > 0 ? Math.ceil(P.pulseCd) : 'WAVE';
   }
   ui.vig.style.opacity = Math.max(P.hurt, P.hp < 30 ? 0.35 + Math.sin(S.t * 6) * 0.1 : 0);
   ui.lowsh.style.opacity = Math.max(0, P.shFlash || 0).toFixed(3);
@@ -2439,6 +2490,7 @@ function banner(t, sub, secs) {
 }
 
 function gameOver() {
+  recordRun();
   S.running = false; input.fire = false;
   try { reloadVoice && reloadVoice.stop(); } catch (e) {}
   best = Math.max(best, S.score);
@@ -2467,9 +2519,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase(); input.keys[k] = true;
   if (!S || !S.running || paused) return;
   if (k === ' ') { e.preventDefault(); input.jump = true; }
-  if (k === 'q' || k === 'f') pulse();
-  if (k === 'g') fireNade();
-  if (k === 'e') input.use = true;
+  if (k === 'q') fireNade();
 });
 addEventListener('keyup', e => {
   if (e.key === 'Tab') { e.preventDefault(); showScore(false); return; }
@@ -2884,15 +2934,17 @@ function earthTex(P = {}) {
     const x = (cx + (srand() - 0.5) * r / w * 2.2) * w, y = (cy + (srand() - 0.5) * r / h * 1.6) * h, rr = r * srnd(0.25, 0.6);
     const lat = Math.abs(y / h - 0.5);
     g.fillStyle = lat > 0.18 && lat < 0.3 ? dry[i % dry.length] : wet[i % wet.length];
-    g.beginPath(); g.ellipse(x, y, rr, rr * srnd(0.5, 0.9), srand() * 3, 0, Math.PI * 2); g.fill();
+    const ry = rr * srnd(0.5, 0.9), rot = srand() * 3;
+    for (const ox of [-w, 0, w]) { g.beginPath(); g.ellipse(x + ox, y, rr, ry, rot, 0, Math.PI * 2); g.fill(); }
   }
   // polar ice
-  for (const [y0, dir] of [[0, 1], [h, -1]]) for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(240,246,250,.9)'; g.fillRect(srand() * w, y0 + dir * srand() * 18 - (dir < 0 ? 6 : 0), 10 + srand() * 30, 6); }
+  for (const [y0, dir] of [[0, 1], [h, -1]]) for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(240,246,250,.9)'; const ix = srand() * w, iy = y0 + dir * srand() * 18 - (dir < 0 ? 6 : 0), iw = 10 + srand() * 30; g.fillRect(ix, iy, iw, 6); g.fillRect(ix - w, iy, iw, 6); }
   // cloud bands and swirls
   for (let i = 0; i < clouds; i++) {
     const y = h * (0.5 + (srand() - 0.5) * 0.9), x = srand() * w;
     g.fillStyle = `rgba(255,255,255,${(0.08 + srand() * 0.3).toFixed(2)})`;
-    g.beginPath(); g.ellipse(x, y, 4 + srand() * 22, 1.5 + srand() * 4, (srand() - 0.5) * 0.4, 0, Math.PI * 2); g.fill();
+    const cw = 4 + srand() * 22, ch = 1.5 + srand() * 4, cr = (srand() - 0.5) * 0.4;
+    for (const ox of [-w, 0, w]) { g.beginPath(); g.ellipse(x + ox, y, cw, ch, cr, 0, Math.PI * 2); g.fill(); }
   }
   const t = new T.CanvasTexture(c); return t;
 }
@@ -3349,11 +3401,12 @@ $('joinBtn').addEventListener('click', () => netConnect($('roomCode').value));
 $('roomCode').addEventListener('keydown', e => { if (e.key === 'Enter') netConnect($('roomCode').value); });
 $('mpStart').addEventListener('click', () => { if (!NET.host) return; const tod = Math.floor(Math.random() * TODS.length), seed = 1 + Math.floor(Math.random() * 100000); netSend({ t: 'start', tod, seed }); start(tod, seed); });
 let armoryFrom = 'solo';
-$('mpLoadout').addEventListener('click', () => { armoryFrom = 'lobby'; mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Back to lobby'; showArmory(); });
-$('mpLeave').addEventListener('click', () => { netLeave(); mode = 'menu'; showOnly('menu'); });
+$('mpLoadout').addEventListener('click', () => { armoryFrom = 'lobby'; mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Back to lobby'; $('deployBtn').hidden = false; showArmory(); });
+$('mpLeave').addEventListener('click', () => { netLeave(); mode = 'menu'; showOnly('playMenu'); });
 for (const id of ['srvUrl', 'roomCode']) $(id).addEventListener('keydown', e => e.stopPropagation());
 setInterval(() => { if (NET.on && mode !== 'game') netSend({ t: 'ping', at: Date.now() }); }, 20000);
 function toLobby() {
+  recordRun();
   mode = 'menu'; paused = false;
   newGame(); S.running = false;
   for (const p of NET.peers.values()) if (p.model) p.model.g.visible = false;
@@ -3665,7 +3718,32 @@ $('callsign').addEventListener('input', e => {
   try { localStorage.setItem('kessa-name', callsign); } catch (err) {}
 });
 addEventListener('keydown', e => { if (e.target && e.target.id === 'callsign') e.stopPropagation(); }, true);
-function showOnly(id) { for (const k of ['menu', 'loadout', 'pause', 'over', 'lobby']) $(k).hidden = k !== id; $('score').hidden = true; $('settings').hidden = true; scoreSticky = false; }
+// lifetime service record, kept in this browser
+let stats = { matches: 0, kills: 0, bestWave: 0, waves: 0, xp: 0, time: 0 };
+try { Object.assign(stats, JSON.parse(localStorage.getItem('vp-stats')) || {}); } catch (e) {}
+function recordRun() {
+  if (!S || S.recorded || (!S.kills && S.wave <= 1 && S.t < 20)) return;
+  S.recorded = true;
+  const cleared = Math.max(0, S.wave - 1);
+  stats.matches++; stats.kills += S.kills; stats.waves += cleared; stats.bestWave = Math.max(stats.bestWave, cleared); stats.xp += S.xp; stats.time += S.t;
+  try { localStorage.setItem('vp-stats', JSON.stringify(stats)); } catch (e) {}
+}
+function renderProfile() {
+  const rk = rankOf(prog.level);
+  $('pBadge').innerHTML = badgeSVG(prog.level, 84); $('pName').textContent = callsign; $('pRank').textContent = `Level ${prog.level} · ${rk.title}`;
+  $('pFill').style.transform = $('mFill').style.transform; $('pXp').textContent = $('mXp').textContent;
+  const mins = Math.round(stats.time / 60);
+  $('pStats').innerHTML = [['Matches', stats.matches], ['Kills', stats.kills], ['Best wave', stats.bestWave], ['Waves cleared', stats.waves], ['XP earned', stats.xp.toLocaleString()], ['Time deployed', mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`]]
+    .map(([l, v]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
+  $('bpTiers').innerHTML = Array.from({ length: 10 }, (_, i) => `<i>${i + 1}</i>`).join('');
+  const rows = [];
+  for (const slot of ['primary', 'sidearm']) for (const w of WEAPONS[slot]) if (w.lvl > 1) rows.push([w.lvl, w.name, w.live ? w.cls : w.cls + ' · in development']);
+  for (const [gid, slots] of Object.entries(ATT)) for (const [sl, list] of Object.entries(slots)) for (const a of list) if (a.lvl > 1) rows.push([a.lvl, a.name, `${weaponById('primary', gid).name} ${SLOT_NAMES[sl].toLowerCase()}`]);
+  for (let l = 2; l <= MAX_LEVEL; l++) { const r = rankOf(l); if (r.g === 1 || l === MAX_LEVEL) rows.push([l, `Rank: ${r.name}`, 'New rank badge']); }
+  rows.sort((a, b) => a[0] - b[0]);
+  $('pRewards').innerHTML = rows.map(([l, n, d]) => `<div class="${prog.level >= l ? 'got' : ''}"><em>Lv ${l}</em><span><b>${n}</b><br><small>${d}</small></span><em>${prog.level >= l ? 'Unlocked' : 'Locked'}</em></div>`).join('');
+}
+function showOnly(id) { for (const k of ['menu', 'loadout', 'pause', 'over', 'lobby', 'playMenu', 'profile']) $(k).hidden = k !== id; $('score').hidden = true; $('settings').hidden = true; scoreSticky = false; }
 function refreshRank() {
   const rk = rankOf(prog.level);
   $('mBadge').innerHTML = badgeSVG(prog.level, 72);
@@ -3701,6 +3779,7 @@ function start(tod, seed) {
   try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch (e) {}
 }
 function toMenu() {
+  recordRun();
   try { reloadVoice && reloadVoice.stop(); } catch (e) {}
   netLeave();
   mode = 'menu'; paused = false;
@@ -3708,9 +3787,15 @@ function toMenu() {
   $('hud').hidden = true; showOnly('menu'); refreshRank();
   if (document.pointerLockElement) document.exitPointerLock();
 }
-$('playBtn').addEventListener('click', () => { initAudio(); netLeave(); armoryFrom = 'solo'; mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Deploy'; showArmory(); });
+$('playBtn').addEventListener('click', () => { initAudio(); netLeave(); mode = 'menu'; showOnly('playMenu'); });
+$('playBack').addEventListener('click', () => { mode = 'menu'; showOnly('menu'); });
+$('soloDeploy').addEventListener('click', () => { initAudio(); netLeave(); start(); });
+$('soloLoadout').addEventListener('click', () => { armoryFrom = 'solo'; mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Deploy'; $('deployBtn').hidden = false; showArmory(); });
+$('loadoutBtn').addEventListener('click', () => { initAudio(); armoryFrom = 'menu'; mode = 'loadout'; showOnly('loadout'); $('deployBtn').hidden = true; showArmory(); });
+$('profileBtn').addEventListener('click', () => { mode = 'menu'; showOnly('profile'); renderProfile(); });
+$('profileBack').addEventListener('click', () => { mode = 'menu'; showOnly('menu'); });
 $('mpBtn').addEventListener('click', () => { initAudio(); mode = 'menu'; showOnly('lobby'); renderLobby(); if (!NET.on) lobbyStatus(serverUrl ? 'Create a room and send the code to your squad, or type a code and join.' : 'Enter the server address you set up, then create or join a room.'); });
-$('backBtn').addEventListener('click', () => { mode = 'menu'; if (armoryFrom === 'lobby') { showOnly('lobby'); renderLobby(); } else showOnly('menu'); });
+$('backBtn').addEventListener('click', () => { mode = 'menu'; if (armoryFrom === 'lobby') { showOnly('lobby'); renderLobby(); } else if (armoryFrom === 'solo') showOnly('playMenu'); else showOnly('menu'); });
 $('deployBtn').addEventListener('click', () => { if (armoryFrom === 'lobby') { mode = 'menu'; showOnly('lobby'); renderLobby(); } else start(); });
 $('againBtn').addEventListener('click', () => { if (NET.on) toLobby(); else start(); });
 $('overMenuBtn').addEventListener('click', toMenu);
