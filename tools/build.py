@@ -1,4 +1,4 @@
-# Builds index.html (local three.js and fonts, relay address baked in) from src/game.html.
+# Builds site/index.html (local three.js and fonts, relay address baked in) from src/game.html.
 # Run from the repo root: python3 tools/build.py
 import os
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -10,5 +10,5 @@ out = src.replace(fonts, '<link rel="stylesheet" href="fonts.css">\n<script>wind
 head = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
         '<style>html,body{margin:0}body{font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>\n')
-open(os.path.join(root, 'index.html'), 'w').write(head + out + '\n</body>\n</html>\n')
-print('built index.html')
+open(os.path.join(root, 'site', 'index.html'), 'w').write(head + out + '\n</body>\n</html>\n')
+print('built site/index.html')

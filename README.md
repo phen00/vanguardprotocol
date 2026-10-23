@@ -4,7 +4,7 @@ A low-res sci-fi co-op horde shooter that runs in the browser. First map: **Hold
 
 ## Play
 
-Open `index.html` in Chrome or Edge, or visit the Cloudflare Pages link once it is set up.
+Open https://vanguard-protocol.retrohome.workers.dev in Chrome or Edge, or open `site/index.html` directly.
 
 | Key | Action |
 | --- | --- |
@@ -24,12 +24,14 @@ Rooms run on a Cloudflare Worker with Durable Objects (`server/worker.js`), depl
 
 | Path | What it is |
 | --- | --- |
-| `index.html`, `three.min.js`, `fonts/`, `fonts.css` | The playable build that Pages serves |
+| `site/` | The playable build (index.html, three.js, fonts) served by the Worker |
 | `src/game.html` | Game source |
-| `tools/build.py` | Rebuilds `index.html` from `src/game.html` |
+| `tools/build.py` | Rebuilds `site/index.html` from `src/game.html` |
 | `server/` | Relay Worker (`worker.js`, `wrangler.toml`) and an optional LAN relay (`local-relay.js`) |
+| `wrangler.toml` | Config for the `vanguard-protocol` Worker that serves `site/` |
 | `licenses/` | three.js (MIT) and font (OFL) licences |
 
-## Hosting on Cloudflare Pages
+## Deployment
 
-Workers & Pages → Create → Pages → Connect to Git → pick this repo. Leave the build command empty and the output directory as `/`. Every push to `main` redeploys the site.
+- **Game:** the repo is connected to the `vanguard-protocol` Worker through Cloudflare Workers Builds. Every push to `main` runs `npx wrangler deploy`, which uploads `site/` as static assets.
+- **Rooms:** the relay runs on the separate `kessa-relay` Worker. It is not redeployed by pushes; to update it, run `npx wrangler deploy` inside `server/`.

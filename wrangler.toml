@@ -1,0 +1,8 @@
+# Deployed by Cloudflare Workers Builds on every push to main.
+# This Worker only serves the game files in site/. Multiplayer rooms run on the
+# separate kessa-relay Worker (server/worker.js, deployed with server/wrangler.toml).
+name = "vanguard-protocol"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "./site"
