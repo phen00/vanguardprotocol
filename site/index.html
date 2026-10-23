@@ -2505,15 +2505,13 @@ function ammoCan() {
   add(new T.BoxGeometry(0.57, 0.08, 0.305), canMats.band, 0, 0.02, 0);
   add(new T.BoxGeometry(0.18, 0.035, 0.05), canMats.body, 0, 0.245, 0);
   for (let i = 0; i < 6; i++) { const x = -0.2 + i * 0.08; add(new T.CylinderGeometry(0.022, 0.022, 0.16, 6), canMats.brass, x, 0.3, 0.06); add(new T.ConeGeometry(0.022, 0.05, 6), canMats.tip, x, 0.405, 0.06); }
-  const beam = add(new T.CylinderGeometry(0.22, 0.32, 2.4, 10, 1, true), new T.MeshBasicMaterial({ color: 0xffc040, transparent: true, opacity: 0.18, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending }), 0, 0.9, 0);
-  const lbl = new T.Sprite(new T.SpriteMaterial({ map: ammoLabelTex, transparent: true, depthWrite: false, depthTest: false })); lbl.position.y = 0.95; lbl.scale.set(0.85, 0.32, 1); g.add(lbl);
   const ring = new T.Mesh(new T.RingGeometry(0.3, 0.5, 24), canMats.glow); ring.rotation.x = -Math.PI / 2; ring.position.y = -0.42; g.add(ring);
   return g;
 }
 function dropPickup(x, z, kind, id, fromNet) {
   id = id || ++pickSeq;
   const m = kind === 'ammo' ? ammoCan() : new T.Mesh(pickGeo, pickMats[kind] || pickMats.ammo); const y = groundAt(x, z, 5);
-  m.position.set(x, y + 0.45, z); scene.add(m); pickups.push({ id, m, kind, t: 20, y });
+  m.position.set(x, y + 0.45, z); scene.add(m); pickups.push({ id, m, kind, t: 50, y });
   if (NET.on && NET.host && !fromNet) netSend({ t: 'pk', id, k: kind, x: r2(x), z: r2(z) });
 }
 function removePickup(id) { for (const pk of pickups) if (pk.id === id) pk.t = 0; }
@@ -2865,7 +2863,7 @@ function updateVisor(dt) {
     const dx = tg.x - cam.position.x, dy = tg.y - cam.position.y, dz = tg.z - cam.position.z;
     const wy = Math.atan2(-dx, -dz), wp = Math.atan2(dy, Math.hypot(dx, dz));
     let dyaw = wy - P.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
-    const k = Math.min(1, dt * 22); P.yaw += dyaw * k; P.pitch += (wp - P.recoil - P.pitch) * k;
+    const k = Math.min(1, dt * 30); P.yaw += dyaw * k; P.pitch += (wp - P.recoil - P.pitch) * k;
   }
   // brackets on every head in view, the locked one in red
   let html = '';
@@ -3161,6 +3159,15 @@ function update(dt) {
     gunModel.userData.pump.position.z = gunModel.userData.pumpZ + off;
   }
   gun.rotation.y += (0.12 * (1 - P.ads) - gun.rotation.y) * Math.min(1, dt * 10);
+  // Tactical Visor: the weapon physically swings to point at the locked head
+  if (P.visT > 0 && P.visTarget) {
+    cam.updateMatrixWorld(); _tb.set(P.visTarget.x, P.visTarget.y, P.visTarget.z); cam.worldToLocal(_tb);
+    _tb.sub(gun.position);
+    const ty = Math.atan2(-_tb.x, -_tb.z), tp = Math.atan2(_tb.y, Math.hypot(_tb.x, _tb.z));
+    P.visAim = Math.min(1, (P.visAim || 0) + dt * 6);
+    gun.rotation.y += (ty - gun.rotation.y) * P.visAim * Math.min(1, dt * 16);
+    gun.rotation.x += (tp - gun.rotation.x) * P.visAim * Math.min(1, dt * 16);
+  } else P.visAim = 0;
   gun.rotation.z += ((sprint > 1 && moving ? 0.25 : 0) + (GS.shell && P.reloadT > 0 ? -0.4 : 0) + (ventGun ? -0.3 * lift : smg ? 0.28 * tilt : 0) - gun.rotation.z) * Math.min(1, dt * 10);
   if (gunModel && gunModel.userData.lh) {
     const lh = gunModel.userData.lh, base = gunModel.userData.lhBase;
@@ -4941,7 +4948,7 @@ function startIntro() {
   const g = buildShuttle(); g.position.set(0, floor, 6.3); scene.add(g);
   shuttle = { g, t: 0, floor, gy, lift: 0, openA: Math.asin(0.55 / 2.0) };
   g.userData.ramp.rotation.x = Math.PI / 2;                            // closed: standing up across the doorway
-  S.intro = { t: 0, x0: P.x * 0.35, x1: P.x };
+  S.intro = { t: 0, x0: Math.max(-0.75, Math.min(0.75, P.x * 0.35)), x1: P.x };
   S.introStamp = missionStamp((S.seed || 1) * 7 + 3);
   $('introDate').textContent = S.introStamp; $('introTod').textContent = TOD.name + ' insertion · ' + WX[env.w].name;
   $('intro').hidden = false; $('introN').textContent = INTRO;
@@ -4961,7 +4968,8 @@ function updateIntro(dt) {
   const run = ease(cl((t - 1.6) / 2.4));
   const zIn = 6.3 + 4.2, zOut = 3.2;
   P.z = zIn + (zOut - zIn) * run;
-  P.x = I.x0 + (I.x1 - I.x0) * run;
+  const fan = Math.max(0, Math.min(1, (run - 0.62) / 0.38));
+  P.x = I.x0 + (I.x1 - I.x0) * fan * fan * (3 - 2 * fan);
   const zr = 6.3, zEnd = zr - 2.0 * Math.cos(sh.openA);
   P.y = P.z > zr ? sh.floor : P.z > zEnd ? sh.gy + (sh.floor - sh.gy) * (P.z - zEnd) / (zr - zEnd) : sh.gy;
   const moving = t > 1.6 && t < 4.0;
@@ -5166,7 +5174,7 @@ function clearWeatherFx() {
 // ---------------- ammo box (once per wave) ----------------
 let ammoBox = null;
 function buildAmmoBox() {
-  const x = 8, z = -1.65, y0 = 0.9;
+  const x = 8.6, z = 3.2, y0 = 0.9;
   const g = new T.Group(); g.position.set(x, y0, z);
   const body = new T.Mesh(new T.BoxGeometry(1.0, 0.55, 0.62), new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x55606a }));
   body.position.y = 0.28; g.add(body);
