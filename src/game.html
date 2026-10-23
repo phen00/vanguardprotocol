@@ -735,6 +735,8 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 .lookpad i { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: rgba(143,214,255,.35); box-shadow: inset 0 0 0 2px rgba(200,235,255,.8); pointer-events: none; }
 @media (pointer: coarse) and (max-height: 500px) { .lookpad { width: 92px; height: 92px; bottom: max(14px, env(safe-area-inset-bottom, 0px)); } }
 #game.predator .lookpad { visibility: visible; }
+.omk.tmk i { border-color: #5dff96; background: rgba(93,255,150,.18); box-shadow: 0 0 10px rgba(93,255,150,.55); }
+.omk.tmk span { color: #c8ffd8; }
 </style>
 
 <div id="game">
@@ -1271,9 +1273,24 @@ function sandbags(cx, cz, w, d, h, y0 = 0) {
   }
 }
 // straight flight of solid steps from (x, z) heading along (dx, dz)
-function stairs(x, z, dx, dz, w, y0, y1, n) {
-  const rise = (y1 - y0) / n, run = 0.55;
-  for (let i = 1; i <= n; i++) { const cx = x + dx * run * (i - 0.5), cz = z + dz * run * (i - 0.5); addBox(cx, cz, dx ? run : w, dz ? run : w, rise * i, y0, M.trim); }
+function stairs(x, z, dx, dz, w, y0, y1, n, railSide = 1) {
+  const rise = (y1 - y0) / n, run = 0.55, L = run * n;
+  for (let i = 1; i <= n; i++) {
+    const cx = x + dx * run * (i - 0.5), cz = z + dz * run * (i - 0.5), top = y0 + rise * i;
+    const bw = dx ? run : w, bd = dz ? run : w;
+    boxes.push({ x0: cx - bw / 2, x1: cx + bw / 2, z0: cz - bd / 2, z1: cz + bd / 2, y0, y1: top });      // walkable step (invisible)
+    slab(build, dx ? run + 0.04 : w, 0.07, dz ? run + 0.04 : w, cx, top - 0.035, cz, MX.metal);           // tread
+    slab(build, dx ? 0.03 : w * 0.96, rise * 0.6, dz ? 0.03 : w * 0.96, cx - dx * run / 2, top - rise * 0.38, cz - dz * run / 2, M.grate);   // open riser
+  }
+  // two angled stringers and a handrail on the open side
+  const len = Math.hypot(L, y1 - y0), ang = Math.atan2(y1 - y0, L), mx = x + dx * L / 2, mz = z + dz * L / 2, my = (y0 + y1) / 2 - 0.12;
+  const px = dz ? 1 : 0, pz = dx ? 1 : 0;
+  for (const sd of [-1, 1]) {
+    const st = new T.Mesh(boxGeo(0.06, 0.24, len, 1), MX.metal); st.position.set(mx + px * sd * w / 2, my, mz + pz * sd * w / 2);
+    st.rotation.order = 'YXZ'; st.rotation.y = Math.atan2(dx, dz); st.rotation.x = -ang; build.add(st);
+  }
+  const rail = new T.Mesh(boxGeo(0.05, 0.05, len, 1), MX.metal); rail.position.set(mx + px * railSide * w / 2, my + 1.0, mz + pz * railSide * w / 2); rail.rotation.order = 'YXZ'; rail.rotation.y = Math.atan2(dx, dz); rail.rotation.x = -ang; build.add(rail);
+  for (let i = 0; i <= n; i += 3) { const t = i / n; slab(build, 0.04, 1.0, 0.04, x + dx * L * t + px * railSide * w / 2, y0 + (y1 - y0) * t + 0.45, z + dz * L * t + pz * railSide * w / 2, MX.metal); }
 }
 // four-legged watchtower: stairs up the side, platform at 3.5 m, sandbag parapet, light roof
 function watchtower(x, z, side) {
@@ -1282,7 +1299,7 @@ function watchtower(x, z, side) {
   addBox(x, z, 3.2, 3.2, 0.3, top - 0.3, M.trim);
   for (let i = 0; i < 4; i++) addBox(x + (i < 2 ? (i ? 1.3 : -1.3) : 0), z + (i >= 2 ? (i === 3 ? 1.3 : -1.3) : 0), i < 2 ? 0.12 : 2.6, i < 2 ? 2.6 : 0.12, 0.12, 1.6, MX.metal, false);
   // stairs climb along the +x side toward the platform
-  stairs(x + 2.15, z + side * 2.6, 0, -side, 1.0, 0, top, 7);
+  stairs(x + 2.15, z + side * 2.6, 0, -side, 1.0, 0, top, 7, 1);
   sandbags(x - 1.25, z, 0.7, 3.0, 0.75, top); sandbags(x, z - side * 1.25, 3.0, 0.7, 0.75, top);
   for (const [a, b] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) addBox(x + a, z + b, 0.14, 0.14, 2, top, MX.metal, false);
   addBox(x, z, 3.6, 3.6, 0.15, top + 2, MX.char, false);
@@ -1474,8 +1491,7 @@ function buildLevel() {
   sandbags(-1.2, -8.4, 7.4, 0.8, 1.1, 0.9);                                           // north edge between the stairs and the store
   sandbags(12.4, 4.6, 0.8, 7.2, 1.1, 0.9); sandbags(12.4, -7.2, 0.8, 2.6, 1.1, 0.9);   // east edge, gap for the walkway
   sandbags(-12.4, -3.4, 0.8, 8.6, 1.1, 0.9);                                          // west edge, gap for the west stairs
-  // inner fallback position around the centre
-  sandbags(-3, 3, 3.4, 0.7, 1.1, 0.9); sandbags(4.4, 1.6, 0.7, 3.2, 1.1, 0.9);
+
   addBox(0, -1, 2, 2, 0.5, 0.9, M.trim);
 
   // the plaza took a beating: scorch marks, cracks and loose rubble
@@ -1508,8 +1524,7 @@ function buildLevel() {
   room(24, 30, 5, 5, 3, 0, [{ side: 'n', off: -0.8, w: 1.6 }, { side: 'w', off: 0.6, w: 1.5 }], { roofW: 5.6, roofD: 5.6 });
   wreckInterior(24, 30, 5, 5, 0, 'store');
   // ---- verticality: rooftop perch on the ops building, and two watchtowers ----
-  stairs(0.2, -2.3, 0, -1, 1.0, 0.9, 5.45, 10);
-  addBox(0.2, -2.1, 1.0, 0.25, 0.9, 0.9, M.trim, false);
+  stairs(0.0, -2.3, 0, -1, 1.1, 0.9, 5.45, 10, 1);
   for (const [x, z, w, d] of [[-6, -8.6, 9.8, 0.7], [-11.0, -5, 0.7, 6.4], [-6, -1.5, 4.6, 0.7]]) sandbags(x, z, w, d, 0.8, 5.45);
   watchtower(16, -30, 1); watchtower(-20, 33, -1);
   // ---- outer colony, now that the map is bigger ----
@@ -2182,7 +2197,7 @@ function makeGun(id, att = {}) {
     else if (AT.optic === 'tri') { for (const sx of [-1, 1]) { B(0.006, 0.012, 0.008, sx * 0.009, 0.046, 0.035, dk); B(0.003, 0.003, 0.003, sx * 0.009, 0.05, 0.03, glowCyan); } B(0.005, 0.012, 0.006, 0, 0.046, -0.145, dk); B(0.003, 0.003, 0.003, 0, 0.051, -0.149, glowCyan); sightY = 0.05; }
     else { for (const sx of [-1, 1]) B(0.006, 0.012, 0.008, sx * 0.009, 0.046, 0.035, dk); B(0.005, 0.012, 0.006, 0, 0.046, -0.145, dk); B(0.002, 0.002, 0.002, 0, 0.052, -0.148, glow); sightY = 0.05; }
     // power cell seated in the back of the slide: this is what gets swapped on reload
-    const cell = grp([B(0.026, 0.026, 0.05, 0, 0.024, 0.068, mid), B(0.028, 0.028, 0.006, 0, 0.024, 0.095, dk), B(0.012, 0.012, 0.003, 0, 0.024, 0.0985, glowCyan), B(0.003, 0.016, 0.03, 0.014, 0.024, 0.07, glowCyan), B(0.003, 0.016, 0.03, -0.014, 0.024, 0.07, glowCyan)]);
+    const cell = grp([B(0.026, 0.026, 0.05, 0, 0.024, 0.024, mid), B(0.028, 0.028, 0.006, 0, 0.024, 0.049, dk), B(0.012, 0.012, 0.003, 0, 0.024, 0.0525, glowCyan), B(0.003, 0.016, 0.03, 0.0137, 0.024, 0.026, glowCyan), B(0.003, 0.016, 0.03, -0.0137, 0.024, 0.026, glowCyan)]);
     g.userData.adsZ = AT.optic === 'reflex' ? -0.3 : -0.26; g.userData.mag = cell; g.userData.ch = slide; g.userData.cellPistol = true;
     RF = { barrel: barW, barrelZ0: -0.145, barrelY: 0.022, barrelR: 0.008, tips: [], mag: magP, magTop: -0.1, magZ: 0.012, stock: null, guardY: -0.03, guardZ: -0.05, noGrip: true, pistol: true, slide };
   } else if (id === 'lancer') {
@@ -2469,6 +2484,8 @@ function makeEnemy(type, x, z, nid) {
     arms[0].rotation.x = -1.2; arms[1].rotation.x = -1.3; arms[1].rotation.z = 0.5;
     part(0.09, 0.12, 0.7, 0.2, 0.42, 0.42, armor, torso);
   } else { arms[0].rotation.x = -0.6; arms[1].rotation.x = -0.6; torso.rotation.x = 0.35; }
+  if (!heavy) { part(0.3, 0.34, 0.14, 0, 0.5, stalk ? -0.16 : -0.24, armor, torso); for (const sx of [-1, 1]) part(0.08, 0.12, 0.08, sx * 0.1, 0.28, stalk ? -0.2 : -0.28, plate, torso);
+    const jf = new T.Sprite(new T.SpriteMaterial({ map: TX.flash, color: 0x7fd4ff, blending: T.AdditiveBlending, depthWrite: false, transparent: true })); jf.position.set(0, 0.12, stalk ? -0.2 : -0.28); jf.scale.set(0.3, 0.55, 1); jf.visible = false; torso.add(jf); e.jet = jf; }
   if (heavy) { part(0.28, 0.28, 0.7, 0.42, 0.85, 0.1, armor, torso); part(0.12, 0.12, 0.04, 0.42, 0.85, 0.46, visor, torso); }
   g.scale.setScalar(D.scale);
   e.legs = legs; e.arms = arms; e.torso = torso;
@@ -2601,6 +2618,15 @@ function updateEnemies(dt) {
       e.cd -= dt;
     }
 
+    // jetpack: if the target is up on a roof or tower and close, boost up after them
+    e.jetCd = (e.jetCd || rnd(1, 3)) - dt;
+    if (e.jet && e.jetCd <= 0 && !e.jetT && e.vy === 0 && P.y - e.y > 1.4 && dist < 11) {
+      e.jetCd = rnd(5, 8); e.jetT = Math.max(0.15, (P.y - e.y + 1.0 - 1.8) / 8.5); e.jetAir = true;
+      if (Math.hypot(S.p.x - e.x, S.p.z - e.z) < 30) sNoise(0.6, 1400, 0.12, 'bandpass');
+    }
+    if (e.jetT > 0) { e.jetT -= dt; e.vy = 8.5; if (e.jetT <= 0) e.jetT = 0; }
+    if (e.jetAir) { mx = ux; mz = uz; sp = dist > 0.7 ? Math.max(sp, 4.2) : 0; }
+    if (e.jet) e.jet.visible = e.jetT > 0 || (e.jetAir && e.vy > -2);
     if (e.detour > 0) { e.detour -= dt; mx = e.dx; mz = e.dz; }
     e.x += (mx * sp + e.kx) * dt; e.z += (mz * sp + e.kz) * dt;
     const decay = Math.pow(0.03, dt); e.kx *= decay; e.kz *= decay;
@@ -2611,7 +2637,7 @@ function updateEnemies(dt) {
     }
     collide(e, D.r, e.y, 1.9 * D.scale);
     e.vy -= 20 * dt; e.y += e.vy * dt;
-    const gr = groundAt(e.x, e.z, e.y); if (e.y <= gr) { e.y = gr; e.vy = 0; }
+    const gr = groundAt(e.x, e.z, e.y); if (e.y <= gr) { e.y = gr; e.vy = 0; e.jetAir = false; }
 
     // stuck detection -> sidestep
     e.stuckT += dt;
@@ -3234,6 +3260,7 @@ function update(dt) {
   const lift = lift0 * lift0 * (3 - 2 * lift0);
   const ventGun = venting && curW === 'vk9';
   // SMG magazine change: tilt the gun, left hand pulls the mag down and away, slaps a fresh one in, racks the handle
+  if (P.reloadT <= 0) P.cellOut = P.mag === 0;
   const smg = venting && (curW === 'hail' || curW === 'wasp') && gunModel && gunModel.userData.mag;
   const seg = (a, b) => { const x = Math.max(0, Math.min(1, (vr - a) / (b - a))); return x * x * (3 - 2 * x); };
   const tilt = smg ? seg(0, 0.12) * (1 - seg(0.84, 1)) : 0;
@@ -3277,8 +3304,11 @@ function update(dt) {
       const rack = seg(0.68, 0.72) * (1 - seg(0.74, 0.8));          // pull it back and let it snap forward
       if (gunModel.userData.cellPistol) {
         // pistol: thumb the spent cell out of the back of the slide, seat a fresh one, rack the slide
-        ox = 0.012 * toMag; oy = 0.13 * toMag * (1 - toHandle) - 0.05 * down + 0.13 * toHandle; oz = (0.07 + 0.08 * down) * toMag * (1 - toHandle) + (0.0 + 0.03 * rack) * toHandle;
-        const mg = gunModel.userData.mag; mg.position.set(-0.03 * down, -0.07 * down, 0.12 * down); mg.visible = !(vr > 0.33 && vr < 0.41);
+        // hand reaches to the back of the slide, pulls the spent cell away, comes back with a fresh one and pushes it home
+        const D = [-0.05, -0.13, 0.11], G = [0.012, 0.115, 0.075];
+        ox = G[0] * toMag * (1 - toHandle) + D[0] * down; oy = G[1] * toMag * (1 - toHandle) + D[1] * down + 0.13 * toHandle; oz = G[2] * toMag * (1 - toHandle) + D[2] * down + 0.03 * rack * toHandle;
+        const pushed = seg(0.56, 0.62), popped = P.cellOut ? 1 : seg(0.04, 0.12);
+        const mg = gunModel.userData.mag; mg.position.set(D[0] * down, D[1] * down, 0.045 * popped * (1 - pushed) + D[2] * down); mg.visible = !(vr > 0.33 && vr < 0.41);
         gunModel.userData.ch.position.z = gunModel.userData.chZ0 + 0.035 * rack;
         if (vr > 0.5 && !P.magIn) { P.magIn = true; sTone(1100, 900, 0.03, 0.06, 'square'); sTone(1600, 1600, 0.02, 0.04, 'sine', 0.03); }
       } else {
@@ -3292,7 +3322,7 @@ function update(dt) {
       oy = -0.07 * k; oz = 0.42 * k;
     }
     lh.position.set(base.x + ox, base.y + oy, base.z + oz);
-    if (!smg && gunModel.userData.mag) { gunModel.userData.mag.position.set(0, 0, 0); gunModel.userData.mag.visible = true; P.magIn = false; if (gunModel.userData.ch) gunModel.userData.ch.position.z = gunModel.userData.chZ0; }
+    if (!smg && gunModel.userData.mag) { gunModel.userData.mag.position.set(0, 0, gunModel.userData.cellPistol && P.mag === 0 ? 0.045 : 0); gunModel.userData.mag.visible = true; P.magIn = false; if (gunModel.userData.ch) gunModel.userData.ch.position.z = gunModel.userData.chZ0; }
   }
   if (ventGun) {
     P.steamT = (P.steamT || 0) - dt;
@@ -5598,7 +5628,15 @@ function updateTerminal() {
   const P = S.p, inter = S.intermission > 0 && S.wave > 0;
   const pulse = 0.5 + 0.5 * Math.sin(S.t * 5);
   terminal.lampMat.color.setHex(inter ? (pulse > 0.5 ? 0xffd27a : 0xffb547) : 0x6a5a40);
-  terminal.beam.material.opacity = inter ? 0.12 + 0.1 * pulse : 0;
+  terminal.beam.visible = false;
+  // marker over the terminal, visible through walls, while the shop is open between waves
+  let mk = $('termMk'); if (!mk) { mk = document.createElement('div'); mk.id = 'termMk'; mk.className = 'omk tmk'; mk.innerHTML = '<i>$</i><span></span>'; $('tags').append(mk); }
+  if (inter && !S.missile) {
+    _ta.set(terminal.x, terminal.y0 + 2.3, terminal.z - 0.9).project(cam);
+    const behind = _ta.z > 1, x = Math.max(0.04, Math.min(0.96, _ta.x * 0.5 + 0.5)), y = Math.max(0.08, Math.min(0.9, -_ta.y * 0.5 + 0.5));
+    mk.hidden = false; mk.style.left = (behind ? (x < 0.5 ? 0.96 : 0.04) : x) * 100 + '%'; mk.style.top = (behind ? 0.5 : y) * 100 + '%';
+    mk.querySelector('span').textContent = 'Support · ' + Math.round(Math.hypot(terminal.x - P.x, terminal.z - P.z)) + 'm';
+  } else mk.hidden = true;
   const near = !P.dead && !S.missile && Math.hypot(P.x - terminal.x, P.z - terminal.z) < 1.6 && Math.abs(P.y - terminal.y0) < 1.3;
   S.nearTerm = near;
   if (near && input.use) { input.use = false; openShop(); }
