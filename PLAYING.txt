@@ -1,0 +1,52 @@
+VANGUARD PROTOCOL
+=================
+
+PLAY  (first map: Holdout: Kessa)
+-----
+Double-click index.html. It opens in your web browser (Chrome or Edge work best).
+Click the game to lock the mouse. Esc gives the mouse back.
+
+  WASD       move          Shift   sprint        Space   jump
+  Mouse      look          Left    fire          Right   aim
+  R          reload        Q       Shockwave     E       use the medical station
+
+Your level, callsign and loadout are saved in the browser on each computer.
+
+MULTIPLAYER (co-op, up to 4 players)
+------------------------------------
+1. Everyone opens index.html and sets a callsign on the main menu.
+2. One player clicks Multiplayer > Create room and sends the 5-letter code to the others.
+3. Everyone else clicks Multiplayer, types the code and clicks Join.
+4. The player who created the room clicks Start game.
+
+Friends can also join a game that has already started; they drop straight in.
+If you go down, you respawn when your squad clears the wave. The game ends
+when everyone is down at once.
+
+The room server is your Cloudflare Worker at:
+  https://kessa-relay.retrohome.workers.dev
+It is already deployed. Nothing needs to run on your computer.
+
+SHARE IT AS A LINK (optional)
+-----------------------------
+Instead of sending this zip around, you can host the game:
+1. In the Cloudflare dashboard, go to Workers & Pages > Create > Pages > Upload assets.
+2. Name the project (for example vanguard-protocol) and drag this whole folder in.
+3. Click Deploy. You get a link like https://vanguard-protocol.pages.dev that
+   anyone can open, including on a phone (touch controls are built in).
+
+FREE PLAN LIMITS
+----------------
+The relay runs on Cloudflare's free plan. A 2-4 player session uses roughly
+2-4 billed requests per second, and the free plan allows 100,000 a day,
+which is several hours of play daily. Limits reset at midnight UTC.
+
+FILES
+-----
+index.html, three.min.js, fonts/   the game
+server/worker.js, wrangler.toml     the relay code that is deployed to Cloudflare
+server/local-relay.js               optional LAN relay for playing without Cloudflare: run
+                                    "node local-relay.js" (needs Node.js), then change
+                                    KESSA_SERVER near the top of index.html to
+                                    <that computer's IP>:8787 on every player's copy
+licenses/                           licences for three.js and the fonts
