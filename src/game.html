@@ -1687,7 +1687,16 @@ function tuft(x, z) {
   for (let i = 0; i < 2; i++) { const m = new T.Mesh(tuftGeo, MX.grass); m.position.set(x, 0, z); m.rotation.set(srnd(-0.1, 0.1), r + i * 1.57, 0); m.scale.set(s, s * srnd(0.7, 1.4), s); build.add(m); }
 }
 // ---------------- the insertion route (south of the outpost) ----------------
-const ROUTE_SPAWNS = [], VISTA = [];
+const ROUTE_SPAWNS = [], VISTA = [], swampMist = [];
+// fog banks that rise off the swamp and drift up the gorge toward the outpost, fading in and out as they climb
+function updateMist(dt) {
+  if (!S || !S.p || S.p.z < 50) { for (const f of swampMist) f.m.visible = false; return; }
+  for (const f of swampMist) {
+    f.t += dt * f.sp; if (f.t > 1) { f.t = 0; f.x += (Math.random() - 0.5) * 4; }
+    f.m.visible = true; f.m.position.set(f.x + f.dx * f.t * 6, f.gy + 0.3 + f.t * 3.6, f.z - f.t * 2);
+    f.m.material.opacity = f.a * Math.sin(Math.PI * f.t);
+  }
+}
 // far scenery ignores fog, so tint it toward the sky colour of the current time of day for depth
 function tintVista() { const f = new T.Color(scene.fog ? scene.fog.color : 0xbfd3d6); for (const [m, c, k] of VISTA) m.color.setHex(c).lerp(f, k); }
 function buildRoute(palm, fern) {
@@ -1711,7 +1720,9 @@ function buildRoute(palm, fern) {
   water.rotation.x = -Math.PI / 2; water.position.set(-4, WATER_Y, 110); water.renderOrder = 2; scene.add(water);
   const padMat = new T.MeshLambertMaterial({ color: 0x4f7a34 });
   for (let i = 0; i < 40; i++) { const x = srnd(-28, 18), z = srnd(94, 126); if (H(x, z) > WATER_Y - 0.1) continue; const d = new T.Mesh(new T.CircleGeometry(srnd(0.25, 0.6), 7), padMat); d.rotation.x = -Math.PI / 2; d.position.set(x, WATER_Y + 0.02, z); scene.add(d); }
-  for (let i = 0; i < 9; i++) { const m = new T.Sprite(new T.SpriteMaterial({ map: steamTex, color: 0xdfe8d8, transparent: true, opacity: 0.22, depthWrite: false })); m.position.set(srnd(-24, 14), WATER_Y + srnd(0.6, 1.4), srnd(96, 124)); m.scale.set(srnd(9, 16), srnd(2, 3.5), 1); scene.add(m); }
+  for (let i = 0; i < 46; i++) { const z = i < 30 ? srnd(94, 126) : srnd(64, 94), x = i < 30 ? srnd(-24, 14) : regC(z) + srnd(-9, 9), gy = i < 30 ? WATER_Y : H(x, z);
+    const m = new T.Sprite(new T.SpriteMaterial({ map: steamTex, color: 0xd6dfd2, transparent: true, opacity: 0, depthWrite: false })); m.position.set(x, gy + 0.4, z); m.scale.set(srnd(8, 15), srnd(2.2, 4), 1); m.renderOrder = 3; scene.add(m);
+    swampMist.push({ m, x, z, gy, t: Math.random(), sp: srnd(0.05, 0.09), dx: srnd(-0.4, 0.4), a: i < 30 ? 0.2 : 0.16 }); }
   // dirt track following the ground, with a boardwalk across the swamp
   { const pts = [], idx = []; let n = 0;
     for (let z = 56; z <= INS_Z - 8; z += 1.5) {
@@ -3147,7 +3158,7 @@ function leftHand(w, hh, thumbWrap = false) {
     chain(h, [V3(w * 0.4, -hh - 0.004, z), V3(w + F * 0.45, -hh * 0.45, z), V3(w + F * 0.45, hh * 0.45, z), V3(w * 0.3, hh + F * 0.35, z)], F * k, F * k, HM.skin);
   }
   // thumb: a gentle diagonal from the heel of the palm up the left side, pointing forward
-  if (thumbWrap) chain(h, [V3(-w * 0.4, -hh - 0.006, 0.026), V3(-w - F * 0.42, -hh * 0.5, 0.014), V3(-w - F * 0.45, hh * 0.15, 0.006), V3(-w - F * 0.4, hh * 0.72, 0.002)], F * 1.05, F * 1.05, HM.skin);   // thumb hooked over the far face
+  if (thumbWrap) chain(h, [V3(-w * 0.2, -hh - 0.006, 0.03), V3(-w * 0.1, -hh * 0.45, 0.05), V3(0, hh * 0.1, 0.054), V3(0.002, hh * 0.62, 0.052)], F * 1.05, F, HM.skin);   // thumb pressed flat on the side of the magazine facing you
   else chain(h, [V3(-w * 0.4, -hh - 0.006, 0.034), V3(-w - F * 0.45, -hh * 0.45, 0.012), V3(-w - F * 0.5, -0.002, -0.022), V3(-w - F * 0.5, 0.002, -0.05)], F * 1.05, F * 1.05, HM.skin);
   hbox(h, 0.044, 0.04, 0.04, -0.008, -hh - 0.03, 0.06, HM.cuff);               // wrist strap
   limb(h, -0.01, -hh - 0.042, 0.076, -0.42, -0.5, 1, 0.55, 0.032, 0.04, HM.sleeve);
@@ -4105,7 +4116,7 @@ function update(dt) {
   // movement input
   if (S.missile) updateMissile(dt);
   // co-op: the run ends when the whole squad is down at once
-  updateDowned(dt);
+  updateDowned(dt); updateMist(dt);
   if (NET.on && (P.dead || P.downed) && S.running) {
     const up = [...NET.peers.values()].some(p => p.a && !p.dn && !p.ab);
     S.wipeT = up ? 0 : (S.wipeT || 0) + dt;
@@ -4854,6 +4865,7 @@ function hud() {
 const OMEN_WX = {
   clear: 'The clouds part. Kessa\'s sun beats down on the ruins..',
   rain: 'Rain starts hammering the rooftops..',
+  downpour: 'The sky opens up. Rain hammers the canopy..',
   storm: 'You hear the sound of distant thunder..',
   fog: 'A cold fog rolls down off the ridge..',
   firestorm: 'Your comms cut out as the sky burns..'
@@ -6065,7 +6077,7 @@ $('createBtn').addEventListener('click', () => {
 });
 $('joinBtn').addEventListener('click', () => netConnect($('roomCode').value));
 $('roomCode').addEventListener('keydown', e => { if (e.key === 'Enter') netConnect($('roomCode').value); });
-$('mpStart').addEventListener('click', () => { if (!NET.host) return; const tod = Math.floor(Math.random() * TODS.length), seed = 1 + Math.floor(Math.random() * 100000); const wx = rollWeather(); netSend({ t: 'start', tod, seed, wx }); start(tod, seed, wx); });
+$('mpStart').addEventListener('click', () => { if (!NET.host) return; const tod = Math.floor(Math.random() * TODS.length), seed = 1 + Math.floor(Math.random() * 100000); const wx = 'downpour'; netSend({ t: 'start', tod, seed, wx }); start(tod, seed, wx); });
 let armoryFrom = 'solo';
 $('mpLoadout').addEventListener('click', () => { armoryFrom = 'lobby'; mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Back to lobby'; $('deployBtn').hidden = false; showArmory(); });
 $('mpLeave').addEventListener('click', () => { netLeave(); mode = 'menu'; showOnly('playMenu'); });
@@ -6389,6 +6401,7 @@ const lerpHex = (a, b, f, out) => out.setHex(a).lerp(_c3.setHex(b), f);
 const WX = {
   clear:     { name: 'Clear',        rain: 0,   fogMul: 1,    fogCol: null,     sky: null,     light: 1,    bolts: 0, meteors: 0 },
   rain:      { name: 'Rain',         rain: 0.45, fogMul: 0.75, fogCol: 0x8a96a0, sky: 0x9aa4b0, light: 0.78, bolts: 0, meteors: 0 },
+  downpour:  { name: 'Heavy rain',   rain: 0.95, fogMul: 0.58, fogCol: 0x6e7a84, sky: 0x7c8690, light: 0.62, bolts: 0, meteors: 0 },
   storm:     { name: 'Thunderstorm', rain: 1,   fogMul: 0.55, fogCol: 0x5a6470, sky: 0x6a7480, light: 0.55, bolts: 1, meteors: 0 },
   fog:       { name: 'Fog',          rain: 0,   fogMul: 0.32, fogCol: 0xb8c0c4, sky: 0xc4ccd0, light: 0.85, bolts: 0, meteors: 0 },
   firestorm: { name: 'Firestorm',    rain: 0,   fogMul: 0.7,  fogCol: 0x8a4a30, sky: 0xd07050, light: 0.8,  bolts: 0, meteors: 1 }
@@ -7485,7 +7498,7 @@ function refreshRank() {
 }
 function start(tod, seed, wx) {
   initAudio();
-  if (wx === undefined) wx = rollWeather();
+  if (wx === undefined) wx = 'downpour';   // every mission starts in a downpour; the weather can turn later
   if (tod === undefined) tod = Math.floor(Math.random() * TODS.length);
   if (seed === undefined) seed = 1 + Math.floor(Math.random() * 100000);
   applyTOD(tod);
