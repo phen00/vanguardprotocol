@@ -1061,7 +1061,7 @@ R.autoClear = false;
 const scene = new T.Scene();
 const FOG = 0xbfd3d6;
 scene.fog = new T.Fog(FOG, 22, 105);
-const cam = new T.PerspectiveCamera(72, 1, 0.1, 400);
+const cam = new T.PerspectiveCamera(72, 1, 0.1, 1400);
 cam.rotation.order = 'YXZ';
 const gunScene = new T.Scene();
 const gunCam = new T.PerspectiveCamera(60, 1, 0.01, 10);
@@ -1174,7 +1174,7 @@ const M = {
 M.leaf.userData.noHit = true; M.beacon.userData.noHit = true;
 
 // sky
-const sky = new T.Mesh(new T.SphereGeometry(300, 16, 12), new T.MeshBasicMaterial({ map: TX.sky, side: T.BackSide, fog: false }));
+const sky = new T.Mesh(new T.SphereGeometry(1200, 16, 12), new T.MeshBasicMaterial({ map: TX.sky, side: T.BackSide, fog: false }));
 scene.add(sky);
 scene.add(new T.HemisphereLight(0xdcebff, 0x55642f, 0.75));
 const sun = new T.DirectionalLight(0xfff1d6, 0.85); sun.position.set(30, 60, 18); scene.add(sun);
@@ -1247,7 +1247,7 @@ const REG_Z1 = 210, INS_Z = 194, WATER_Y = -0.55;
 const _sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 // corridor centre line and half-width along z (the walkable band, with steep walls either side)
 function regC(z) { return z < 92 ? 0 : z < 126 ? -6 * _sm((z - 92) / 14) : z < 152 ? -6 + 8 * _sm((z - 126) / 22) : 2 - 2 * _sm((z - 152) / 20); }
-const REG_W = [[66, 9], [86, 9], [100, 26], [120, 26], [130, 19], [146, 19], [162, 40], [204, 40], [REG_Z1, 22]];
+const REG_W = [[66, 9], [86, 9], [100, 26], [120, 26], [130, 19], [146, 19], [162, 40], [REG_Z1, 40]];
 function regW(z) {
   if (z <= REG_W[0][0]) return REG_W[0][1];
   for (let i = 1; i < REG_W.length; i++) if (z <= REG_W[i][0]) { const [z0, w0] = REG_W[i - 1], [z1, w1] = REG_W[i]; return w0 + (w1 - w0) * _sm((z - z0) / (z1 - z0)); }
@@ -1257,21 +1257,27 @@ function regW(z) {
 function terrainH(x, z) {
   if (z <= 66) return 0;
   const c = regC(z), w = regW(z), dx = Math.abs(x - c);
+  // route profile, each stretch blended smoothly into the next so there are no ledges between them
+  const gorge = -0.35 * _sm((z - 70) / 22);
+  const swamp = () => -1.0 + 0.5 * Math.sin(x * 0.31 + 1.3) * Math.sin(z * 0.27) + 0.25 * Math.sin(x * 0.9) * Math.cos(z * 0.7);
+  const ridge = () => { const k = _sm((z - 124) / 28); return -1.0 + 4.2 * k + 0.6 * Math.sin(x * 0.4 + z * 0.13) * k; };
+  const basin = () => { const k = _sm((z - 152) / 16), r = 0.6 * Math.sin(x * 0.4 + z * 0.13); return 3.2 + r * (1 - k) + k * (2.4 * Math.sin(x * 0.085 + 1) * Math.sin(z * 0.075) + 1.1 * Math.sin(x * 0.21 + 0.4) * Math.cos(z * 0.17)); };
   let h;
-  if (z < 92) h = -0.35 * _sm((z - 70) / 22);                                                           // gorge, dipping toward the swamp
-  else if (z < 126) h = -1.0 + 0.5 * Math.sin(x * 0.31 + 1.3) * Math.sin(z * 0.27) + 0.25 * Math.sin(x * 0.9) * Math.cos(z * 0.7); // swamp floor
-  else if (z < 152) { const k = _sm((z - 124) / 28); h = -1.0 + 4.2 * k + 0.6 * Math.sin(x * 0.4 + z * 0.13) * k; }                 // climbing ridge
-  else h = 3.2 + 2.4 * Math.sin(x * 0.085 + 1) * Math.sin(z * 0.075) + 1.1 * Math.sin(x * 0.21 + 0.4) * Math.cos(z * 0.17);       // jungle basin
-  // swamp shading into the ridge and gorge
-  if (z > 88 && z < 96) h = h * _sm((z - 88) / 8) - 0.35 * (1 - _sm((z - 88) / 8));
+  if (z < 88) h = gorge;
+  else if (z < 97) h = gorge + (swamp() - gorge) * _sm((z - 88) / 9);
+  else if (z < 123) h = swamp();
+  else if (z < 129) { const s0 = swamp(); h = s0 + (ridge() - s0) * _sm((z - 123) / 6); }
+  else if (z < 152) h = ridge();
+  else h = basin();
   // LZ plateau
   const dl = Math.hypot(x, z - INS_Z); if (dl < 18) h = 3.2 + (h - 3.2) * _sm((dl - 11) / 7);
   // walls rise in the last few metres of the band
-  const e = dx - (w - 6); if (e > 0) h += Math.min(22, e * e * 0.28 + e * 1.1);
+  const e = dx - (w - 6); if (e > 0) h += Math.min(22, e * e * 0.28 + e * 1.1) * (1 - _sm((z - 192) / 10));
+  if (z > 203) h -= (z - 203) * (z - 203) * 1.6;   // the summit's edge: a sheer drop to the valley
   return h * _sm((z - 66) / 5);
 }
 // is a point inside the playable world (outpost square or the route band)?
-function inWorld(x, z) { return z > BOUND ? (z < REG_Z1 && Math.abs(x - regC(z)) < regW(z)) : (Math.abs(x) < BOUND && z > -BOUND); }
+function inWorld(x, z) { return z > BOUND ? (z < 204 && Math.abs(x - regC(z)) < regW(z)) : (Math.abs(x) < BOUND && z > -BOUND); }
 const inSwamp = (x, z, y) => z > 92 && z < 127 && y < WATER_Y - 0.12;
 const LZ_Z = 54.5, EX_NAME = 'the extraction pad', LZ_NAME = 'LZ Thornfield', AREA_NAME = 'Halvard Waystation', AREA_SUB = 'Abandoned colonial relay · Kessa-4';
 
@@ -1514,11 +1520,13 @@ function tuft(x, z) {
   for (let i = 0; i < 2; i++) { const m = new T.Mesh(tuftGeo, MX.grass); m.position.set(x, 0, z); m.rotation.set(srnd(-0.1, 0.1), r + i * 1.57, 0); m.scale.set(s, s * srnd(0.7, 1.4), s); build.add(m); }
 }
 // ---------------- the insertion route (south of the outpost) ----------------
-const ROUTE_SPAWNS = [];
+const ROUTE_SPAWNS = [], VISTA = [];
+// far scenery ignores fog, so tint it toward the sky colour of the current time of day for depth
+function tintVista() { const f = new T.Color(scene.fog ? scene.fog.color : 0xbfd3d6); for (const [m, c, k] of VISTA) m.color.setHex(c).lerp(f, k); }
 function buildRoute(palm, fern) {
-  const H = terrainH, Z0 = 62, Z1 = REG_Z1 + 4, Wd = 172;
+  const H = terrainH, Z0 = 62, Z1 = 222, Wd = 172;
   // terrain mesh, shaded by slope and wetness
-  const geo = new T.PlaneGeometry(Wd, Z1 - Z0, 150, 130); geo.rotateX(-Math.PI / 2); geo.translate(0, 0, (Z0 + Z1) / 2);
+  const geo = new T.PlaneGeometry(Wd, Z1 - Z0, 150, 140); geo.rotateX(-Math.PI / 2); geo.translate(0, 0, (Z0 + Z1) / 2);
   const pos = geo.attributes.position, uv = geo.attributes.uv, col = new Float32Array(pos.count * 3);
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i), h = H(x, z); pos.setY(i, h);
@@ -1539,15 +1547,15 @@ function buildRoute(palm, fern) {
   for (let i = 0; i < 9; i++) { const m = new T.Sprite(new T.SpriteMaterial({ map: steamTex, color: 0xdfe8d8, transparent: true, opacity: 0.22, depthWrite: false })); m.position.set(srnd(-24, 14), WATER_Y + srnd(0.6, 1.4), srnd(96, 124)); m.scale.set(srnd(9, 16), srnd(2, 3.5), 1); scene.add(m); }
   // dirt track following the ground, with a boardwalk across the swamp
   { const pts = [], idx = []; let n = 0;
-    for (let z = Z0; z <= INS_Z - 10; z += 1.5) {
+    for (let z = 56; z <= INS_Z - 8; z += 1.5) {
       if (z > 94 && z < 126) continue;
       const c = regC(z) + Math.sin(z * 0.13) * 1.2;
-      for (const sx of [-1.8, 1.8]) pts.push(c + sx, H(c + sx, z) + 0.05, z);
-      if (n > 0 && !(z - 1.5 > 94 && z - 1.5 < 126) && !(z > 94 && z - 1.5 < 94)) idx.push(2 * n - 2, 2 * n, 2 * n - 1, 2 * n - 1, 2 * n, 2 * n + 1);
+      for (const sx of [-1.9, 0, 1.9]) pts.push(c + sx, Math.max(H(c + sx, z), H(c + sx * 0.5, z)) + 0.07, z);
+      if (n > 0 && !(z - 1.5 > 94 && z - 1.5 < 126) && !(z > 94 && z - 1.5 < 94)) { const a = 3 * (n - 1), b2 = 3 * n; idx.push(a, b2, a + 1, a + 1, b2, b2 + 1, a + 1, b2 + 1, a + 2, a + 2, b2 + 1, b2 + 2); }
       n++;
     }
     const pg = new T.BufferGeometry(); pg.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); pg.setIndex(idx); pg.computeVertexNormals();
-    const u2 = []; for (let i = 0; i < pts.length / 3; i++) u2.push(i % 2, i * 0.4); pg.setAttribute('uv', new T.Float32BufferAttribute(u2, 2));
+    const u2 = []; for (let i = 0; i < pts.length / 3; i++) u2.push((i % 3) * 0.6, Math.floor(i / 3) * 0.5); pg.setAttribute('uv', new T.Float32BufferAttribute(u2, 2));
     const tr = new T.Mesh(pg, M.dirt); scene.add(tr); }
   const plankMat = new T.MeshLambertMaterial({ map: TX.crate, color: 0x6e5034 });
   for (let z = 94; z < 126; z += 2.3) {
@@ -1611,6 +1619,22 @@ function buildRoute(palm, fern) {
   { const g = new T.Group(); g.position.set(-14, H(-14, 186), 186); g.rotation.set(0.1, 0.8, 0.2); build.add(g);
     slab(g, 3, 2, 6, 0, 1, 0, MX.char, 0.1, 0, 0.15); slab(g, 5, 0.2, 2, -1, 0.4, 1, MX.metal, 0, 0, -0.3); fire(-14, H(-14, 186) + 1.6, 186);
     boxes.push({ x0: -16.5, x1: -11.5, z0: 183.5, z1: 188.5, y0: H(-14, 186) - 1, y1: H(-14, 186) + 2.2 }); }
+  // the view off the summit: valley floor far below, jungle haze, distant ranges
+  const vm = [];
+  const valley = new T.Mesh(new T.PlaneGeometry(2400, 1600), new T.MeshBasicMaterial({ map: TX.grass, fog: false })); valley.material.map = TX.grass;
+  valley.rotation.x = -Math.PI / 2; valley.position.set(0, -140, 1000); scene.add(valley); vm.push([valley.material, 0x3d5a2c, 0.55]);
+  for (let i = 0; i < 26; i++) {
+    const a = -1.2 + i * 0.1 + srnd(-0.04, 0.04), r = srnd(500, 1100), hgt = r > 800 ? srnd(120, 190) : srnd(50, 125);
+    const m = new T.Mesh(new T.ConeGeometry(srnd(120, 260), hgt, 5), new T.MeshBasicMaterial({ fog: false }));
+    m.position.set(Math.sin(a) * r, -140 + hgt / 2, 210 + Math.cos(a) * r); m.rotation.y = srand() * 6; scene.add(m);
+    vm.push([m.material, r > 800 ? 0x6a7a8a : 0x4f6450, r > 800 ? 0.75 : 0.6]);
+  }
+  for (let i = 0; i < 70; i++) {   // jungle canopy blobs dotting the valley floor
+    const x = srnd(-700, 700), z = srnd(300, 1100), m = new T.Mesh(new T.SphereGeometry(srnd(14, 30), 6, 4), new T.MeshBasicMaterial({ fog: false }));
+    m.position.set(x, -140, z); m.scale.y = 0.45; scene.add(m); vm.push([m.material, 0x2f4a24, 0.5]);
+  }
+  VISTA.push(...vm); tintVista();
+  for (let x = -18; x <= 18; x += 3) rockOn(x + srnd(-0.8, 0.8), 203.5, srnd(0.9, 1.6), false, srnd(0.6, 1));   // stones along the lip
   // the landing zone pad
   const py = 3.2;
   addBox(0, INS_Z + 3.5, 12, 16, 0.16, py - 0.02, M.trim);
@@ -1813,12 +1837,13 @@ function buildLevel() {
 // ---------------- collision helpers ----------------
 function groundAt(x, z, feetY) {
   let g = z > 66 ? terrainH(x, z) : 0;
-  for (const b of boxes) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.y1 <= feetY + STEP && b.y1 > g) g = b.y1;
+  const st = z > 92 && z < 128 ? 1.0 : STEP;
+  for (const b of boxes) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.y1 <= feetY + st && b.y1 > g) g = b.y1;
   return g;
 }
 function collide(o, r, feetY, h) {
   for (const b of boxes) {
-    if (b.y1 <= feetY + STEP || b.y0 >= feetY + h) continue;
+    if (b.y1 <= feetY + (o.z > 92 && o.z < 128 ? 1.0 : STEP) || b.y0 >= feetY + h) continue;
     const cx = Math.max(b.x0, Math.min(o.x, b.x1)), cz = Math.max(b.z0, Math.min(o.z, b.z1));
     let dx = o.x - cx, dz = o.z - cz; const d = Math.hypot(dx, dz);
     if (d >= r) continue;
@@ -1835,7 +1860,7 @@ function clampWorld(o) {
   if (o.z > BOUND || pz > BOUND) {
     // crossing into the route only where the gorge opens; inside it, stay within the band
     if (pz <= BOUND && o.z > BOUND && Math.abs(o.x - regC(o.z)) > regW(o.z) - 0.5) o.z = BOUND;
-    if (o.z > BOUND) { const c = regC(o.z), w = regW(o.z) - 0.5; o.x = Math.max(c - w, Math.min(c + w, o.x)); o.z = Math.min(REG_Z1 - 1, o.z);
+    if (o.z > BOUND) { const c = regC(o.z), w = regW(o.z) - 0.5; o.x = Math.max(c - w, Math.min(c + w, o.x)); o.z = Math.min(204, o.z);
       // too steep to walk up: stay where you were
       const dd = Math.hypot(o.x - px, o.z - pz);
       if (dd > 1e-4 && (terrainH(o.x, o.z) - terrainH(px, pz)) / dd > 1.05) { o.x = px; o.z = pz; }
@@ -3052,6 +3077,7 @@ function makeWave(n) {
 
 function updateEnemies(dt) {
   if (!isAuth()) { updateProxies(dt); return; }
+  if (S.calmT > 0) { S.calmT -= dt; return; }   // a few seconds to get your bearings after landing
   for (const e of enemies) {
     if (e.dead) continue;
     const D = e.D;
@@ -5772,6 +5798,7 @@ function applyTOD(i) {
   hemi.color.setHex(TOD.hs); hemi.groundColor.setHex(TOD.hg); hemi.intensity = TOD.hi;
   sun.color.setHex(TOD.sc); sun.intensity = TOD.si; sun.position.set(...TOD.sp);
   gsun.color.setHex(TOD.sc); gsun.intensity = 0.4 + TOD.si * 0.4;
+  tintVista();
 }
 // in-world date: year 3042, a day and a local time that fit the time of day
 function missionStamp(seed) {
@@ -5854,7 +5881,7 @@ function updateIntro(dt) {
   const left = Math.max(0, Math.ceil(INTRO - t));
   if ($('introN').textContent !== String(left)) { $('introN').textContent = left || 'GO'; if (left) SFX.beep(); }
   if (t >= INTRO) {
-    S.intro = null; $('intro').hidden = true; $('hud').hidden = false; lastHud = '';
+    S.intro = null; S.calmT = 6; $('intro').hidden = true; $('hud').hidden = false; lastHud = '';
     P.y = sh.gy; P.vy = 0; P.onGround = true; P.shake = 0;
     banner(LZ_NAME, S.introStamp, 2.6); omen('The jungle has gone quiet. Push to the outpost..');
     if (!isTouch && lookMode === 'lock' && document.pointerLockElement !== cv) openPause('Click Resume to take control');
