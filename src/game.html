@@ -814,7 +814,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
   <div class="interhud" id="interHud" hidden></div>
   <div class="interhud mhud" id="missionHud" hidden></div>
   <div class="areacard" id="areaCard" hidden><i></i><b></b><span></span><i></i></div>
-  <div class="visor" id="visor" hidden><div class="vscan"></div><div class="vtxt"><b>TACTICAL VISOR</b><span>TARGET LOCK ACTIVE · <em id="visT">6.0</em>s</span></div><div id="vtags"></div></div>
+  <div class="visor" id="visor" hidden><div class="vscan"></div><div class="vtxt"><b>WRAITH SIGHT</b><span>TARGET LOCK ACTIVE · <em id="visT">6.0</em>s</span></div><div id="vtags"></div></div>
   <div class="streakbar" id="streakBar"></div>
   <div class="pred" id="pred" hidden><div class="pbox"></div><div class="pcross"></div><div class="pinfo"><b>PREDATOR</b><span id="predAlt">0 m</span><small>Steer with look · Fire to boost</small></div><div id="ptags"></div></div>
   <div class="shop" id="shop" hidden><div class="spanel">
@@ -959,7 +959,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
         <div class="cab">
           <div class="attlbl">Class ability</div>
           <b>Shoulder launcher</b>
-          <p>A launcher swings down over your left shoulder and fires a grenade that bounces, then explodes after a short fuse or when it touches an enemy. Press Q, or NADE on touch screens. Recharges in 9 seconds. Ultimate on F: Tactical Visor locks your aim onto heads while you hold fire (2 minute cooldown). The Bubble Shield talent adds an E ability.</p>
+          <p>A launcher swings down over your left shoulder and fires a grenade that bounces, then explodes after a short fuse or when it touches an enemy. Press Q, or NADE on touch screens. Recharges in 9 seconds. Ultimate on F: Wraith Sight locks your aim onto heads within 40 m while you hold fire (2 minute cooldown). The Bubble Shield talent adds an E ability.</p>
         </div>
         <div class="tright"><div class="tthead"><div class="attlbl">Talents</div><div class="tpts">Points available <b id="tPts">0</b></div><button class="link" id="tReset" type="button">Reset talents</button></div>
         <div class="tbar"><div class="track"><i id="tFill2"></i></div><span id="tVal2"></span></div>
@@ -1104,7 +1104,9 @@ if (GFX) {
   T.MeshLambertMaterial = function (p = {}) {
     const q = Object.assign({ roughness: 0.82, metalness: 0, envMapIntensity: 0.7 }, p);
     if (window.__noNM !== true && q.map && q.map.userData && q.map.userData.normal && !q.normalMap) q.normalMap = q.map.userData.normal;
-    const m = new T.MeshStandardMaterial(q); if (q.normalMap) m.normalScale.set(0.75, -0.75); return m;
+    const m = new T.MeshStandardMaterial(q); if (q.normalMap) m.normalScale.set(0.75, -0.75);
+    if (q.map && q.map.userData && q.map.userData.ground) m.onBeforeCompile = groundPatch;
+    return m;
   };
 }
 const scene = new T.Scene();
@@ -1158,6 +1160,28 @@ function roundBox(w, h, d, tile, r) {
   }
   return g;
 }
+// gun parts from 2D outlines. pts: [[a, b], ...] or ['q', ca, cb, a, b] for a curve
+function shapeOf(pts) {
+  const sh = new T.Shape(); let first = true;
+  for (const p of pts) { if (p[0] === 'q') sh.quadraticCurveTo(p[1], p[2], p[3], p[4]); else if (first) { sh.moveTo(p[0], p[1]); first = false; } else sh.lineTo(p[0], p[1]); }
+  return sh;
+}
+function profGeo(pts, thick, bev = 0.0025, holes) {
+  const sh = shapeOf(pts); if (holes) for (const h of holes) sh.holes.push(shapeOf(h));
+  const depth = Math.max(0.0005, thick - bev * 2);
+  const g = new T.ExtrudeGeometry(sh, { depth, bevelEnabled: bev > 0, bevelThickness: bev, bevelSize: bev * 0.8, bevelSegments: 2, curveSegments: 8 });
+  g.translate(0, 0, -depth / 2); g.rotateY(Math.PI / 2);          // outline x = forward (-z), y = up; extruded across x
+  scaleUV(g, 1 / 0.12); return g;
+}
+function xsecGeo(pts, len, bev = 0.002) {
+  const depth = Math.max(0.0005, len - bev * 2);
+  const g = new T.ExtrudeGeometry(shapeOf(pts), { depth, bevelEnabled: bev > 0, bevelThickness: bev, bevelSize: bev * 0.8, bevelSegments: 2, curveSegments: 8 });
+  g.translate(0, 0, -depth / 2);                                     // outline x/y is the cross-section, run along z
+  scaleUV(g, 1 / 0.12); return g;
+}
+const scaleUV = (g, k) => { const u = g.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * k, u.getY(i) * k); };
+const octa = (w, h, c) => [[-w / 2 + c, -h / 2], [w / 2 - c, -h / 2], [w / 2, -h / 2 + c], [w / 2, h / 2 - c], [w / 2 - c, h / 2], [-w / 2 + c, h / 2], [-w / 2, h / 2 - c], [-w / 2, -h / 2 + c]];
+const rrect = (x0, y0, x1, y1, r) => [[x0 + r, y0], [x1 - r, y0], ['q', x1, y0, x1, y0 + r], [x1, y1 - r], ['q', x1, y1, x1 - r, y1], [x0 + r, y1], ['q', x0, y1, x0, y1 - r], [x0, y0 + r], ['q', x0, y0, x0 + r, y0]];
 function ctex(sz, fn) {
   const c = document.createElement('canvas'); c.width = c.height = sz;
   const g = c.getContext('2d'); fn(g, sz);
@@ -1168,13 +1192,13 @@ function ctex(sz, fn) {
   return t;
 }
 // upscale a small pattern smoothly, add fine grain, and derive a normal map from its brightness
-function hiTex(src, N = 256) {
+function hiTex(src, N = 256, grain = 18, nStr = 2.2) {
   const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
   for (const dx of [-N, 0, N]) for (const dy of [-N, 0, N]) g.drawImage(src, dx, dy, N, N);   // tiled so edges blend
   const id = g.getImageData(0, 0, N, N), d = id.data, lum = new Float32Array(N * N);
   let seed = 1234567; const rnd8 = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  for (let i = 0; i < N * N; i++) { const n = (rnd8() - 0.5) * 18; d[i * 4] = Math.max(0, Math.min(255, d[i * 4] + n)); d[i * 4 + 1] = Math.max(0, Math.min(255, d[i * 4 + 1] + n)); d[i * 4 + 2] = Math.max(0, Math.min(255, d[i * 4 + 2] + n));
+  for (let i = 0; i < N * N; i++) { const n = (rnd8() - 0.5) * grain; d[i * 4] = Math.max(0, Math.min(255, d[i * 4] + n)); d[i * 4 + 1] = Math.max(0, Math.min(255, d[i * 4 + 1] + n)); d[i * 4 + 2] = Math.max(0, Math.min(255, d[i * 4 + 2] + n));
     lum[i] = (d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11) / 255; }
   g.putImageData(id, 0, 0);
   const nc = document.createElement('canvas'); nc.width = nc.height = N; const ng = nc.getContext('2d'), nd = ng.createImageData(N, N);
@@ -1182,7 +1206,7 @@ function hiTex(src, N = 256) {
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const sx = (L(x + 1, y - 1) + 2 * L(x + 1, y) + L(x + 1, y + 1)) - (L(x - 1, y - 1) + 2 * L(x - 1, y) + L(x - 1, y + 1));
     const sy = (L(x - 1, y + 1) + 2 * L(x, y + 1) + L(x + 1, y + 1)) - (L(x - 1, y - 1) + 2 * L(x, y - 1) + L(x + 1, y - 1));
-    let nx = -sx * 2.2, ny = -sy * 2.2, nz = 1; const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+    let nx = -sx * nStr, ny = -sy * nStr, nz = 1; const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
     const k = (y * N + x) * 4; nd.data[k] = (nx * 0.5 + 0.5) * 255; nd.data[k + 1] = (ny * 0.5 + 0.5) * 255; nd.data[k + 2] = (nz * 0.5 + 0.5) * 255; nd.data[k + 3] = 255;
   }
   ng.putImageData(nd, 0, 0);
@@ -1250,6 +1274,50 @@ const TX = {
     const t = new T.CanvasTexture(c); t.magFilter = T.NearestFilter; return t;
   })()
 };
+if (GFX) {
+  // modern ground: a painted turf of individual blade strokes in mixed greens with clover, moss and soil showing through
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  let sd = 98765; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = '#3e5426'; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${70 + r() * 30 | 0},${56 + r() * 20 | 0},${30 + r() * 12 | 0},0.5)`; g.beginPath(); g.arc(r() * 256, r() * 256, 1 + r() * 3, 0, 6.3); g.fill(); }   // soil specks
+  const greens = ['#4d6a2b', '#5c7c32', '#6b8a39', '#45602a', '#7a9442', '#577530', '#86a04a', '#3d5624'];
+  g.lineCap = 'round';
+  for (let i = 0; i < 5200; i++) {
+    const x = r() * 256, y = r() * 256, l = 3 + r() * 8, a = -Math.PI / 2 + (r() - 0.5) * 1.3;
+    g.strokeStyle = greens[(r() * greens.length) | 0]; g.globalAlpha = 0.55 + r() * 0.45; g.lineWidth = 0.7 + r() * 1.1;
+    for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) { if (x + ox < -12 || x + ox > 268 || y + oy < -12 || y + oy > 268) continue; g.beginPath(); g.moveTo(x + ox, y + oy); g.quadraticCurveTo(x + ox + Math.cos(a) * l * 0.5 + (r() - 0.5) * 2, y + oy + Math.sin(a) * l * 0.5, x + ox + Math.cos(a) * l, y + oy + Math.sin(a) * l); g.stroke(); }
+  }
+  g.globalAlpha = 1;
+  for (let i = 0; i < 40; i++) { const x = r() * 256, y = r() * 256; g.fillStyle = r() < 0.5 ? '#5f8a3a' : '#6f9a44'; for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(x + Math.cos(k * 2.1) * 1.8, y + Math.sin(k * 2.1) * 1.8, 1.7, 0, 6.3); g.fill(); } }   // clover
+  for (let i = 0; i < 18; i++) { g.fillStyle = r() < 0.5 ? 'rgba(210,200,120,0.8)' : 'rgba(235,235,225,0.8)'; g.beginPath(); g.arc(r() * 256, r() * 256, 0.9, 0, 6.3); g.fill(); }   // tiny flowers
+  TX.grass = hiTex(c, 256, 6, 1.6); TX.grass.userData.ground = true;
+}
+// world-space variation for the ground: big patches of lush, dark and sun-dried turf, worn soil, and a second
+// sample of the texture at another scale so the repeat never lines up
+function groundPatch(sh) {
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGW;')
+    .replace('#include <project_vertex>', '#include <project_vertex>\nvGW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+varying vec3 vGW;
+float gHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float gNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(gHash(i), gHash(i + vec2(1.0, 0.0)), f.x), mix(gHash(i + vec2(0.0, 1.0)), gHash(i + vec2(1.0, 1.0)), f.x), f.y); }
+float gFbm(vec2 p) { return gNoise(p) * 0.55 + gNoise(p * 2.03 + 3.1) * 0.3 + gNoise(p * 4.1 + 7.7) * 0.15; }`)
+    .replace('#include <map_fragment>', `
+  vec4 texelColor = texture2D(map, vUv);
+  vec2 wq = vGW.xz;
+  vec4 t2 = texture2D(map, mat2(0.8, -0.6, 0.6, 0.8) * wq * 0.13 + vec2(0.37, 0.11));
+  float nA = gFbm(wq * 0.05), nB = gFbm(wq * 0.19 + 11.3), nC = gFbm(wq * 0.08 + 3.7);
+  texelColor = mix(texelColor, t2, smoothstep(0.3, 0.7, nB) * 0.7);
+  texelColor = mapTexelToLinear(texelColor);
+  vec3 tint = mix(vec3(0.42, 0.56, 0.36), vec3(0.9, 1.0, 0.78), smoothstep(0.28, 0.5, nA));
+  tint = mix(tint, vec3(1.2, 1.08, 0.58), smoothstep(0.6, 0.8, nA));
+  tint *= 0.72 + 0.5 * nB;
+  diffuseColor *= texelColor; diffuseColor.rgb *= tint;
+  diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, 0.82);
+  float worn = smoothstep(0.64, 0.8, nC);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.16, 0.11, 0.065) * (0.75 + 0.5 * nB), worn * 0.8);`);
+}
 
 const M = {
   grass: new T.MeshLambertMaterial({ map: TX.grass }),
@@ -2206,8 +2274,18 @@ const SFX = {
 
 // ---------------- viewmodel ----------------
 const gun = new T.Group();
-const gm = new T.MeshLambertMaterial({ map: TX.gunmetal });
-const gl = new T.MeshLambertMaterial({ map: TX.concrete, color: 0xb9bec2 });
+const gunTex = GFX ? (() => {
+  const mk = (base, fn) => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, 64, 64); fn(g); return hiTex(c, 256, 5, 0.7); };   // gun finishes: fine grain, gentle normals
+  return {
+    brushed: mk('#6c737a', g => { for (let i = 0; i < 200; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '30,34,40'},${(0.015 + Math.random() * 0.035).toFixed(3)})`; g.fillRect(0, Math.random() * 64, 64, 0.5 + Math.random() * 0.6); } }),
+    grain: mk('#3a3e43', g => { for (let i = 0; i < 1600; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},0.06)`; g.fillRect(Math.random() * 64, Math.random() * 64, 1, 1); } }),
+    stipple: mk('#33373b', g => { for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '90,96,102' : '18,20,22'},0.5)`; g.beginPath(); g.arc(Math.random() * 64, Math.random() * 64, 0.7, 0, 6.3); g.fill(); } })
+  };
+})() : null;
+const gm = new T.MeshLambertMaterial({ map: GFX ? gunTex.grain : TX.gunmetal, color: GFX ? 0x9aa0a6 : 0xffffff });
+const gl = new T.MeshLambertMaterial({ map: GFX ? gunTex.brushed : TX.concrete, color: GFX ? 0xffffff : 0xb9bec2 });
+const gunPoly = new T.MeshLambertMaterial({ map: GFX ? gunTex.stipple : TX.gunmetal, color: GFX ? 0xb0b6bc : 0x6a7076 });     // matte polymer furniture
+const gunSteel = new T.MeshLambertMaterial({ map: GFX ? gunTex.grain : TX.gunmetal, color: GFX ? 0x6a7076 : 0x8a9096 });    // blued steel: barrels, pins, small parts
 const glow = new T.MeshBasicMaterial({ color: 0xffb547 });
 const glowCyan = new T.MeshBasicMaterial({ color: 0x8fe0ff });
 const glowRed = new T.MeshBasicMaterial({ color: 0xff6a2a });
@@ -2583,14 +2661,66 @@ function applyAttVisuals(g, id, A, R, B, C, muzzle) {
 // Builds a weapon model. Forward is -z; origin sits at the receiver.
 function makeGun(id, att = {}) {
   const g = new T.Group();
-  const B = (w, h, d, x, y, z, mat = gm, rx = 0) => { const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx; g.add(m); return m; };
+  const B = (w, h, d, x, y, z, mat = gm, rx = 0) => { const mn = Math.min(w, h, d), geo = GFX && mn > 0.0035 ? roundBox(w, h, d, 0.12, Math.min(0.0045, mn * 0.28)) : new T.BoxGeometry(w, h, d); const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.x = rx; g.add(m); return m; };
+  // detailed parts: a side profile (forward, up) extruded across the gun, or a cross-section run along it
+  const P_ = (pts, th, x, y, z, mat = gm, bev = 0.0025, rx = 0, parent = g, holes) => { const m = new T.Mesh(profGeo(pts, th, bev, holes), mat); m.position.set(x, y, z); m.rotation.x = rx; parent.add(m); return m; };
+  const X_ = (pts, len, x, y, z, mat = gm, bev = 0.002, parent = g) => { const m = new T.Mesh(xsecGeo(pts, len, bev), mat); m.position.set(x, y, z); parent.add(m); return m; };
+  const pin = (x, y, z, r = 0.0035, mat = gl) => { const c = new T.Mesh(new T.CylinderGeometry(r, r, 0.003, 12), mat); c.rotation.z = Math.PI / 2; c.position.set(x, y, z); g.add(c); return c; };
   const grp = ms => { const G = new T.Group(); g.add(G); for (const m of ms) { g.remove(m); G.add(m); } return G; };
   const AT = normAtt(id, att); let RF = null;
-  const C = (rRear, rFront, len, x, y, z, mat = gm, seg = 8) => { const geo = new T.CylinderGeometry(rRear, rFront, len, seg); geo.rotateX(Math.PI / 2); const m = new T.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
+  const C = (rRear, rFront, len, x, y, z, mat = gm, seg = 8) => { const geo = new T.CylinderGeometry(rRear, rFront, len, GFX ? Math.max(seg, 20) : seg); geo.rotateX(Math.PI / 2); const m = new T.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
   let muzzle = -0.7, sightY = 0.115;
   if (id === 'vk9') {
     // VK-9: slim conventional carbine. Alloy upper with a long top-rail bridge, polymer lower, vented handguard.
     const dk = gm, lt = gl;
+    let magV, stockV, barV, tipV;
+    if (GFX) {
+      const poly = gunPoly, steel = gunSteel;
+      // upper receiver: machined alloy with chamfered ends and a raised dust-cover line
+      P_([[-0.185, -0.012], [0.17, -0.012], [0.185, 0.004], [0.185, 0.04], [0.168, 0.056], [-0.16, 0.056], [-0.185, 0.034]], 0.066, 0, 0, 0, lt, 0.003);
+      B(0.004, 0.024, 0.075, 0.034, 0.026, -0.015, dk);                         // ejection port cover
+      B(0.003, 0.004, 0.3, 0.034, 0.046, 0.0, dk); B(0.003, 0.004, 0.3, -0.034, 0.046, 0.0, dk);   // receiver lines
+      const fa = C(0.008, 0.008, 0.024, 0.036, 0.034, 0.075, lt); fa.rotation.set(0, 0, 0);
+      // lower receiver: polymer, flared mag well, trigger housing
+      P_([[-0.155, -0.01], [0.146, -0.01], [0.154, -0.044], [0.14, -0.074], [0.06, -0.074], [0.052, -0.05], [-0.032, -0.05], [-0.058, -0.034], [-0.155, -0.03]], 0.06, 0, 0, 0, poly, 0.003);
+      for (const [y, z] of [[-0.022, -0.06], [-0.022, 0.07], [-0.04, 0.0]]) { pin(0.031, y, z); pin(-0.031, y, z); }
+      B(0.003, 0.01, 0.018, 0.031, -0.03, 0.035, lt);                              // fire selector
+      B(0.004, 0.016, 0.01, -0.031, -0.03, -0.045, lt);                            // mag release
+      // pistol grip with finger grooves and a beavertail
+      P_([[0.026, 0.056], [0.03, 0.036], [0.023, 0.02], [0.03, 0.004], [0.023, -0.012], [0.03, -0.028], [0.022, -0.05], [-0.016, -0.057], [-0.027, -0.04], [-0.03, 0.03], [-0.04, 0.05], [-0.02, 0.056]], 0.042, 0, -0.11, 0.07, poly, 0.004, 0.3);
+      // trigger guard and trigger
+      P_(rrect(-0.04, -0.088, 0.052, -0.046, 0.012), 0.012, 0, 0, 0, poly, 0.002, 0, g, [rrect(-0.032, -0.081, 0.044, -0.05, 0.008)]);
+      P_([[0.004, -0.05], [0.012, -0.05], ['q', 0.014, -0.064, 0.006, -0.076], [0.002, -0.074], ['q', 0.008, -0.064, 0.004, -0.05]], 0.006, 0, 0, 0, steel, 0.001);
+      // handguard: octagonal tube with M-LOK slots and heat vents
+      X_(octa(0.064, 0.062, 0.014), 0.3, 0, 0.012, -0.33, lt, 0.003);
+      for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) { B(0.003, 0.009, 0.03, sx * 0.0325, -0.006, -0.235 - i * 0.06, dk); B(0.004, 0.012, 0.036, sx * 0.032, 0.022, -0.24 - i * 0.055, heatMat); }
+      B(0.03, 0.004, 0.24, 0, -0.02, -0.33, dk);
+      B(0.004, 0.008, 0.2, 0.035, 0.04, 0.0, heatMat); B(0.004, 0.008, 0.2, -0.035, 0.04, 0.0, heatMat);
+      // top rail bridge
+      B(0.026, 0.012, 0.52, 0, 0.098, -0.1, dk);
+      B(0.026, 0.04, 0.05, 0, 0.072, -0.34, lt, 0.35);
+      B(0.04, 0.035, 0.08, 0, 0.072, 0.1, lt);
+      for (let i = 0; i < 12; i++) B(0.03, 0.005, 0.008, 0, 0.106, -0.34 + i * 0.044, dk);
+      B(0.044, 0.008, 0.012, 0, 0.052, 0.178, lt); B(0.012, 0.006, 0.03, 0, 0.052, 0.17, lt);   // charging handle
+      // curved polymer magazine with ribs and a round-count window
+      const mb = P_([[0.135, -0.055], [0.064, -0.055], ['q', 0.066, -0.13, 0.086, -0.196], [0.168, -0.188], ['q', 0.142, -0.124, 0.135, -0.055]], 0.042, 0, 0, 0, poly, 0.003);
+      const mp = P_([[0.084, -0.192], [0.172, -0.184], [0.174, -0.2], [0.082, -0.208]], 0.046, 0, 0, 0, dk, 0.003);
+      const ribs = [0, 1, 2].map(i => { const r = B(0.044, 0.004, 0.06, 0, -0.09 - i * 0.03, -0.1 - i * 0.008, dk, -0.18); return r; });
+      const win = B(0.0445, 0.012, 0.03, 0, -0.072, -0.1, glow);
+      magV = grp([mb, mp, ...ribs, win]);
+      // skeleton stock with a cheek riser and rubber butt pad
+      const sk = P_([[-0.18, 0.028], [-0.37, 0.042], [-0.392, 0.03], [-0.392, -0.088], [-0.372, -0.1], [-0.33, -0.072], [-0.18, -0.034]], 0.026, 0, 0, 0, poly, 0.003, 0, g,
+        [[[-0.215, 0.012], [-0.35, 0.024], [-0.355, -0.056], [-0.33, -0.05], [-0.215, -0.02]]]);
+      const ck = B(0.05, 0.026, 0.11, 0, 0.044, 0.31, lt);
+      const bp = B(0.058, 0.142, 0.022, 0, -0.03, 0.402, new T.MeshLambertMaterial({ color: 0x1a1c1e }));
+      stockV = grp([sk, ck, bp]);
+      // barrel, gas block and a slotted flash hider
+      barV = C(0.012, 0.012, 0.18, 0, 0.012, -0.55, steel); muzzle = -0.64;
+      B(0.03, 0.03, 0.03, 0, 0.012, -0.5, dk);
+      tipV = new T.Group(); g.add(tipV); tipV.position.set(0, 0.012, muzzle + 0.02);
+      { const fh = new T.Mesh(new T.CylinderGeometry(0.014, 0.014, 0.04, 20), dk); fh.rotation.x = Math.PI / 2; tipV.add(fh);
+        for (let i = 0; i < 4; i++) { const sl = new T.Mesh(new T.BoxGeometry(0.003, 0.03, 0.03), steel); const a2 = i * Math.PI / 2; sl.position.set(Math.cos(a2) * 0.0135, Math.sin(a2) * 0.0135, -0.004); sl.rotation.z = a2; tipV.add(sl); } }
+    } else {
     B(0.068, 0.07, 0.36, 0, 0.02, 0.0, lt);                 // upper receiver
     B(0.064, 0.05, 0.3, 0, -0.04, 0.0, dk);                 // lower receiver
     B(0.07, 0.012, 0.36, 0, 0.0, 0.0, dk);                  // seam band
@@ -2607,14 +2737,15 @@ function makeGun(id, att = {}) {
     B(0.04, 0.035, 0.08, 0, 0.072, 0.1, lt);
     for (let i = 0; i < 12; i++) B(0.03, 0.005, 0.008, 0, 0.106, -0.34 + i * 0.044, dk);
     // magazine ahead of the grip, pistol grip, trigger guard
-    const magV = grp([B(0.042, 0.15, 0.07, 0, -0.13, -0.1, dk, -0.12), B(0.044, 0.01, 0.04, 0, -0.07, -0.1, glow)]);
+    magV = grp([B(0.042, 0.15, 0.07, 0, -0.13, -0.1, dk, -0.12), B(0.044, 0.01, 0.04, 0, -0.07, -0.1, glow)]);
     B(0.042, 0.11, 0.05, 0, -0.11, 0.07, dk, 0.3);
     B(0.01, 0.01, 0.09, 0, -0.085, -0.01, dk);
     // skeletal stock
-    const stockV = grp([B(0.02, 0.02, 0.2, 0, 0.0, 0.28, dk), B(0.018, 0.018, 0.2, 0, -0.05, 0.27, dk, -0.25), B(0.05, 0.03, 0.12, 0, 0.03, 0.3, lt), B(0.06, 0.13, 0.025, 0, -0.03, 0.39, dk)]);
+    stockV = grp([B(0.02, 0.02, 0.2, 0, 0.0, 0.28, dk), B(0.018, 0.018, 0.2, 0, -0.05, 0.27, dk, -0.25), B(0.05, 0.03, 0.12, 0, 0.03, 0.3, lt), B(0.06, 0.13, 0.025, 0, -0.03, 0.39, dk)]);
     // barrel and muzzle
-    const barV = C(0.013, 0.013, 0.18, 0, 0.012, -0.55); muzzle = -0.64;
-    const tipV = B(0.026, 0.026, 0.04, 0, 0.012, muzzle + 0.02);
+    barV = C(0.013, 0.013, 0.18, 0, 0.012, -0.55); muzzle = -0.64;
+    tipV = B(0.026, 0.026, 0.04, 0, 0.012, muzzle + 0.02);
+    }
     RF = { barrel: barV, barrelZ0: -0.46, barrelY: 0.012, barrelR: 0.013, tips: [tipV], mag: magV, magTop: -0.06, magZ: -0.1, stock: stockV, guardY: -0.036, guardZ: -0.33 };
     const op = AT.optic;
     if (op === 'iron') {
@@ -2724,25 +2855,53 @@ function makeGun(id, att = {}) {
     const dk = gm, lt = gl;
     const mid = new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x50565c });
     // slide: squared top, fine serrations cut into the rear and front, ejection port on the right
-    const slide = grp([B(0.034, 0.036, 0.2, 0, 0.022, -0.055, lt), B(0.03, 0.006, 0.19, 0, 0.042, -0.055, lt),
+    const slide = GFX ? grp([
+      // chamfered slide cross-section run the length of the gun, with a lowered nose
+      X_([[-0.017, -0.016], [0.017, -0.016], [0.017, 0.009], [0.0105, 0.0175], [-0.0105, 0.0175], [-0.017, 0.009]], 0.2, 0, 0.0235, -0.055, lt, 0.0016),
+      X_([[-0.0125, -0.006], [0.0125, -0.006], [0.0125, 0.003], [0.008, 0.007], [-0.008, 0.007], [-0.0125, 0.003]], 0.024, 0, 0.034, -0.168, lt, 0.0012),
+      // angled cocking serrations front and rear, ejection port, extractor and a striker indicator
+      ...[0, 1, 2, 3, 4, 5].map(i => { const s = B(0.0352, 0.019, 0.0018, 0, 0.022, 0.012 + i * 0.0068, gunSteel); s.rotation.x = -0.25; return s; }),
+      ...[0, 1, 2].map(i => { const s = B(0.0352, 0.014, 0.0018, 0, 0.025, -0.138 + i * 0.0068, gunSteel); s.rotation.x = 0.25; return s; }),
+      B(0.0015, 0.013, 0.036, 0.0172, 0.031, -0.035, gunSteel), B(0.0018, 0.003, 0.014, 0.0174, 0.026, -0.012, dk),
+      B(0.004, 0.004, 0.003, 0, 0.03, 0.046, glow)
+    ]) : grp([B(0.034, 0.036, 0.2, 0, 0.022, -0.055, lt), B(0.03, 0.006, 0.19, 0, 0.042, -0.055, lt),
       ...[0, 1, 2, 3, 4].map(i => B(0.0345, 0.02, 0.0025, 0, 0.024, 0.016 + i * 0.008, mid)), ...[0, 1, 2].map(i => B(0.0345, 0.016, 0.0025, 0, 0.026, -0.134 + i * 0.008, mid)),
       B(0.002, 0.014, 0.034, 0.0172, 0.03, -0.035, dk)]);
-    B(0.03, 0.022, 0.18, 0, -0.008, -0.058, dk);                        // frame
-    B(0.02, 0.006, 0.07, 0, -0.021, -0.115, dk);                         // accessory rail
-    for (let i = 0; i < 3; i++) B(0.022, 0.003, 0.005, 0, -0.025, -0.14 + i * 0.02, mid);
+    if (GFX) {
+      // polymer frame: tapered dust cover with an integral rail, slide stop and takedown lever in steel
+      P_([[0.092, 0.011], [0.092, -0.004], [0.084, -0.012], [0.03, -0.014], [-0.02, -0.014], [-0.09, -0.01], [-0.092, 0.011]], 0.03, 0, -0.008, -0.058, gunPoly, 0.002);
+      B(0.021, 0.006, 0.07, 0, -0.023, -0.115, gunPoly);
+      for (let i = 0; i < 4; i++) B(0.023, 0.003, 0.004, 0, -0.026, -0.145 + i * 0.016, gunSteel);
+      B(0.0025, 0.005, 0.03, 0.0158, -0.003, -0.03, gunSteel); pin(0.0158, -0.008, -0.075, 0.003, gunSteel);
+      B(0.003, 0.006, 0.012, 0.0158, -0.012, -0.004, gunSteel);                         // mag release
+    } else {
+      B(0.03, 0.022, 0.18, 0, -0.008, -0.058, dk);                        // frame
+      B(0.02, 0.006, 0.07, 0, -0.021, -0.115, dk);                         // accessory rail
+      for (let i = 0; i < 3; i++) B(0.022, 0.003, 0.005, 0, -0.025, -0.14 + i * 0.02, mid);
+    }
     const barW = C(0.008, 0.008, 0.03, 0, 0.022, -0.16, dk); muzzle = -0.165;
     // grip: angled frame with a back strap, beavertail, finger grooves and stippled side panels
     const gripG = new T.Group(); gripG.position.set(0, -0.016, 0.006); gripG.rotation.x = 0.1; g.add(gripG);
     const gb = (w, h, d, x, y, z, m, rx = 0) => { const q = new T.Mesh(new T.BoxGeometry(w, h, d), m); q.position.set(x, y, z); q.rotation.x = rx; gripG.add(q); return q; };
-    gb(0.029, 0.1, 0.04, 0, -0.05, 0, dk);
-    gb(0.026, 0.094, 0.01, 0, -0.05, 0.022, dk);                       // back strap
-    for (const y of [-0.026, -0.048, -0.07]) gb(0.027, 0.007, 0.006, 0, y, -0.022, mid);   // finger grooves
-    for (const sx of [-1, 1]) gb(0.002, 0.055, 0.028, sx * 0.0148, -0.052, 0.002, mid);    // side panels
+    if (GFX) {
+      // one-piece grip profile: finger swells up front, rounded heel, beavertail over the web of the hand
+      P_([[0.02, -0.002], [0.0215, -0.024], ['q', 0.016, -0.03, 0.0215, -0.038], ['q', 0.016, -0.045, 0.0215, -0.053], ['q', 0.016, -0.06, 0.0205, -0.07],
+        [0.019, -0.1], [-0.022, -0.1], ['q', -0.026, -0.06, -0.025, -0.03], ['q', -0.026, -0.008, -0.034, 0.004], [-0.033, 0.009], [-0.02, 0.006]], 0.029, 0, 0, 0, gunPoly, 0.0026, 0, gripG);
+      for (const sx of [-1, 1]) gb(0.0016, 0.05, 0.03, sx * 0.0146, -0.055, 0.001, gunPoly);  // stippled panels
+    } else {
+      gb(0.029, 0.1, 0.04, 0, -0.05, 0, dk);
+      gb(0.026, 0.094, 0.01, 0, -0.05, 0.022, dk);                       // back strap
+      for (const y of [-0.026, -0.048, -0.07]) gb(0.027, 0.007, 0.006, 0, y, -0.022, mid);   // finger grooves
+      for (const sx of [-1, 1]) gb(0.002, 0.055, 0.028, sx * 0.0148, -0.052, 0.002, mid);    // side panels
+    }
     const magP = new T.Group(); gripG.add(magP);
     magP.add(new T.Mesh(new T.BoxGeometry(0.024, 0.09, 0.032), dk)); magP.children[0].position.set(0, -0.05, 0);
     const base = new T.Mesh(new T.BoxGeometry(0.031, 0.01, 0.044), mid); base.position.set(0, -0.104, 0.002); magP.add(base);
     // squared trigger guard and trigger
-    B(0.006, 0.006, 0.048, 0, -0.034, -0.036, dk); B(0.006, 0.026, 0.006, 0, -0.023, -0.06, dk); B(0.004, 0.022, 0.006, 0, -0.024, -0.03, lt, 0.2);
+    if (GFX) {
+      P_(rrect(0.02, -0.04, 0.066, -0.006, 0.009), 0.009, 0, 0, 0, gunPoly, 0.0015, 0, g, [rrect(0.0255, -0.0345, 0.0605, -0.011, 0.006)]);
+      P_([[0.036, -0.012], [0.037, -0.02], ['q', 0.038, -0.03, 0.031, -0.034], [0.0295, -0.0325], ['q', 0.0335, -0.027, 0.032, -0.012]], 0.005, 0, 0, 0, gunSteel, 0.001);
+    } else { B(0.006, 0.006, 0.048, 0, -0.034, -0.036, dk); B(0.006, 0.026, 0.006, 0, -0.023, -0.06, dk); B(0.004, 0.022, 0.006, 0, -0.024, -0.03, lt, 0.2); }
     if (AT.optic === 'reflex') { B(0.026, 0.008, 0.03, 0, 0.044, -0.03, dk); B(0.004, 0.022, 0.006, 0.012, 0.058, -0.04, dk); B(0.004, 0.022, 0.006, -0.012, 0.058, -0.04, dk); B(0.028, 0.004, 0.006, 0, 0.07, -0.04, dk); B(0.022, 0.02, 0.002, 0, 0.058, -0.04, glass); B(0.002, 0.002, 0.002, 0, 0.058, -0.041, glowRed); sightY = 0.058; }
     else if (AT.optic === 'tri') { for (const sx of [-1, 1]) { B(0.006, 0.012, 0.008, sx * 0.009, 0.046, 0.035, dk); B(0.003, 0.003, 0.003, sx * 0.009, 0.05, 0.03, glowCyan); } B(0.005, 0.012, 0.006, 0, 0.046, -0.145, dk); B(0.003, 0.003, 0.003, 0, 0.051, -0.149, glowCyan); sightY = 0.05; }
     else { for (const sx of [-1, 1]) B(0.006, 0.012, 0.008, sx * 0.009, 0.046, 0.035, dk); B(0.005, 0.012, 0.006, 0, 0.046, -0.145, dk); B(0.002, 0.002, 0.002, 0, 0.052, -0.148, glow); sightY = 0.05; }
@@ -2886,8 +3045,11 @@ const GS = Object.assign({ spreadMul: 1, fov: 46, sens: 0.45, optic: 'iron' }, W
 // ---------------- first-person hands ----------------
 // Gloved hands with separate jointed fingers and armoured sleeves. They are children of the
 // weapon model, so they follow every kick, bob and reload pose; the left hand can let go.
+const gloveTex = GFX ? (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#5a4e44'; g.fillRect(0, 0, 64, 64);
+  for (let y = 0; y < 64; y += 2) for (let x = 0; x < 64; x += 2) { g.fillStyle = (x + y) % 4 ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.08)'; g.fillRect(x, y, 2, 1); }
+  return hiTex(c, 256); })() : null;
 const HM = {
-  glove: new T.MeshLambertMaterial({ color: 0x4a4038 }),
+  glove: new T.MeshLambertMaterial(GFX ? { map: gloveTex, color: 0xffffff } : { color: 0x4a4038 }),
   plate: new T.MeshLambertMaterial({ color: 0x3a332e }),
   skin: new T.MeshLambertMaterial({ color: 0xc89478 }),
   sleeve: new T.MeshLambertMaterial({ map: TX.armor, color: 0x4a5a70 }),
@@ -2895,20 +3057,22 @@ const HM = {
 };
 const _Y = new T.Vector3(0, 1, 0);
 function hbox(parent, w, h, d, x, y, z, mat, rx = 0, ry = 0, rz = 0) {
-  const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); parent.add(m); return m;
+  const mn = Math.min(w, h, d), m = new T.Mesh(GFX && mn > 0.004 ? roundBox(w, h, d, 0.05, Math.min(0.007, mn * 0.4)) : new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); parent.add(m); return m;
 }
 // tapered tube from point a along unit direction dir
 function limb(parent, ax, ay, az, dx, dy, dz, len, r1, r2, mat) {
   const dir = new T.Vector3(dx, dy, dz).normalize();
-  const geo = new T.CylinderGeometry(r2, r1, len, 8); geo.translate(0, len / 2, 0);
+  const geo = new T.CylinderGeometry(r2, r1, len, GFX ? 18 : 8); geo.translate(0, len / 2, 0);
   const m = new T.Mesh(geo, mat); m.position.set(ax, ay, az); m.quaternion.setFromUnitVectors(_Y, dir); parent.add(m); return m;
 }
 // Blocky gloved hands (PS2-style), built to wrap the actual grip dimensions.
 // bseg(): a box stretched between two joints, so fingers and thumbs bend at real knuckles.
 const _Z = new T.Vector3(0, 0, 1);
+const _capCyl = new Map(), _capSph = new Map();
 function bseg(parent, a, b, w, hgt, mat, over = 0.004) {
+  // same crisp segment silhouette as before; modern mode just softens the edges a touch
   const d = new T.Vector3().subVectors(b, a), len = d.length() + over * 2;
-  const m = new T.Mesh(new T.BoxGeometry(w, hgt, len), mat);
+  const m = new T.Mesh(GFX ? roundBox(w, hgt, len, 0.05, Math.min(0.0028, Math.min(w, hgt) * 0.18)) : new T.BoxGeometry(w, hgt, len), mat);
   m.position.copy(a).add(b).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(_Z, d.normalize()); parent.add(m); return m;
 }
 function chain(parent, pts, w, hgt, tipMat) {   // knuckle-to-tip joints; the last segment is the bare fingertip
@@ -3688,15 +3852,17 @@ function domeBlocks(x0, y0, z0, x1, y1, z1) {
   }
   return false;
 }
-// ---------------- Soldier ultimate: Tactical Visor ----------------
+// ---------------- Soldier ultimate: Wraith Sight ----------------
 // The left hand reaches up and taps the helmet; a targeting HUD comes up and while you hold fire the
 // gun tracks onto the heads of enemies in view.
-const VIS_CD = 120, VIS_DUR = 6;
+const VIS_CD = 120, VIS_DUR = 6, VIS_RANGE = 40;   // the optic only resolves targets within 40 m
 function useVisor() {
   const P = S && S.p; if (!P || !S.running || P.dead || S.missile || P.visCd > 0 || P.visT > 0 || P.visArm > 0) return;
   P.visArm = 0.55; P.reloadT = 0;
   sTone(500, 1400, 0.45, 0.08, 'square'); sNoise(0.3, 4000, 0.06, 'highpass');
 }
+// centre mass of an enemy, used by touch aim assist
+function aimPt(e, out) { return out.set(e.x, e.y + (e.type === 'walker' ? 2.6 : e.type === 'turret' ? 1.1 : 1.15 * (e.D.scale || 1)), e.z); }
 function assistTarget() {
   const P = S.p; let best = null, bd = 0.32; cam.updateMatrixWorld();
   for (const e of enemies) {
@@ -3712,7 +3878,7 @@ function assistTarget() {
 function visorTarget() {
   const P = S.p; let best = null, bd = 1e9; cam.updateMatrixWorld();
   for (const e of enemies) {
-    if (e.dead) continue;
+    if (e.dead || Math.hypot(e.x - P.x, e.z - P.z) > VIS_RANGE) continue;
     const hy = e.y + (e.type === 'walker' ? 4.4 : 1.86 * e.D.scale);
     _ta.set(e.x, hy, e.z).project(cam);
     if (_ta.z > 1 || Math.abs(_ta.x) > 0.95 || Math.abs(_ta.y) > 0.95) continue;
@@ -3724,7 +3890,7 @@ function visorTarget() {
 }
 function updateVisor(dt) {
   const P = S.p;
-  if (P.visArm > 0) { P.visArm -= dt; if (P.visArm <= 0) { P.mag = Math.max(P.mag, 1); P.reloadT = 0; P.visT = VIS_DUR + (hasT('g5') ? 3 : 0); if (hasT('g5')) P.odT = P.visT; $('visor').hidden = false; banner('Tactical Visor', 'Hold fire to lock on', 1.2); sTone(220, 880, 0.4, 0.1, 'sawtooth'); } }
+  if (P.visArm > 0) { P.visArm -= dt; if (P.visArm <= 0) { P.mag = Math.max(P.mag, 1); P.reloadT = 0; P.visT = VIS_DUR + (hasT('g5') ? 3 : 0); if (hasT('g5')) P.odT = P.visT; $('visor').hidden = false; banner('Wraith Sight', 'Hold fire to lock on', 1.2); sTone(220, 880, 0.4, 0.1, 'sawtooth'); } }
   if (P.visCd > 0) P.visCd = Math.max(0, P.visCd - dt);
   if (!(P.visT > 0)) return;
   P.visT -= dt;
@@ -3740,7 +3906,7 @@ function updateVisor(dt) {
   // brackets on every head in view, the locked one in red
   let html = '';
   for (const e of enemies) {
-    if (e.dead) continue;
+    if (e.dead || Math.hypot(e.x - P.x, e.z - P.z) > VIS_RANGE) continue;
     _ta.set(e.x, e.y + (e.type === 'walker' ? 4.4 : 1.86 * e.D.scale), e.z).project(cam);
     if (_ta.z > 1 || Math.abs(_ta.x) > 1 || Math.abs(_ta.y) > 1) continue;
     const on = tg && tg.e === e;
@@ -3928,10 +4094,35 @@ function update(dt) {
     if (P.afT <= 0) {
       P.afT = 0.08; cam.updateMatrixWorld();
       _ta.set(0, 0, -1).applyQuaternion(cam.quaternion);
-      const sh = shotHit(cam.position, _ta, 70, [].concat(...enemies.filter(e => !e.dead).map(e => e.hit)));
+      const hits = [].concat(...enemies.filter(e => !e.dead).map(e => e.hit));
+      const sh = shotHit(cam.position, _ta, 70, hits);
       P.autoOn = !!(sh && sh.object.userData.enemy);
+      if (P.autoOn) { P.aimE = sh.object.userData.enemy; P.aimT = 0.5; }
+      else {
+        // near miss: a small cone around the crosshair (wider for distant targets) catches an enemy you are almost on
+        let best = null, bd = 1e9;
+        for (const e of enemies) {
+          if (e.dead) continue; aimPt(e, _aimV); _aimV.sub(cam.position); const dist = _aimV.length(); if (dist > 60 || dist < 0.5) continue;
+          const ang = Math.acos(Math.min(1, _aimV.dot(_ta) / dist)), tol = Math.max(0.04, Math.min(0.12, 0.9 * (e.type === 'walker' ? 3 : e.D.scale || 1) / dist));
+          if (ang < tol && ang < bd) { aimPt(e, _aimV); if (lineOfSight(cam.position.x, cam.position.y, cam.position.z, _aimV.x, _aimV.y, _aimV.z)) { best = e; bd = ang; } }
+        }
+        if (best) { P.aimE = best; P.aimT = Math.max(P.aimT || 0, 0.3); }
+      }
     }
   } else P.autoOn = false;
+  // gentle touch aim assist: drift onto a target you are close to, then stick to it as it moves
+  if (isTouch && !P.dead && !S.missile && P.aimT > 0 && P.aimE) {
+    P.aimT -= dt;
+    const e = P.aimE;
+    if (e.dead || !enemies.includes(e)) { P.aimT = 0; P.aimE = null; }
+    else {
+      aimPt(e, _aimV); _aimV.sub(cam.position);
+      const ty = Math.atan2(-_aimV.x, -_aimV.z), tp = Math.atan2(_aimV.y, Math.hypot(_aimV.x, _aimV.z));
+      let ey = ty - P.yaw; ey = Math.atan2(Math.sin(ey), Math.cos(ey)); const ep = tp - P.pitch;
+      if (Math.hypot(ey, ep) > 0.18) { P.aimT = 0; P.aimE = null; }          // you pulled away on purpose: let go
+      else { const k = Math.min(1, dt * (P.autoOn ? 5 : 3)); P.yaw += ey * k; P.pitch += ep * k * 0.6; }
+    }
+  }
   if (!input.fire) P.semiOk = true;
   if ((input.fire || P.autoOn) && S.running && !S.missile && !(P.visArm > 0) && !(P.swapT > 0) && (!GS.semi || P.semiOk || P.autoOn)) { const m0 = P.mag; tryFire(); if (GS.semi && P.mag !== m0) P.semiOk = false; }
   if (P.swapT > 0) P.swapT = Math.max(0, P.swapT - dt);
@@ -4072,7 +4263,7 @@ function update(dt) {
     gunModel.userData.pump.position.z = gunModel.userData.pumpZ + off;
   }
   gun.rotation.y += ((laserHold ? 0.14 : 0.12) * (1 - P.ads) + (smg && curW === 'wasp' ? -0.5 * tilt : smg && curW === 'lancer' ? 0 : 0) - gun.rotation.y) * Math.min(1, dt * 10);
-  // Tactical Visor: the weapon physically swings to point at the locked head
+  // Wraith Sight: the weapon physically swings to point at the locked head
   if (P.visT > 0 && P.visTarget) {
     cam.updateMatrixWorld(); _tb.set(P.visTarget.x, P.visTarget.y, P.visTarget.z); cam.worldToLocal(_tb);
     _tb.sub(gun.position);
@@ -4285,7 +4476,7 @@ const TALENTS = [
   { id: 'g2', c: 0, r: 2, name: 'Quick Vent', desc: 'Reloads and vents 20% faster.', req: ['g1'] },
   { id: 'g3', c: 0, r: 3, name: 'Extended Cells', desc: '25% larger magazine.', req: ['g2'] },
   { id: 'g4', c: 0, r: 4, name: 'Armour Piercing', desc: '12% more weapon damage.', req: ['g3', 's3'] },
-  { id: 'g5', c: 0, r: 5, name: 'Visor Overdrive', desc: 'Tactical Visor lasts 3 seconds longer, and while it runs your magazine never empties and you fire 30% faster.', req: ['g4'] },
+  { id: 'g5', c: 0, r: 5, name: 'Wraith Overdrive', desc: 'Wraith Sight lasts 3 seconds longer, and while it runs your magazine never empties and you fire 30% faster.', req: ['g4'] },
   { id: 's1', c: 1, r: 1, name: 'Bubble Shield', desc: 'E ability: drop a dome for 8 seconds that stops enemy fire. You can shoot out of it. 30 second cooldown.', ab: 'E' },
   { id: 's2', c: 1, r: 2, name: 'Quick Recovery', desc: 'Shields start recharging a second sooner.', req: ['s1'] },
   { id: 's3', c: 1, r: 3, name: 'Hardened Shields', desc: 'Take 20% less damage.', req: ['s2'] },
@@ -4692,7 +4883,7 @@ addEventListener('blur', () => { input.keys = {}; input.fire = false; input.ads 
 const SENS = 0.0022;
 function look(dx, dy, sens = SENS) {
   if (S && S.missile) { const m = S.missile; if (CFG.invertY) dy = -dy; m.yaw -= dx * sens * 0.6; m.pitch = Math.max(-1.5, Math.min(-0.2, m.pitch - dy * sens * 0.6)); return; }
-  const P = S.p; const z = 1 - S.p.ads * GS.sens;
+  const P = S.p; const z = (1 - S.p.ads * GS.sens) * (isTouch && P.aimT > 0 ? 0.7 : 1);   // a little aim friction over a target on touch
   if (CFG.invertY) dy = -dy;
   P.yaw -= dx * sens * z; P.pitch -= dy * sens * z;
   P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch));
@@ -4870,9 +5061,14 @@ game.addEventListener('touchmove', e => {
       continue;
     }
     if (touches.lookStick && touches.lookStick.id === t.identifier) {
-      let dx = x - touches.lookStick.ox, dy = y - touches.lookStick.oy; const d = Math.hypot(dx, dy), max = 46;
+      // the look pad works exactly like swiping the screen (1:1 finger movement), the knob just shows the drag
+      const L = touches.lookStick;
+      if (L.lx === undefined) { L.lx = x; L.ly = y; }
+      if (S.running && !paused) look(x - L.lx, y - L.ly, 0.0058 * CFG.touchSens);
+      L.lx = x; L.ly = y;
+      let dx = x - L.ox, dy = y - L.oy; const d = Math.hypot(dx, dy), max = 46;
       if (d > max) { dx = dx / d * max; dy = dy / d * max; }
-      input.lx = dx / max; input.ly = dy / max; $('lookKnob').style.transform = `translate(${dx}px, ${dy}px)`;
+      $('lookKnob').style.transform = `translate(${dx}px, ${dy}px)`;
       continue;
     }
     const l = touches.look.find(o => o.id === t.identifier);
@@ -5795,7 +5991,7 @@ function toLobby() {
 // 'approach': chase cam behind the frigate as it dives toward the planet.
 // 'warp': hyperspace tunnel of star streaks, for jumps to other planets later on.
 let travel = null, streaks = null;
-const _ta = new T.Vector3(), _tb = new T.Vector3(), _tc = new T.Vector3(), _td = new T.Vector3(), _te = new T.Vector3(), _tObj = new T.Object3D();
+const _ta = new T.Vector3(), _tb = new T.Vector3(), _tc = new T.Vector3(), _td = new T.Vector3(), _te = new T.Vector3(), _tObj = new T.Object3D(), _aimV = new T.Vector3();
 function buildStreaks() {
   const n = 500, pos = new Float32Array(n * 6), data = [];
   for (let i = 0; i < n; i++) {
@@ -7006,7 +7202,11 @@ function gfxInit() {
   tune(M.concrete, 0.86, 0, 1); tune(M.trim, 0.5, 0.35, 1); tune(M.crate, 0.72, 0.05, 1); tune(M.grass, 0.95, 0, 1); tune(M.dirt, 0.97, 0, 1);
   tune(M.rock, 0.82, 0, 1); tune(M.bark, 0.9, 0, 1); tune(M.leaf, 0.7, 0, 0); tune(M.grate, 0.42, 0.7, 1);
   for (const k of ['metal', 'burnt', 'char', 'synth', 'cloth', 'cloth2']) if (MX[k]) tune(MX[k], k === 'metal' ? 0.4 : 0.85, k === 'metal' ? 0.75 : 0, 1);
-  for (const m of [gm, gl]) if (m && m.isMeshStandardMaterial) { m.roughness = 0.34; m.metalness = 0.72; m.envMapIntensity = 1.1; }
+  if (gm.isMeshStandardMaterial) { gm.roughness = 0.5; gm.metalness = 0.35; gm.envMapIntensity = 0.8; }
+  if (gl.isMeshStandardMaterial) { gl.roughness = 0.38; gl.metalness = 0.55; gl.envMapIntensity = 0.85; }
+  if (gunPoly.isMeshStandardMaterial) { gunPoly.roughness = 0.68; gunPoly.metalness = 0.05; gunPoly.envMapIntensity = 0.8; }
+  if (HM.glove.isMeshStandardMaterial) { HM.glove.roughness = 0.92; HM.plate.roughness = 0.5; HM.plate.metalness = 0.15; HM.skin.roughness = 0.55; HM.sleeve.roughness = 0.9; HM.cuff.roughness = 0.45; HM.cuff.metalness = 0.6; }
+  if (gunSteel.isMeshStandardMaterial) { gunSteel.roughness = 0.4; gunSteel.metalness = 0.7; gunSteel.envMapIntensity = 0.9; }
   scene.traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && o.material.vertexColors && !wetMats.includes(o.material)) tune(o.material, 0.93, 0, 1); });
   // puddles that appear on the plaza, roads and pads when it rains, reflecting the sky
   puddles = new T.MeshStandardMaterial({ color: 0x0c1014, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
