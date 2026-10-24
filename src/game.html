@@ -1680,6 +1680,52 @@ function wreckShuttle(x, z) {
   boxes.push({ x0: x - 2.8, x1: x + 2.8, z0: z - 2.8, z1: z + 2.8, y0: 0, y1: 2.6 });
   fire(x + 0.5, 2.2, z - 0.5); fire(x - 1.5, 1, z + 1.2);
 }
+// lush meadow grass: one instanced mesh of soft, tall blade clumps that sway in the wind, dark at the root and
+// bright toward the tips, with every clump tinted a little differently
+let grassMat = null;
+function grassField(spots) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
+  let sd = 4242; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 46; i++) {
+    const x = 6 + r() * 116, w = 3 + r() * 5, h = 70 + r() * 56, bend = (r() - 0.5) * 34;
+    const gr = g.createLinearGradient(0, 128, 0, 128 - h); gr.addColorStop(0, '#2c4a1c'); gr.addColorStop(0.55, '#6c9a3a'); gr.addColorStop(1, '#c4e07a');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(x - w / 2, 128); g.quadraticCurveTo(x - w / 3 + bend * 0.5, 128 - h * 0.55, x + bend, 128 - h); g.quadraticCurveTo(x + w / 3 + bend * 0.5, 128 - h * 0.55, x + w / 2, 128); g.fill();
+  }
+  const tex = new T.CanvasTexture(c); tex.magFilter = T.LinearFilter; tex.minFilter = T.LinearMipmapLinearFilter;
+  // clump: three crossed, gently curved cards
+  const geos = [];
+  for (let k = 0; k < 3; k++) { const pg = new T.PlaneGeometry(0.95, 0.8, 1, 3), pp = pg.attributes.position;
+    for (let i = 0; i < pp.count; i++) { const t = (pp.getY(i) + 0.4) / 0.8; pp.setZ(i, t * t * 0.14); }
+    pg.translate(0, 0.4, 0); pg.rotateY(k * Math.PI / 3); geos.push(pg); }
+  const geo = mergeGeos(geos); geo.computeVertexNormals();
+  // light the cards as if they pointed up, so the field shades like a soft surface instead of flickering cards
+  const nr = geo.attributes.normal; for (let i = 0; i < nr.count; i++) nr.setXYZ(i, 0, 1, 0);
+  grassMat = new T.MeshLambertMaterial({ map: tex, alphaTest: 0.45, side: T.DoubleSide });
+  grassMat.onBeforeCompile = sh => { sh.uniforms.uTime = { value: 0 }; grassMat.userData.sh = sh;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      float gh = clamp(position.y / 0.8, 0.0, 1.0); gh *= gh;
+      #ifdef USE_INSTANCING
+        vec2 gp = vec2(instanceMatrix[3][0], instanceMatrix[3][2]);
+      #else
+        vec2 gp = vec2(0.0);
+      #endif
+      float gw = sin(uTime * 1.6 + gp.x * 0.31 + gp.y * 0.17) + 0.5 * sin(uTime * 2.7 + gp.x * 0.9);
+      transformed.x += gw * 0.07 * gh; transformed.z += cos(uTime * 1.2 + gp.y * 0.27) * 0.05 * gh;`); };
+  const im = new T.InstancedMesh(geo, grassMat, spots.length); im.frustumCulled = false; im.receiveShadow = true;
+  const m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(), pos = new T.Vector3(), col = new T.Color(), up = new T.Vector3(0, 1, 0);
+  spots.forEach(([x, y, z], i) => {
+    q.setFromAxisAngle(up, srand() * Math.PI * 2); const s_ = srnd(0.75, 1.35); sc.set(s_, s_ * srnd(0.8, 1.35), s_); pos.set(x, y - 0.03, z);
+    im.setMatrixAt(i, m4.compose(pos, q, sc));
+    col.setRGB(srnd(0.82, 1.05), srnd(0.9, 1.08), srnd(0.72, 0.95)); im.setColorAt(i, col);
+  });
+  scene.add(im);
+}
+function mergeGeos(gs) {
+  const pos = [], uv = [], idx = []; let off = 0;
+  for (const g of gs) { const p = g.attributes.position, u = g.attributes.uv; for (let i = 0; i < p.count; i++) { pos.push(p.getX(i), p.getY(i), p.getZ(i)); uv.push(u.getX(i), u.getY(i)); }
+    const ix = g.index.array; for (let i = 0; i < ix.length; i++) idx.push(ix[i] + off); off += p.count; }
+  const o = new T.BufferGeometry(); o.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); o.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); o.setIndex(idx); return o;
+}
 // grass: three crossed blades, non-solid
 const tuftGeo = (() => { const g = new T.PlaneGeometry(0.6, 0.5); g.translate(0, 0.25, 0); return g; })();
 function tuft(x, z) {
@@ -1844,14 +1890,30 @@ function buildRing() {
     if (i > 0) { const a = 2 * (i - 1), b = 2 * i; idx.push(a, b, a + 1, a + 1, b, b + 1); }
   }
   const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uvs, 2)); g.setIndex(idx); g.computeVertexNormals();
-  scene.add(new T.Mesh(g, M.dirt));
+  // packed gravel path with a low stone edging on both sides
+  const gravelTex = ctex(64, (gg, sz) => { gg.fillStyle = '#6e6a62'; gg.fillRect(0, 0, sz, sz); let sd = 777; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 520; i++) { const v = 70 + r() * 90 | 0; gg.fillStyle = `rgb(${v},${v - 4},${v - 12})`; gg.beginPath(); gg.arc(r() * sz, r() * sz, 0.6 + r() * 1.6, 0, 6.3); gg.fill(); } });
+  const gravel = new T.MeshLambertMaterial({ map: gravelTex, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  if (gravel.isMeshStandardMaterial) gravel.roughness = 0.9;
+  scene.add(new T.Mesh(g, gravel));
+  { const kp = [], ki = [], kerbH = 0.07;
+    for (let i = 0; i <= n; i++) {
+      const p = ringPts[i], q = ringPts[(i + 1) % n], tx = q.x - p.x, tz = q.z - p.z, l = Math.hypot(tx, tz) || 1, nx = -tz / l, nz = tx / l;
+      for (const [a, b] of [[2.08, 2.32], [-2.08, -2.32]]) kp.push(p.x + nx * a, kerbH, p.z + nz * a, p.x + nx * b, kerbH, p.z + nz * b, p.x + nx * a, 0, p.z + nz * a);
+      if (i > 0) for (let sdx = 0; sdx < 2; sdx++) { const A = (i - 1) * 6 + sdx * 3, B = i * 6 + sdx * 3; ki.push(A, B, A + 1, A + 1, B, B + 1, A + 2, B + 2, A, A, B + 2, B); }
+    }
+    const kg = new T.BufferGeometry(); kg.setAttribute('position', new T.Float32BufferAttribute(kp, 3)); kg.setIndex(ki); kg.computeVertexNormals();
+    const kerb = new T.Mesh(kg, new T.MeshLambertMaterial({ color: 0x8a8880, side: T.DoubleSide })); scene.add(kerb); }
   // street lamps along the outside of the loop: a pole, an arm reaching over the road and a lamp housing on its end
   const headMat = new T.MeshBasicMaterial({ color: 0xffd9a0 }), poleMat = new T.MeshLambertMaterial({ color: 0x2e3236 });
   const softGlow = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
     gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new T.CanvasTexture(c); })();
   const poleGeo = new T.CylinderGeometry(0.06, 0.08, 3.4, 10);
-  for (let i = 0; i < RING.length; i++) {
-    const [x, z] = RING[i], l = Math.hypot(x, z), ox = x + x / l * 2.9, oz = z + z / l * 2.9, dx = -x / l, dz = -z / l, ry = Math.atan2(dx, dz);
+  for (let i = 0; i < n; i += 12) {
+    // stand just off the edge of the gravel, on the outside of the loop, with the arm reaching over the path
+    const p = ringPts[i], q = ringPts[(i + 1) % n], tx = q.x - p.x, tz = q.z - p.z, tl = Math.hypot(tx, tz) || 1;
+    let nx = -tz / tl, nz = tx / tl; if (nx * p.x + nz * p.z < 0) { nx = -nx; nz = -nz; }
+    const ox = p.x + nx * 2.75, oz = p.z + nz * 2.75, dx = -nx, dz = -nz, ry = Math.atan2(dx, dz);
     if (nearBox(ox, oz, 0.3) || (Math.abs(ox) < 5.5 && Math.abs(oz) > 20) || (Math.abs(oz) < 5.5 && ox < -10) || (oz > -7.5 && oz < 1.5 && ox > 10)) continue;   // never on a spoke road
     const lg = new T.Group(); lg.position.set(ox, 0, oz); lg.rotation.y = ry; build.add(lg);
     const pole = new T.Mesh(poleGeo, poleMat); pole.position.y = 1.7; lg.add(pole);
@@ -2084,8 +2146,15 @@ function buildLevel() {
   while (placed < 110 && tries++ < 3000) { const x = srnd(-66, 66), z = srnd(-66, 60); if (band(x, z) < 40 || onRoad(x, z, 0.5) || !okSpot(x, z, 1.2)) continue; fern(x, z, 0, srnd(0.24, 0.36)); placed++; }
   // grass: thick near the jungle, sparse in the clearing, never on the roads
   placed = 0; tries = 0;
-  while (placed < 1100 && tries++ < 9000) { const x = srnd(-70, 70), z = srnd(-70, 64), b = band(x, z);
-    if (nearBox(x, z, 0.4) || onRoad(x, z, 0.3) || (Math.abs(x) < 13.5 && Math.abs(z) < 9.5) || (b < 36 && srand() < 0.75)) continue; tuft(x, z); placed++; }
+  { const spots = [], N = isTouch ? 3800 : 9000;
+    // outpost meadows: dense toward the jungle edge, patchy in the clearing, never on roads, paths or the plaza
+    while (spots.length < N * 0.62 && tries++ < N * 8) { const x = srnd(-70, 70), z = srnd(-70, 62), b = band(x, z);
+      if (nearBox(x, z, 0.35) || onRoad(x, z, 0.4) || (Math.abs(x) < 13.6 && Math.abs(z) < 9.6) || (b < 34 && srand() < 0.55)) continue; spots.push([x, 0, z]); }
+    // the route: either side of the track, out of the swamp water
+    tries = 0;
+    while (spots.length < N && tries++ < N * 10) { const z = srnd(64, 200), c = regC(z), w = regW(z), x = c + srnd(-w + 2, w - 2), y = terrainH(x, z);
+      if (Math.abs(x - (c + Math.sin(z * 0.13) * 1.2)) < 2.8 || y < WATER_Y + 0.05 || nearBox(x, z, 0.35) || Math.hypot(x, z - INS_Z) < 9) continue; spots.push([x, y, z]); }
+    grassField(spots); }
   fern(0, -1, 1.4, 0.3);
   // background palms beyond the cliffs
   for (let i = 0; i < 60; i++) { const a = srand() * Math.PI * 2, r = srnd(82, 110); if (Math.sin(a) * r > 50) continue; palm(Math.cos(a) * r, Math.sin(a) * r, srnd(1.4, 2.2)); boxes.pop(); }
@@ -4113,7 +4182,7 @@ function update(dt) {
   // movement input
   if (S.missile) updateMissile(dt);
   // co-op: the run ends when the whole squad is down at once
-  updateDowned(dt); updateMist(dt);
+  updateDowned(dt); updateMist(dt); if (grassMat && grassMat.userData.sh) grassMat.userData.sh.uniforms.uTime.value = S.t;
   if (NET.on && (P.dead || P.downed) && S.running) {
     const up = [...NET.peers.values()].some(p => p.a && !p.dn && !p.ab);
     S.wipeT = up ? 0 : (S.wipeT || 0) + dt;
@@ -6419,7 +6488,7 @@ const RAIN_N = 1600;
 const rainPos = new Float32Array(RAIN_N * 6), rainSeed = new Float32Array(RAIN_N * 3);
 for (let i = 0; i < RAIN_N; i++) { rainSeed[i * 3] = Math.random() * 44 - 22; rainSeed[i * 3 + 1] = Math.random() * 24; rainSeed[i * 3 + 2] = Math.random() * 44 - 22; }
 const rainGeo = new T.BufferGeometry(); rainGeo.setAttribute('position', new T.BufferAttribute(rainPos, 3));
-const rainMat = new T.LineBasicMaterial({ color: 0xbcd0e0, transparent: true, opacity: 0, depthWrite: false, fog: false });
+const rainMat = new T.LineBasicMaterial({ color: 0xa8b8c6, transparent: true, opacity: 0, depthWrite: false, fog: false });
 const rain = new T.LineSegments(rainGeo, rainMat); rain.frustumCulled = false; scene.add(rain);
 // meteors for the firestorm: glowing heads with streaking tails high in the sky, with impacts on the horizon
 const meteors = [];
@@ -6522,13 +6591,14 @@ function updateWeather(dt) {
   if (env.bolts > 0.5) { env.nextBolt -= dt; if (env.nextBolt <= 0) { env.nextBolt = rnd(5, 13); lightning(); } }
   // rain streaks
   const n = Math.floor(RAIN_N * env.rain);
-  rainMat.opacity = Math.min(0.55, 0.2 + env.rain * 0.4); rain.visible = n > 0;
+  rainMat.opacity = Math.min(0.26, 0.1 + env.rain * 0.16); rain.visible = n > 0;
   if (n > 0) {
-    const cx = cam.position.x, cy = cam.position.y, cz = cam.position.z, len = 0.5 + env.rain * 0.6, fall = 20 + env.rain * 8;
+    const cx = cam.position.x, cy = cam.position.y, cz = cam.position.z, len = 0.2 + env.rain * 0.22, fall = 20 + env.rain * 8;
     for (let i = 0; i < n; i++) {
       let y = rainSeed[i * 3 + 1] - dt * fall; if (y < 0) y += 24; rainSeed[i * 3 + 1] = y;
       const x = cx + ((rainSeed[i * 3] - cx % 44 + 66) % 44) - 22, z = cz + ((rainSeed[i * 3 + 2] - cz % 44 + 66) % 44) - 22, yy = cy - 8 + y;
-      rainPos[i * 6] = x; rainPos[i * 6 + 1] = yy; rainPos[i * 6 + 2] = z; rainPos[i * 6 + 3] = x + 0.04; rainPos[i * 6 + 4] = yy + len; rainPos[i * 6 + 5] = z + 0.02;
+      const near = Math.hypot(x - cx, z - cz) < 2.2;   // drops right next to your face read as big white bars: skip them
+      rainPos[i * 6] = x; rainPos[i * 6 + 1] = yy; rainPos[i * 6 + 2] = z; rainPos[i * 6 + 3] = x + 0.015; rainPos[i * 6 + 4] = near ? yy : yy + len; rainPos[i * 6 + 5] = z + 0.008;
     }
     rainGeo.setDrawRange(0, n * 2); rainGeo.attributes.position.needsUpdate = true;
   }
