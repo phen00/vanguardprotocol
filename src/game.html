@@ -524,6 +524,10 @@ details.ctrl { border-top: 1px solid var(--line); padding-top: 10px; }
 details.ctrl summary { cursor: pointer; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); pointer-events: auto; }
 details.ctrl .controls { border: 0; padding-top: 10px; }
 .scope { position: absolute; inset: 0; pointer-events: none; overflow: hidden; --d: 300px; }
+.scope.snip .post, .scope.snip .chev, .scope.snip .mount { display: none; }
+.scope.snip .lens::before, .scope.snip .lens::after { content: ""; position: absolute; background: #050505; }
+.scope.snip .lens::before { left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: linear-gradient(90deg, #050505 0 38%, transparent 38% 47%, #050505 47% 47.4%, transparent 47.4% 52.6%, #050505 52.6% 53%, transparent 53% 62%, #050505 62%); }
+.scope.snip .lens::after { top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; background: linear-gradient(180deg, #050505 0 38%, transparent 38% 49.6%, #c02018 49.6% 50.4%, transparent 50.4% 62%, #050505 62%); }
 .scope .mount { position: absolute; left: 50%; top: calc(50% + var(--d) * .62); width: calc(var(--d) * 1.2); height: 60vh; transform: translateX(-50%);
   clip-path: polygon(34% 0, 66% 0, 100% 100%, 0 100%);
   background: repeating-linear-gradient(0deg, #17181b 0 16px, #2a2c31 16px 20px); }
@@ -1238,7 +1242,38 @@ const stations = [];
 const GATES = [[0, -60], [-60, 0], [60, 0], [-48, -48], [48, -48], [-48, 48], [48, 48]];
 const BOUND = 66;
 // landing zone at the south end of the trail: insertion drops you here, and the exfil dropship lands here
-const LZ_Z = 54.5, LZ_NAME = 'LZ Thornfield', AREA_NAME = 'Halvard Waystation', AREA_SUB = 'Abandoned colonial relay · Kessa-4';
+// ---- the insertion route south of the outpost: gorge, swamp, ridge and an open jungle basin with the LZ ----
+const REG_Z1 = 210, INS_Z = 194, WATER_Y = -0.55;
+const _sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+// corridor centre line and half-width along z (the walkable band, with steep walls either side)
+function regC(z) { return z < 92 ? 0 : z < 126 ? -6 * _sm((z - 92) / 14) : z < 152 ? -6 + 8 * _sm((z - 126) / 22) : 2 - 2 * _sm((z - 152) / 20); }
+const REG_W = [[66, 9], [86, 9], [100, 26], [120, 26], [130, 19], [146, 19], [162, 40], [204, 40], [REG_Z1, 22]];
+function regW(z) {
+  if (z <= REG_W[0][0]) return REG_W[0][1];
+  for (let i = 1; i < REG_W.length; i++) if (z <= REG_W[i][0]) { const [z0, w0] = REG_W[i - 1], [z1, w1] = REG_W[i]; return w0 + (w1 - w0) * _sm((z - z0) / (z1 - z0)); }
+  return REG_W[REG_W.length - 1][1];
+}
+// height of the ground: flat inside the outpost map, rolling terrain on the route
+function terrainH(x, z) {
+  if (z <= 66) return 0;
+  const c = regC(z), w = regW(z), dx = Math.abs(x - c);
+  let h;
+  if (z < 92) h = -0.35 * _sm((z - 70) / 22);                                                           // gorge, dipping toward the swamp
+  else if (z < 126) h = -1.0 + 0.5 * Math.sin(x * 0.31 + 1.3) * Math.sin(z * 0.27) + 0.25 * Math.sin(x * 0.9) * Math.cos(z * 0.7); // swamp floor
+  else if (z < 152) { const k = _sm((z - 124) / 28); h = -1.0 + 4.2 * k + 0.6 * Math.sin(x * 0.4 + z * 0.13) * k; }                 // climbing ridge
+  else h = 3.2 + 2.4 * Math.sin(x * 0.085 + 1) * Math.sin(z * 0.075) + 1.1 * Math.sin(x * 0.21 + 0.4) * Math.cos(z * 0.17);       // jungle basin
+  // swamp shading into the ridge and gorge
+  if (z > 88 && z < 96) h = h * _sm((z - 88) / 8) - 0.35 * (1 - _sm((z - 88) / 8));
+  // LZ plateau
+  const dl = Math.hypot(x, z - INS_Z); if (dl < 18) h = 3.2 + (h - 3.2) * _sm((dl - 11) / 7);
+  // walls rise in the last few metres of the band
+  const e = dx - (w - 6); if (e > 0) h += Math.min(22, e * e * 0.28 + e * 1.1);
+  return h * _sm((z - 66) / 5);
+}
+// is a point inside the playable world (outpost square or the route band)?
+function inWorld(x, z) { return z > BOUND ? (z < REG_Z1 && Math.abs(x - regC(z)) < regW(z)) : (Math.abs(x) < BOUND && z > -BOUND); }
+const inSwamp = (x, z, y) => z > 92 && z < 127 && y < WATER_Y - 0.12;
+const LZ_Z = 54.5, EX_NAME = 'the extraction pad', LZ_NAME = 'LZ Thornfield', AREA_NAME = 'Halvard Waystation', AREA_SUB = 'Abandoned colonial relay · Kessa-4';
 
 // ---- level helpers: open buildings, wreckage and the dead ----
 const MX = {
@@ -1478,6 +1513,114 @@ function tuft(x, z) {
   const s = srnd(0.6, 1.3), r = srand() * 3;
   for (let i = 0; i < 2; i++) { const m = new T.Mesh(tuftGeo, MX.grass); m.position.set(x, 0, z); m.rotation.set(srnd(-0.1, 0.1), r + i * 1.57, 0); m.scale.set(s, s * srnd(0.7, 1.4), s); build.add(m); }
 }
+// ---------------- the insertion route (south of the outpost) ----------------
+const ROUTE_SPAWNS = [];
+function buildRoute(palm, fern) {
+  const H = terrainH, Z0 = 62, Z1 = REG_Z1 + 4, Wd = 172;
+  // terrain mesh, shaded by slope and wetness
+  const geo = new T.PlaneGeometry(Wd, Z1 - Z0, 150, 130); geo.rotateX(-Math.PI / 2); geo.translate(0, 0, (Z0 + Z1) / 2);
+  const pos = geo.attributes.position, uv = geo.attributes.uv, col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), h = H(x, z); pos.setY(i, h);
+    const sl = Math.hypot(H(x + 0.8, z) - H(x - 0.8, z), H(x, z + 0.8) - H(x, z - 0.8)) / 1.6;
+    let r = 1, g = 1, b = 1;
+    if (z > 90 && z < 128 && h < -0.35) { r = 0.58; g = 0.55; b = 0.36; }          // mud
+    const rock = _sm((sl - 0.55) / 0.5); r += (0.66 - r) * rock; g += (0.6 - g) * rock; b += (0.52 - b) * rock;
+    col.set([r, g, b], i * 3);
+    uv.setXY(i, x / 2.9, z / 2.9);
+  }
+  geo.setAttribute('color', new T.BufferAttribute(col, 3)); geo.computeVertexNormals();
+  const terr = new T.Mesh(geo, new T.MeshLambertMaterial({ map: TX.grass, vertexColors: true })); scene.add(terr);
+  // swamp water, scum and mist
+  const water = new T.Mesh(new T.PlaneGeometry(70, 40), new T.MeshLambertMaterial({ color: 0x3c4a2c, transparent: true, opacity: 0.84, depthWrite: false }));
+  water.rotation.x = -Math.PI / 2; water.position.set(-4, WATER_Y, 110); water.renderOrder = 2; scene.add(water);
+  const padMat = new T.MeshLambertMaterial({ color: 0x4f7a34 });
+  for (let i = 0; i < 40; i++) { const x = srnd(-28, 18), z = srnd(94, 126); if (H(x, z) > WATER_Y - 0.1) continue; const d = new T.Mesh(new T.CircleGeometry(srnd(0.25, 0.6), 7), padMat); d.rotation.x = -Math.PI / 2; d.position.set(x, WATER_Y + 0.02, z); scene.add(d); }
+  for (let i = 0; i < 9; i++) { const m = new T.Sprite(new T.SpriteMaterial({ map: steamTex, color: 0xdfe8d8, transparent: true, opacity: 0.22, depthWrite: false })); m.position.set(srnd(-24, 14), WATER_Y + srnd(0.6, 1.4), srnd(96, 124)); m.scale.set(srnd(9, 16), srnd(2, 3.5), 1); scene.add(m); }
+  // dirt track following the ground, with a boardwalk across the swamp
+  { const pts = [], idx = []; let n = 0;
+    for (let z = Z0; z <= INS_Z - 10; z += 1.5) {
+      if (z > 94 && z < 126) continue;
+      const c = regC(z) + Math.sin(z * 0.13) * 1.2;
+      for (const sx of [-1.8, 1.8]) pts.push(c + sx, H(c + sx, z) + 0.05, z);
+      if (n > 0 && !(z - 1.5 > 94 && z - 1.5 < 126) && !(z > 94 && z - 1.5 < 94)) idx.push(2 * n - 2, 2 * n, 2 * n - 1, 2 * n - 1, 2 * n, 2 * n + 1);
+      n++;
+    }
+    const pg = new T.BufferGeometry(); pg.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); pg.setIndex(idx); pg.computeVertexNormals();
+    const u2 = []; for (let i = 0; i < pts.length / 3; i++) u2.push(i % 2, i * 0.4); pg.setAttribute('uv', new T.Float32BufferAttribute(u2, 2));
+    const tr = new T.Mesh(pg, M.dirt); scene.add(tr); }
+  const plankMat = new T.MeshLambertMaterial({ map: TX.crate, color: 0x6e5034 });
+  for (let z = 94; z < 126; z += 2.3) {
+    if ((z > 103 && z < 106) || (z > 115 && z < 118.5)) continue;   // broken spans: wade through
+    const c = regC(z) + Math.sin(z * 0.13) * 1.2, y = Math.max(WATER_Y + 0.22, H(c, z) + 0.2);
+    addBox(c, z + 1, 2.2, 2.0, 0.14, y - 0.14, plankMat, true, 1);
+    for (const sx of [-1, 1]) addBox(c + sx * 1.05, z + 1, 0.16, 0.16, y - H(c + sx, z) + 0.3, H(c + sx, z) - 0.3, M.bark, false, 1);
+  }
+  // rocks and boulders sitting on the slope
+  const rockOn = (x, z, s, solid = true, sy = 0.8) => {
+    const y = H(x, z), m = new T.Mesh(new T.DodecahedronGeometry(1, 0), M.rock);
+    m.position.set(x, y + s * sy * 0.35, z); m.scale.set(s, s * sy, s * srnd(0.8, 1.2)); m.rotation.set(srand(), srand() * 6, srand() * 0.3); build.add(m);
+    if (solid) boxes.push({ x0: x - s * 0.7, x1: x + s * 0.7, z0: z - s * 0.7, z1: z + s * 0.7, y0: y - 1, y1: y + s * sy * 0.95 });
+  };
+  for (let z = 66; z < REG_Z1; z += 3.2) for (const sd of [-1, 1]) { const w = regW(z), c = regC(z); rockOn(c + sd * (w - srnd(2.5, 4.5)), z + srnd(-1, 1), srnd(1.6, 3.4), false, srnd(0.8, 1.6)); }
+  // ruined south gate where the gorge opens onto the outpost
+  addBox(-5.6, 70, 1.3, 1.3, 6, 0, M.concrete); addBox(5.6, 70, 1.3, 1.3, 4.2, 0, M.concrete);
+  addBox(-1.4, 70, 9.6, 1.0, 1.0, 6, M.concrete); addBox(4.2, 70.4, 2.6, 1.0, 0.8, 0.4, M.concrete, true, 1);
+  burntVehicle(5, 83, 0.35);
+  // dead trees and reeds in the swamp
+  for (let i = 0; i < 18; i++) {
+    const x = srnd(-26, 16), z = srnd(95, 125); if (Math.abs(x - regC(z)) < 3) continue;
+    const y = H(x, z), hgt = srnd(3.5, 7), g = new T.Group(); g.position.set(x, y, z); g.rotation.set(srnd(-0.12, 0.12), srand() * 6, srnd(-0.12, 0.12));
+    const tk = new T.Mesh(new T.CylinderGeometry(0.12, 0.3, hgt, 6), MX.burnt); tk.position.y = hgt / 2; g.add(tk);
+    for (let k = 0; k < 3; k++) { const br = new T.Mesh(new T.CylinderGeometry(0.04, 0.09, srnd(1.2, 2.2), 5), MX.burnt); br.position.set(0, hgt * srnd(0.5, 0.9), 0); br.rotation.set(srnd(0.6, 1.2), srand() * 6, 0); br.translateY(0.8); g.add(br); }
+    build.add(g); boxes.push({ x0: x - 0.3, x1: x + 0.3, z0: z - 0.3, z1: z + 0.3, y0: y - 1, y1: y + hgt });
+  }
+  for (let i = 0; i < 70; i++) { const x = srnd(-28, 18), z = srnd(93, 127); if (Math.abs(x - regC(z)) < 2) continue; fern(x, z, Math.max(WATER_Y - 0.1, H(x, z)), srnd(0.22, 0.34)); }
+  // the ridge: rock steps up the slope and a ruined bunker with a sentry on its roof
+  for (const [x, z, sc] of [[-12, 132, 1.8], [8, 136, 2.2], [-3, 144, 1.5], [12, 147, 1.9], [-15, 150, 2.4]]) rockOn(x, z, sc, true, 0.9);
+  const bunker = (x, z, w, d, hh) => {
+    const y = Math.min(H(x - w / 2, z - d / 2), H(x + w / 2, z + d / 2), H(x, z)) - 0.3;
+    addBox(x, z, w, d, hh + (H(x, z) - y), y, M.concrete);
+    const top = H(x, z) + hh;
+    addBox(x + w / 2 + 0.6, z, 1.2, 1.6, top - 0.75 - H(x + w / 2 + 0.6, z) + 0.3, H(x + w / 2 + 0.6, z) - 0.3, M.concrete, true, 1);   // step
+    sandbags(x - w / 2 + 0.4, z, 0.7, d - 0.4, 0.9, top); sandbags(x, z - d / 2 + 0.4, w - 0.4, 0.7, 0.9, top);
+    return top;
+  };
+  const t1 = bunker(-8, 139, 6, 5, 1.6); ROUTE_SPAWNS.push(['turret', -8.5, 139.5, t1]);
+  // the basin: jungle, hills, sentry posts on high ground, wreckage of the first wave down
+  for (let i = 0, n = 0; i < 900 && n < 80; i++) {
+    const z = srnd(128, REG_Z1 - 4), c = regC(z), w = regW(z), x = c + srnd(-w + 6, w - 6);
+    if (Math.abs(x - (regC(z) + Math.sin(z * 0.13) * 1.2)) < 3.2 || Math.hypot(x, z - INS_Z) < 14 || nearBox(x, z, 2)) continue;
+    palm(x, z, srnd(0.8, 1.25), H(x, z)); n++;
+  }
+  for (let i = 0, n = 0; i < 1500 && n < 160; i++) {
+    const z = srnd(128, REG_Z1 - 4), c = regC(z), w = regW(z), x = c + srnd(-w + 5, w - 5);
+    if (Math.hypot(x, z - INS_Z) < 12 || nearBox(x, z, 0.6)) continue;
+    fern(x, z, H(x, z), srnd(0.26, 0.5)); n++;
+  }
+  for (let i = 0; i < 26; i++) { const z = srnd(66, REG_Z1 - 4), c = regC(z), w = regW(z), x = c + srnd(-w + 6, w - 6); if (Math.abs(x - c) < 4 || Math.hypot(x, z - INS_Z) < 14 || (z > 94 && z < 126)) continue; rockOn(x, z, srnd(0.8, 2.0), true, srnd(0.6, 1)); }
+  const t2 = bunker(17, 164, 5, 5, 1.4); ROUTE_SPAWNS.push(['turret', 17, 164.5, t2]);
+  const t3 = bunker(-20, 175, 5, 5, 1.4); ROUTE_SPAWNS.push(['turret', -20, 175.5, t3]);
+  ROUTE_SPAWNS.push(['turret', 3, 120, Math.max(WATER_Y + 0.36, H(3, 120) + 0.2)]);
+  addBox(3, 120, 2.6, 2.6, 0.5 + Math.max(WATER_Y + 0.36, H(3, 120) + 0.2) - H(3, 120) - 0.3, H(3, 120) - 0.3, M.concrete);   // sentry pad in the swamp
+  ROUTE_SPAWNS.push(['turret', -4, 84, H(-4, 84)]);
+  // stragglers: synths standing guard along the way
+  for (const [ty, x, z] of [['trooper', -9, 104], ['trooper', -2, 110], ['stalker', -12, 116], ['trooper', 6, 132], ['trooper', -4, 148], ['trooper', 11, 172], ['stalker', -8, 166], ['trooper', 2, 88]])
+    ROUTE_SPAWNS.push([ty, x, z, H(x, z)]);
+  // wreckage from the first landing
+  { const g = new T.Group(); g.position.set(-14, H(-14, 186), 186); g.rotation.set(0.1, 0.8, 0.2); build.add(g);
+    slab(g, 3, 2, 6, 0, 1, 0, MX.char, 0.1, 0, 0.15); slab(g, 5, 0.2, 2, -1, 0.4, 1, MX.metal, 0, 0, -0.3); fire(-14, H(-14, 186) + 1.6, 186);
+    boxes.push({ x0: -16.5, x1: -11.5, z0: 183.5, z1: 188.5, y0: H(-14, 186) - 1, y1: H(-14, 186) + 2.2 }); }
+  // the landing zone pad
+  const py = 3.2;
+  addBox(0, INS_Z + 3.5, 12, 16, 0.16, py - 0.02, M.trim);
+  addBox(0, INS_Z + 3.5, 10, 0.3, 0.02, py + 0.14, M.crate, false); addBox(0, INS_Z + 3.5, 0.3, 14, 0.02, py + 0.14, M.crate, false);
+  for (const sx of [-1, 1]) { addBox(sx * 5.7, INS_Z + 3.5, 0.3, 15.4, 0.02, py + 0.14, M.crate, false); addBox(0, INS_Z + 3.5 + sx * 7.7, 11.4, 0.3, 0.02, py + 0.14, M.crate, false); }
+  for (const [lx, lz] of [[-6.4, INS_Z - 4.6], [6.4, INS_Z - 4.6], [-6.4, INS_Z + 11.6], [6.4, INS_Z + 11.6]]) {
+    addBox(lx, lz, 0.22, 0.22, 1.1, py, M.trim);
+    const lamp = new T.Mesh(new T.BoxGeometry(0.3, 0.2, 0.3), new T.MeshBasicMaterial({ color: lz < INS_Z ? 0x5dff96 : 0xff5a3a })); lamp.position.set(lx, py + 1.2, lz); scene.add(lamp);
+  }
+}
 // small flickering fires in the wreckage
 let fires = [], fireTex = null;
 function fire(x, y, z) {
@@ -1489,8 +1632,8 @@ function fire(x, y, z) {
 function updateFires(t) { for (const f of fires) { const k = 0.85 + Math.sin(t * 13 + f.ph) * 0.1 + Math.sin(t * 7.3 + f.ph * 2) * 0.08; f.sp.scale.set(0.9 * k, 1.4 * (0.9 + (k - 0.85) * 2), 1); f.sp.material.opacity = 0.75 + Math.sin(t * 17 + f.ph) * 0.2; } }
 function buildLevel() {
   // ground + paths
-  const gg = new T.PlaneGeometry(320, 320); gg.rotateX(-Math.PI / 2);
-  const guv = gg.attributes.uv; for (let i = 0; i < guv.count; i++) guv.setXY(i, guv.getX(i) * 110, guv.getY(i) * 110);
+  const gg = new T.PlaneGeometry(320, 226); gg.rotateX(-Math.PI / 2); gg.translate(0, 0, -47);
+  const guv = gg.attributes.uv; for (let i = 0; i < guv.count; i++) guv.setXY(i, guv.getX(i) * 110, guv.getY(i) * 78);
   build.add(new T.Mesh(gg, M.grass));
   const path = (x, z, w, d) => { const p = new T.PlaneGeometry(w, d); p.rotateX(-Math.PI / 2);
     const u = p.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * w / 3, u.getY(i) * d / 3);
@@ -1591,14 +1734,15 @@ function buildLevel() {
   for (let s = 0; s < 4; s++) for (let t = -84; t <= 84; t += 8) {
     const o = 75 + srnd(0, 5), a = t + srnd(-2, 2);
     const [x, z] = [[a, -o], [a, o], [-o, a], [o, a]][s];
+    if (s === 1 || (z > 60 && (s === 2 || s === 3))) continue;   // the south edge is the route's walls now
     rockAt(x, z, srnd(6, 10), srnd(8, 20), srnd(6, 10), false);
   }
   // gate beacons
 
   // palms
   const frondGeo = new T.PlaneGeometry(1.5, 4.6); frondGeo.rotateX(Math.PI / 2); frondGeo.translate(0, 0, 2.3);
-  function palm(x, z, scale = 1) {
-    const g = new T.Group(); g.position.set(x, 0, z); g.scale.setScalar(scale);
+  function palm(x, z, scale = 1, y0 = 0) {
+    const g = new T.Group(); g.position.set(x, y0, z); g.scale.setScalar(scale);
     let y = 0, px = 0, pz = 0; const lean = srnd(0, Math.PI * 2), segs = 5, segH = srnd(1.4, 1.9);
     for (let i = 0; i < segs; i++) {
       const cg = new T.CylinderGeometry(0.2 - i * 0.015, 0.24 - i * 0.015, segH, 6, 1);
@@ -1615,7 +1759,7 @@ function buildLevel() {
       const f = new T.Mesh(frondGeo, M.leaf); f.rotation.x = srnd(0.35, 0.95); piv.add(f); g.add(piv);
     }
     build.add(g);
-    boxes.push({ x0: x - .3, x1: x + .3, z0: z - .3, z1: z + .3, y0: 0, y1: 8 });
+    boxes.push({ x0: x - .3, x1: x + .3, z0: z - .3, z1: z + .3, y0: y0, y1: y0 + 8 });
   }
   function fern(x, z, y = 0, s = 0.36) {
     const g = new T.Group(); g.position.set(x, y, z); g.scale.setScalar(s * srnd(0.8, 1.3));
@@ -1635,6 +1779,7 @@ function buildLevel() {
       boxes.push({ x0: x - 1.6, x1: x + 1.6, z0: z - 1.6, z1: z + 1.6, y0: 0, y1: 0.55 });
     }
   }
+  buildRoute(palm, fern);
   const okSpot = (x, z, pad) => !nearBox(x, z, pad) && !GATES.some(([gx, gz]) => Math.hypot(gx - x, gz - z) < 6) && !(Math.abs(x) < 15 && Math.abs(z) < 12);
   let placed = 0, tries = 0;
   while (placed < 95 && tries++ < 1600) { const x = srnd(-64, 64), z = srnd(-64, 64); if (okSpot(x, z, 2.5)) { palm(x, z, srnd(0.85, 1.25)); placed++; } }
@@ -1645,7 +1790,7 @@ function buildLevel() {
   while (placed < 2100 && tries++ < 8000) { const x = srnd(-70, 70), z = srnd(-70, 70); if (!nearBox(x, z, 0.4) && !(Math.abs(x) < 13.5 && Math.abs(z) < 9.5)) { tuft(x, z); placed++; } }
   fern(0, -1, 1.4, 0.3);
   // background palms beyond the cliffs
-  for (let i = 0; i < 60; i++) { const a = srand() * Math.PI * 2, r = srnd(82, 110); palm(Math.cos(a) * r, Math.sin(a) * r, srnd(1.4, 2.2)); boxes.pop(); }
+  for (let i = 0; i < 60; i++) { const a = srand() * Math.PI * 2, r = srnd(82, 110); if (Math.sin(a) * r > 50) continue; palm(Math.cos(a) * r, Math.sin(a) * r, srnd(1.4, 2.2)); boxes.pop(); }
   scatterCorpses(okSpot);
 
   // medical stations: pillar + panel facing outward
@@ -1667,7 +1812,7 @@ function buildLevel() {
 
 // ---------------- collision helpers ----------------
 function groundAt(x, z, feetY) {
-  let g = 0;
+  let g = z > 66 ? terrainH(x, z) : 0;
   for (const b of boxes) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.y1 <= feetY + STEP && b.y1 > g) g = b.y1;
   return g;
 }
@@ -1683,16 +1828,38 @@ function collide(o, r, feetY, h) {
       if (m === pen[0]) o.x = b.x0 - r; else if (m === pen[1]) o.x = b.x1 + r; else if (m === pen[2]) o.z = b.z0 - r; else o.z = b.z1 + r;
     }
   }
-  o.x = Math.max(-BOUND, Math.min(BOUND, o.x)); o.z = Math.max(-BOUND, Math.min(BOUND, o.z));
+  clampWorld(o);
 }
-const inSolid = (x, y, z) => y < 0 || boxes.some(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && y > b.y0 && y < b.y1);
+function clampWorld(o) {
+  const px = o.lx === undefined ? o.x : o.lx, pz = o.lz === undefined ? o.z : o.lz;
+  if (o.z > BOUND || pz > BOUND) {
+    // crossing into the route only where the gorge opens; inside it, stay within the band
+    if (pz <= BOUND && o.z > BOUND && Math.abs(o.x - regC(o.z)) > regW(o.z) - 0.5) o.z = BOUND;
+    if (o.z > BOUND) { const c = regC(o.z), w = regW(o.z) - 0.5; o.x = Math.max(c - w, Math.min(c + w, o.x)); o.z = Math.min(REG_Z1 - 1, o.z);
+      // too steep to walk up: stay where you were
+      const dd = Math.hypot(o.x - px, o.z - pz);
+      if (dd > 1e-4 && (terrainH(o.x, o.z) - terrainH(px, pz)) / dd > 1.05) { o.x = px; o.z = pz; }
+    } else o.x = Math.max(-BOUND, Math.min(BOUND, o.x));
+  } else { o.x = Math.max(-BOUND, Math.min(BOUND, o.x)); o.z = Math.max(-BOUND, o.z); }
+  o.lx = o.x; o.lz = o.z;
+}
+const inSolid = (x, y, z) => y < (z > 66 ? terrainH(x, z) : 0) || boxes.some(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && y > b.y0 && y < b.y1);
 const ray = new T.Raycaster();
 const _v = new T.Vector3(), _v2 = new T.Vector3();
 // Fast ray test against the collision boxes and the ground (slab method). Shots, sight lines and
 // enemy awareness use this instead of raycasting the merged level meshes, which got expensive.
 function rayBox(o, d, far) {
   let best = far;
-  if (d.y < -1e-6) { const t = -o.y / d.y; if (t > 0 && t < best) best = t; }
+  if (d.y < -1e-6) { const t = -o.y / d.y; if (t > 0 && t < best && o.z + d.z * t <= 66) best = t; }
+  if (o.z > 64 || o.z + d.z * far > 64) {
+    // march over the route terrain
+    let prev = 0;
+    for (let t = 0.6; t < best; t += 0.6) {
+      const x = o.x + d.x * t, z = o.z + d.z * t;
+      if (z > 66 && o.y + d.y * t < terrainH(x, z)) { best = Math.max(prev, t - 0.3); break; }
+      prev = t;
+    }
+  }
   const ix = 1 / d.x, iy = 1 / d.y, iz = 1 / d.z;
   for (let i = 0; i < boxes.length; i++) {
     const b = boxes[i];
@@ -1787,11 +1954,13 @@ const SFX = {
     const a = Math.max(0.08, 0.9 - dist * 0.02);
     sTone(80, 28, 0.7, a * 0.7, 'sine'); sNoise(0.8, 600, a * 0.9); sNoise(0.25, 3000, a * 0.35, 'highpass');
   },
+  bolt() { sTone(900, 700, 0.03, 0.08, 'square'); sNoise(0.05, 2600, 0.08); sTone(560, 480, 0.04, 0.09, 'square', 0.16); sTone(1200, 1000, 0.025, 0.07, 'square', 0.3); },
   pump() { if (playSample('sgPump', 1.15, 0.6)) return; sTone(520, 430, 0.05, 0.12, 'square'); sNoise(0.06, 2500, 0.1); sTone(320, 260, 0.06, 0.13, 'square', 0.13); sNoise(0.05, 1800, 0.1, 'lowpass'); },
   shell() { if (playSample('sgShell', 0.96 + Math.random() * 0.08, 0.8)) return; sTone(760, 700, 0.03, 0.1, 'square'); sNoise(0.05, 3200, 0.08); },
   shot(pitch = 1) {
     const q = GS.quiet ? 0.45 : 1, qc = GS.quiet ? 0.35 : 1;
     if (curW === 'hail' && playSample('smgShot', 0.95 + Math.random() * 0.1, (0.55 + Math.random() * 0.1) * q, (9000 + Math.random() * 7000) * qc)) return;
+    if (GS.heavy) { sTone(120, 38, GS.bolt ? 0.45 : 0.25, (GS.bolt ? 0.32 : 0.2) * q, 'sine'); sNoise(GS.bolt ? 0.5 : 0.3, 900, (GS.bolt ? 0.3 : 0.18) * q); }
     if (playSample('shot', (0.93 + Math.random() * 0.14) * pitch, (0.5 + Math.random() * 0.12) * q, (7000 + Math.random() * 9000) * qc)) return;
     sNoise(0.13, 2600, 0.32); sTone(160, 50, 0.09, 0.22, 'triangle');
   },
@@ -1811,7 +1980,7 @@ const SFX = {
   },
   hurt() { sNoise(0.18, 400, 0.4); },
   shieldHit() { sTone(700, 300, 0.1, 0.1, 'sine'); },
-  reload() { if (curW === 'wasp') return; reloadVoice = playSample((curW === 'hail' || curW === 'wasp') && SND.smgReload ? 'smgReload' : 'reload', curW === 'wasp' ? 1.3 : curW === 'hail' ? 1.05 : 1.1, 0.6); if (reloadVoice) return; sTone(320, 300, 0.03, 0.15); sTone(500, 480, 0.03, 0.15, 'square', 0.9); sTone(260, 240, 0.04, 0.18, 'square', 1.4); },
+  reload() { if (curW === 'wasp' || curW === 'lancer') return; reloadVoice = playSample((curW === 'hail' || curW === 'wasp') && SND.smgReload ? 'smgReload' : 'reload', curW === 'wasp' ? 1.3 : curW === 'hail' ? 1.05 : 1.1, 0.6); if (reloadVoice) return; sTone(320, 300, 0.03, 0.15); sTone(500, 480, 0.03, 0.15, 'square', 0.9); sTone(260, 240, 0.04, 0.18, 'square', 1.4); },
   empty() { sTone(900, 880, 0.02, 0.1); },
   pulse() { sTone(90, 35, 0.5, 0.45, 'sine'); sNoise(0.35, 900, 0.3); },
   pickup() { sTone(600, 1200, 0.1, 0.1, 'triangle'); },
@@ -1930,14 +2099,15 @@ const ATT = {
     ]
   },
   hail: {
-    optic: [OPT_IRON, OPT_HOLO(8)],
+    optic: [OPT_IRON, { id: 'reflex', name: 'Kestrel reflex', desc: 'Small open dot, quick to snap on', wl: 3, base: 'holo', fov: 50, m: { ads: 1.0 } }, OPT_HOLO(8),
+      { id: 'prism', name: 'Halcyon 1.5× prism', desc: 'A little zoom for mid-range bursts', wl: 15, base: 'acog', fov: 54, zoom: 1.5, m: { ads: 0.93 } }],
     muzzle: MUZZLES, barrel: BARRELS,
     mag: [{ id: 'std', name: 'Standard mag', desc: '32 rounds', lvl: 1, m: {} },
       { id: 'fast', name: 'Taped mags', desc: 'Faster reloads', lvl: 12, m: { reload: 0.75 } },
       { id: 'ext', name: 'Extended mag', desc: '+13 rounds', lvl: 16, m: { mag: 13, reload: 1.1, ads: 0.96 } },
       { id: 'drum', name: 'Drum mag', desc: '+28 rounds, heavy', lvl: 26, m: { mag: 28, reload: 1.3, ads: 0.86, move: 0.96 } }],
     stock: [...STOCKS, { id: 'none', name: 'No stock', desc: 'Fastest handling, wild recoil', lvl: 22, m: { ads: 1.22, move: 1.06, recoil: 1.3 } }],
-    grip: GRIPS_UB
+    grip: [...GRIPS_UB, { id: 'laser', name: 'Needle laser', desc: 'Visible beam, tighter hip fire', wl: 11, m: { spread: 0.8 } }]
   },
   wasp: {
     optic: [{ id: 'iron', name: 'Factory sights', desc: 'Plain three-dot', wl: 1, m: {} },
@@ -1964,7 +2134,7 @@ const ATT = {
       { id: 'vert', name: 'Micro grip', desc: 'Tiny vertical grip', wl: 13, m: { recoil: 0.85, ads: 0.96 } }]
   },
   breaker: {
-    optic: [OPT_IRON, OPT_HOLO(9)],
+    optic: [OPT_IRON, { id: 'reflex', name: 'Kestrel reflex', desc: 'Open dot over the bead', wl: 5, base: 'holo', fov: 52, m: { ads: 1.0 } }, OPT_HOLO(9)],
     muzzle: [{ id: 'none', name: 'Cylinder bore', desc: 'Nothing fitted', lvl: 1, m: {} },
       { id: 'choke', name: 'Full choke', desc: 'Tight pattern, longer reach', lvl: 10, m: { spread: 0.72, range: 1.3 } },
       { id: 'wide', name: 'Spreader', desc: 'Wide pattern, close-range shredder', lvl: 14, m: { spread: 1.35, range: 0.8, dmg: 1.05 } },
@@ -1973,6 +2143,87 @@ const ATT = {
     mag: [{ id: 'std', name: 'Standard tube', desc: '6 shells', lvl: 1, m: {} }, { id: 'ext', name: 'Extended tube', desc: '+2 shells', lvl: 15, m: { mag: 2, ads: 0.95 } }],
     stock: STOCKS
   }
+};
+// marksman and sniper rifles
+ATT.lancer = {
+  optic: [
+    { id: 'iron', name: 'Flip-up irons', desc: 'Folding rear aperture and front post', wl: 1, m: {} },
+    { id: 'reflex', name: 'Kestrel reflex', desc: 'Open dot for close fights', wl: 3, base: 'holo', fov: 50, m: { ads: 1.04 } },
+    { id: 'holo', name: 'Vanta holo', desc: 'Amber ring, wide window', wl: 5, base: 'holo', fov: 46, m: { ads: 1.0 } },
+    { id: 'prism', name: 'Halcyon 1.5× prism', desc: 'Compact etched prism', wl: 8, base: 'acog', fov: 54, zoom: 1.5, m: { ads: 0.96 } },
+    { id: 'acog', name: 'Ridgeline 2.5× scope', desc: 'The classic marksman pairing', wl: 12, base: 'acog', fov: 58, zoom: 2.5, m: { ads: 0.92 } },
+    { id: 'hybrid', name: 'Longwatch 4× scope', desc: 'Reaches across the map', wl: 17, base: 'acog', fov: 62, zoom: 4, m: { ads: 0.86, move: 0.98 } },
+    { id: 'thermal', name: 'Pyre thermal 4×', desc: 'Heat lens that cuts through fog and rain', wl: 25, base: 'acog', fov: 62, zoom: 4, thermal: 1, m: { ads: 0.82, move: 0.97 } }
+  ],
+  muzzle: [
+    { id: 'none', name: 'Bare muzzle', desc: 'Nothing fitted', wl: 1, m: {} },
+    { id: 'flash', name: 'Pronghorn flash hider', desc: 'Hides the flash between shots', wl: 4, m: { recoil: 0.93, flash: 1 } },
+    { id: 'comp', name: 'Gale compensator', desc: 'Keeps follow-up shots on target', wl: 7, m: { recoil: 0.8, ads: 0.97 } },
+    { id: 'brake', name: 'Anvil muzzle brake', desc: 'Big kick reduction, loud', wl: 11, m: { recoil: 0.7, ads: 0.93 } },
+    { id: 'supp', name: 'Whisper suppressor', desc: 'Quiet shots that carry further', wl: 15, m: { range: 1.12, ads: 0.9, quiet: 1 } },
+    { id: 'hsupp', name: 'Monolith suppressor', desc: 'Heavy can: quiet, steady, long reach', wl: 23, m: { range: 1.2, recoil: 0.88, ads: 0.85, move: 0.97, quiet: 1 } }
+  ],
+  barrel: [
+    { id: 'std', name: 'Factory 20" barrel', desc: 'Balanced', wl: 1, m: {} },
+    { id: 'short', name: 'Recon 16" barrel', desc: 'Handier, a little less reach', wl: 5, m: { ads: 1.12, move: 1.03, range: 0.88 } },
+    { id: 'long', name: 'Match 24" barrel', desc: 'Harder hitting at long range', wl: 13, m: { dmg: 1.1, range: 1.25, ads: 0.9, move: 0.97 } },
+    { id: 'heavy', name: 'Bulwark bull barrel', desc: 'Soaks recoil for fast follow-ups', wl: 19, m: { recoil: 0.82, range: 1.1, ads: 0.87, move: 0.96 } }
+  ],
+  mag: [
+    { id: 'std', name: 'Standard mag', desc: '15 rounds', wl: 1, m: {} },
+    { id: 'fast', name: 'Quick-release mag', desc: 'Faster reloads', wl: 4, m: { reload: 0.75 } },
+    { id: 'ext', name: 'Extended mag', desc: '+5 rounds', wl: 9, m: { mag: 5, reload: 1.1, ads: 0.96 } },
+    { id: 'ovc', name: 'Overcharged mag', desc: 'Hotter rounds hit harder, fewer of them', wl: 21, m: { dmg: 1.14, mag: -5, reload: 1.05 } }
+  ],
+  stock: [
+    { id: 'std', name: 'Standard stock', desc: 'Balanced', wl: 1, m: {} },
+    { id: 'tac', name: 'Tactical stock', desc: 'Adjustable, slightly steadier', wl: 3, m: { recoil: 0.93, ads: 1.02 } },
+    { id: 'heavy', name: 'Padded stock', desc: 'Soaks up recoil, slower to raise', wl: 10, m: { recoil: 0.84, ads: 0.92, move: 0.97 } },
+    { id: 'mark', name: 'Marksman stock', desc: 'Cheek riser and long pad: rock steady', wl: 16, m: { recoil: 0.78, spread: 0.9, ads: 0.88, move: 0.96 } }
+  ],
+  grip: [
+    { id: 'none', name: 'No grip', desc: 'Clean handguard', wl: 1, m: {} },
+    { id: 'vert', name: 'Vertical grip', desc: 'Tames the kick', wl: 6, m: { recoil: 0.86, ads: 0.96 } },
+    { id: 'angled', name: 'Angled grip', desc: 'Snappier aim', wl: 10, m: { ads: 1.1, recoil: 0.95 } },
+    { id: 'laser', name: 'Needle laser', desc: 'Visible beam, tighter hip fire', wl: 14, m: { spread: 0.75 } },
+    { id: 'bipod', name: 'Folded bipod', desc: 'Heavy, but the steadiest you can get', wl: 20, m: { recoil: 0.74, ads: 0.88, move: 0.96 } }
+  ]
+};
+ATT.longshot = {
+  optic: [
+    { id: 'snip', name: 'Longshot 6× scope', desc: 'Standard sniper scope', wl: 1, base: 'acog', fov: 64, zoom: 6, snip: 1, m: {} },
+    { id: 'lowmag', name: 'Ridgeline 3× scope', desc: 'Low power, quicker to aim', wl: 4, base: 'acog', fov: 62, zoom: 3, snip: 1, m: { ads: 1.12 } },
+    { id: 'var', name: 'Ranger 10× scope', desc: 'High power for the longest lanes', wl: 9, base: 'acog', fov: 66, zoom: 10, snip: 1, m: { ads: 0.9, move: 0.98 } },
+    { id: 'thermal', name: 'Pyre thermal 6×', desc: 'Heat lens that sees through fog and rain', wl: 18, base: 'acog', fov: 64, zoom: 6, snip: 1, thermal: 1, m: { ads: 0.88 } },
+    { id: 'reflex', name: 'Kestrel reflex', desc: 'No zoom: aggressive close-range sniping', wl: 26, base: 'holo', fov: 50, m: { ads: 1.25 } }
+  ],
+  muzzle: [
+    { id: 'none', name: 'Integral brake', desc: 'Built-in brake', wl: 1, m: {} },
+    { id: 'brake', name: 'Anvil muzzle brake', desc: 'Much less kick, back on target faster', wl: 5, m: { recoil: 0.7, ads: 0.95 } },
+    { id: 'supp', name: 'Whisper suppressor', desc: 'Quiet shots that carry further', wl: 12, m: { range: 1.1, ads: 0.9, quiet: 1 } },
+    { id: 'hsupp', name: 'Monolith suppressor', desc: 'Heavy can: quiet and steady', wl: 21, m: { range: 1.18, recoil: 0.86, ads: 0.86, move: 0.97, quiet: 1 } }
+  ],
+  barrel: [
+    { id: 'std', name: 'Factory 26" barrel', desc: 'Balanced', wl: 1, m: {} },
+    { id: 'short', name: 'Recon 20" barrel', desc: 'Handier, a little less reach', wl: 6, m: { ads: 1.12, move: 1.04, range: 0.9 } },
+    { id: 'fluted', name: 'Gossamer fluted', desc: 'Lightened barrel, faster handling', wl: 10, m: { ads: 1.06, move: 1.02 } },
+    { id: 'long', name: 'Precision 30" barrel', desc: 'Even more stopping power', wl: 15, m: { dmg: 1.1, range: 1.25, ads: 0.9, move: 0.97 } }
+  ],
+  mag: [
+    { id: 'std', name: 'Standard mag', desc: '5 rounds', wl: 1, m: {} },
+    { id: 'fast', name: 'Quick-release mag', desc: 'Faster reloads', wl: 3, m: { reload: 0.78 } },
+    { id: 'ext', name: 'Extended mag', desc: '+3 rounds', wl: 8, m: { mag: 3, reload: 1.1, ads: 0.96 } }
+  ],
+  stock: [
+    { id: 'std', name: 'Chassis stock', desc: 'Balanced', wl: 1, m: {} },
+    { id: 'light', name: 'Skeleton stock', desc: 'Faster handling, more kick', wl: 5, m: { ads: 1.1, move: 1.04, recoil: 1.12 } },
+    { id: 'mark', name: 'Marksman stock', desc: 'Cheek riser and long pad: rock steady', wl: 11, m: { recoil: 0.8, ads: 0.9, move: 0.96 } }
+  ],
+  grip: [
+    { id: 'none', name: 'No grip', desc: 'Clean forend', wl: 1, m: {} },
+    { id: 'bipod', name: 'Folded bipod', desc: 'Steadier shots, heavier', wl: 4, m: { recoil: 0.72, ads: 0.92, move: 0.96 } },
+    { id: 'vert', name: 'Vertical grip', desc: 'Tames vertical kick', wl: 11, m: { recoil: 0.86, ads: 0.96 } }
+  ]
 };
 const SLOT_NAMES = { optic: 'Optic', muzzle: 'Muzzle', barrel: 'Barrel', mag: 'Magazine', stock: 'Stock', grip: 'Underbarrel' };
 // every option unlocks at a weapon level (wl); older entries used player levels, scale those down
@@ -1991,6 +2242,8 @@ const attOptions = (id, att) => { const A = ATT[id] || {}, n = normAtt(id, att);
 const STAT_BASE = {
   vk9: { dmg: 52, rate: 64, range: 68, ctrl: 56, handling: 60, mobility: 62 },
   hail: { dmg: 40, rate: 86, range: 44, ctrl: 64, handling: 78, mobility: 76 },
+  lancer: { dmg: 70, rate: 32, range: 82, ctrl: 58, handling: 56, mobility: 70 },
+  longshot: { dmg: 96, rate: 8, range: 98, ctrl: 42, handling: 30, mobility: 60 },
   breaker: { dmg: 95, rate: 16, range: 24, ctrl: 32, handling: 54, mobility: 62 },
   wasp: { dmg: 46, rate: 52, range: 38, ctrl: 72, handling: 92, mobility: 90 }
 };
@@ -2011,6 +2264,32 @@ function holoSight(B, railY, z, glowMat) {
   B(0.05, 0.016, 0.09, 0, railY + 0.008, z); B(0.007, 0.05, 0.01, 0.027, railY + 0.04, z - 0.025); B(0.007, 0.05, 0.01, -0.027, railY + 0.04, z - 0.025);
   B(0.06, 0.008, 0.01, 0, railY + 0.068, z - 0.025); B(0.05, 0.04, 0.003, 0, railY + 0.042, z - 0.025, glass); B(0.004, 0.004, 0.004, 0, railY + 0.042, z - 0.027, glowMat);
   return railY + 0.042;
+}
+// optics for rifles that mount on a flat top rail; returns the sight height (eye line)
+function railOptic(B, C, op, ry, z) {
+  const dk = gm, lt = gl;
+  if (op === 'reflex') { B(0.036, 0.012, 0.05, 0, ry + 0.006, z); for (const sx of [-1, 1]) B(0.006, 0.03, 0.01, sx * 0.017, ry + 0.026, z - 0.01); B(0.04, 0.006, 0.012, 0, ry + 0.043, z - 0.01); B(0.032, 0.03, 0.003, 0, ry + 0.026, z - 0.01, glass); B(0.003, 0.003, 0.003, 0, ry + 0.026, z - 0.012, glowRed); return ry + 0.026; }
+  if (op === 'holo') return holoSight(B, ry, z, glowCyan);
+  if (op === 'prism') { B(0.042, 0.03, 0.09, 0, ry + 0.012, z); B(0.05, 0.04, 0.06, 0, ry + 0.042, z); C(0.02, 0.02, 0.02, 0, ry + 0.042, z + 0.06); C(0.024, 0.024, 0.004, 0, ry + 0.042, z - 0.035, glass); return ry + 0.042; }
+  if (op === 'acog') { const y = ry + 0.045; B(0.04, 0.022, 0.12, 0, ry + 0.012, z); C(0.022, 0.022, 0.15, 0, y, z); C(0.022, 0.03, 0.05, 0, y, z - 0.1); C(0.026, 0.022, 0.03, 0, y, z + 0.09); B(0.012, 0.016, 0.02, 0, y + 0.024, z, dk); C(0.03, 0.03, 0.004, 0, y, z - 0.126, glass); return y; }
+  if (op === 'hybrid' || (op === 'thermal' && ry > 0.09)) { const y = ry + 0.048; B(0.04, 0.02, 0.14, 0, ry + 0.01, z); C(0.024, 0.024, 0.24, 0, y, z - 0.01); C(0.024, 0.034, 0.06, 0, y, z - 0.15); C(0.03, 0.024, 0.04, 0, y, z + 0.13);
+    C(0.032, 0.032, 0.004, 0, y, z - 0.182, op === 'thermal' ? new T.MeshBasicMaterial({ color: 0x40e0c0, transparent: true, opacity: 0.55 }) : glass); B(0.012, 0.02, 0.03, 0.03, y, z - 0.02, op === 'thermal' ? glowCyan : dk); return y; }
+  if (['snip', 'var', 'lowmag', 'thermal'].includes(op)) {
+    // long sniper scope on two rings, with elevation and windage turrets
+    const y = ry + 0.058, L = op === 'var' ? 0.36 : op === 'lowmag' ? 0.26 : 0.32, bell = op === 'lowmag' ? 0.034 : 0.044;
+    for (const dz of [-0.07, 0.07]) { B(0.03, 0.03, 0.022, 0, ry + 0.022, z + dz, dk); C(0.03, 0.03, 0.024, 0, y, z + dz, dk); }
+    C(0.025, 0.025, L, 0, y, z, dk); C(0.025, bell, 0.08, 0, y, z - L / 2 - 0.04, dk); C(0.034, 0.025, 0.06, 0, y, z + L / 2 + 0.03, dk);
+    C(bell + 0.002, bell + 0.002, 0.012, 0, y, z - L / 2 - 0.074, lt);
+    B(0.026, 0.026, 0.026, 0, y + 0.034, z, lt); B(0.026, 0.026, 0.026, 0.034, y, z, lt);
+    if (op === 'var') B(0.06, 0.012, 0.012, 0, y, z + L / 2 - 0.02, lt);
+    C(bell, bell, 0.004, 0, y, z - L / 2 - 0.08, op === 'thermal' ? new T.MeshBasicMaterial({ color: 0x40e0c0, transparent: true, opacity: 0.55 }) : glass);
+    if (op === 'thermal') B(0.03, 0.034, 0.06, -0.034, y - 0.01, z + 0.02, glowCyan);
+    return y;
+  }
+  // iron sights for rifles without their own
+  B(0.03, 0.016, 0.03, 0, ry + 0.008, z + 0.16); for (const sx of [-1, 1]) B(0.006, 0.04, 0.026, sx * 0.018, ry + 0.032, z + 0.16, lt);
+  B(0.004, 0.012, 0.004, 0, ry + 0.02, z - 0.3, dk); B(0.003, 0.003, 0.003, 0, ry + 0.028, z - 0.3, glow);
+  return ry + 0.032;
 }
 // swap the physical parts on a weapon model: barrel length, muzzle device, magazine, stock, underbarrel grip
 function applyAttVisuals(g, id, A, R, B, C, muzzle) {
@@ -2040,12 +2319,18 @@ function applyAttVisuals(g, id, A, R, B, C, muzzle) {
   if (m === 'choke') { C(0.026, 0.024, 0.06, 0, y, muzzle - 0.03, lt); muzzle -= 0.06; }
   if (m === 'wide') { C(0.024, 0.034, 0.06, 0, y, muzzle - 0.03, lt); B(0.07, 0.006, 0.05, 0, y, muzzle - 0.03, dk); muzzle -= 0.06; }
   if (R.pistol) {
-    if (A.barrel === 'ported') for (let i = 0; i < 3; i++) B(0.012, 0.004, 0.01, 0, 0.041, -0.12 + i * 0.022, glow);
+    if (A.barrel === 'ported') for (let i = 0; i < 3; i++) { const v = new T.Mesh(new T.BoxGeometry(0.012, 0.003, 0.01), glow); v.position.set(0, 0.0465, -0.12 + i * 0.022); R.slide.add(v); }
     if (A.barrel === 'long') { R.slide.scale.z = 1.25; R.slide.position.z += -0.055 * -0.25; }
     if (A.barrel === 'short') { R.slide.scale.z = 0.86; R.slide.position.z += -0.055 * 0.14; }
     if (A.stock === 'brace') { B(0.012, 0.012, 0.16, 0, -0.04, 0.12, dk); B(0.04, 0.05, 0.03, 0, -0.04, 0.2, lt); }
-    if (A.stock === 'kit') { B(0.05, 0.05, 0.3, 0, -0.01, -0.05, dk); B(0.04, 0.08, 0.2, 0, -0.03, 0.18, dk, 0.05); B(0.05, 0.1, 0.03, 0, -0.04, 0.3, lt); }
-    if (A.grip === 'laser') { B(0.02, 0.016, 0.03, 0, -0.035, -0.12, dk); const beam = new T.Mesh(new T.BoxGeometry(0.0015, 0.0015, 3), new T.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.5, depthWrite: false })); beam.position.set(0, -0.035, -1.64); beam.userData.noFit = true; g.add(beam); }
+    if (A.stock === 'kit') { B(0.034, 0.03, 0.03, 0, -0.06, 0.04, dk); B(0.016, 0.016, 0.22, 0, -0.045, 0.15, dk); B(0.016, 0.016, 0.2, 0, -0.085, 0.15, dk, -0.12); B(0.028, 0.03, 0.06, 0, -0.03, 0.2, lt); B(0.04, 0.11, 0.03, 0, -0.06, 0.27, dk); }
+    if (A.grip === 'laser') {
+      B(0.02, 0.014, 0.034, 0, -0.033, -0.12, dk); B(0.006, 0.006, 0.002, 0, -0.033, -0.1375, new T.MeshBasicMaterial({ color: 0xff3030 }));
+      // the beam is aimed every frame so it converges on the crosshair (see aimLaser)
+      const bg = new T.BoxGeometry(0.0026, 0.0026, 1); bg.translate(0, 0, 0.5);
+      const beam = new T.Mesh(bg, new T.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.55, depthWrite: false }));
+      beam.position.set(0, -0.033, -0.138); beam.userData.noFit = true; g.add(beam); g.userData.laser = beam;
+    }
     if (A.grip === 'light') { C(0.012, 0.014, 0.05, 0, -0.038, -0.12, dk); C(0.011, 0.011, 0.002, 0, -0.038, -0.146, new T.MeshBasicMaterial({ color: 0xfff6d8 })); }
     if (A.grip === 'vert') { B(0.016, 0.04, 0.018, 0, -0.05, -0.12, dk); }
     if (A.mag === 'ext' || A.mag === 'drum') { const k = A.mag === 'ext' ? 0.035 : 0.075; const ex = new T.Mesh(new T.BoxGeometry(0.025, k, 0.032), dk); ex.position.set(0, -0.104 - k / 2, 0.001); R.mag.add(ex); R.mag.children[1].position.y -= k; }
@@ -2084,6 +2369,12 @@ function applyAttVisuals(g, id, A, R, B, C, muzzle) {
     if (A.grip === 'stubby') B(0.03, 0.05, 0.032, 0, gy - 0.025, gz, dk);
     if (A.grip === 'stop') B(0.026, 0.028, 0.02, 0, gy - 0.014, gz - 0.06, dk, -0.3);
     if (A.grip === 'ranger') { B(0.032, 0.13, 0.036, 0, gy - 0.065, gz, dk, 0.12); B(0.036, 0.012, 0.04, 0, gy - 0.13, gz + 0.008, lt); }
+    if (A.grip === 'laser') {
+      B(0.024, 0.02, 0.05, 0, gy - 0.012, gz - 0.04, dk); B(0.008, 0.008, 0.002, 0, gy - 0.012, gz - 0.066, new T.MeshBasicMaterial({ color: 0xff3030 }));
+      const bg = new T.BoxGeometry(0.003, 0.003, 1); bg.translate(0, 0, 0.5);
+      const beam = new T.Mesh(bg, new T.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.5, depthWrite: false }));
+      beam.position.set(0, gy - 0.012, gz - 0.067); beam.userData.noFit = true; g.add(beam); g.userData.laser = beam;
+    }
     if (A.grip === 'bipod') { B(0.04, 0.03, 0.05, 0, gy - 0.015, gz, dk); for (const sx of [-1, 1]) B(0.01, 0.01, 0.16, sx * 0.012, gy - 0.035, gz + 0.075, lt); }
   }
   return muzzle;
@@ -2186,6 +2477,7 @@ function makeGun(id, att = {}) {
     B(0.024, 0.01, 0.32, 0, 0.06, -0.05, dk);
     for (let i = 0; i < 8; i++) B(0.028, 0.005, 0.008, 0, 0.067, -0.18 + i * 0.036, dk);
     if (AT.optic === 'holo') sightY = holoSight(B, 0.072, -0.06, glowCyan);
+    else if (AT.optic === 'reflex' || AT.optic === 'prism') sightY = railOptic(B, C, AT.optic, 0.072, -0.06);
     else {
       B(0.03, 0.016, 0.03, 0, 0.074, 0.11, dk);
       for (const sx of [-1, 1]) B(0.006, 0.04, 0.026, sx * 0.018, 0.098, 0.11, lt);
@@ -2194,7 +2486,7 @@ function makeGun(id, att = {}) {
       B(0.004, 0.022, 0.004, 0, 0.098, -0.3, dk); B(0.003, 0.003, 0.003, 0, 0.109, -0.3, glowCyan);
       sightY = 0.098;
     }
-    g.userData.adsZ = AT.optic === 'holo' ? -0.3 : -0.22;
+    g.userData.adsZ = AT.optic === 'holo' || AT.optic === 'reflex' ? -0.3 : AT.optic === 'prism' ? -0.26 : -0.22;
     RF = { barrel: barH, barrelZ0: -0.36, barrelY: 0.008, barrelR: 0.011, tips: [tipH], mag: magG, magTop: -0.075, magZ: -0.12, stock: stockH, guardY: -0.028, guardZ: -0.29 };
   } else if (id === 'breaker') {
     // Breaker-12: pump shotgun. Alloy receiver with top rail, tube magazine, racking pump grip.
@@ -2215,7 +2507,7 @@ function makeGun(id, att = {}) {
     const stockB = grp([B(0.07, 0.09, 0.26, 0, -0.025, 0.36, dk, 0.05), B(0.075, 0.115, 0.03, 0, -0.03, 0.5, lt)]);
     const post = [B(0.006, 0.07, 0.006, 0, 0.057, -0.74, dk), B(0.007, 0.007, 0.007, 0, 0.092, -0.74, glow)];
     muzzle = -0.79;
-    if (AT.optic === 'holo') { sightY = holoSight(B, 0.068, 0.0, glow); for (const m of post) m.visible = false; }
+    if (AT.optic === 'holo' || AT.optic === 'reflex') { sightY = AT.optic === 'holo' ? holoSight(B, 0.068, 0.0, glow) : railOptic(B, C, 'reflex', 0.068, 0.0); for (const m of post) m.visible = false; }
     else {
       // ghost-ring rear sight and post front sight, lined up at the same height
       B(0.04, 0.02, 0.03, 0, 0.069, 0.1, dk);
@@ -2223,7 +2515,7 @@ function makeGun(id, att = {}) {
       const ring = new T.Mesh(new T.TorusGeometry(0.011, 0.0024, 6, 18), dk); ring.position.set(0, 0.092, 0.1); g.add(ring);
       sightY = 0.092;
     }
-    g.userData.adsZ = AT.optic === 'holo' ? -0.32 : -0.27; g.userData.pump = pump;
+    g.userData.adsZ = AT.optic === 'holo' || AT.optic === 'reflex' ? -0.32 : -0.27; g.userData.pump = pump;
     RF = { barrel: barB, barrelZ0: -0.18, barrelY: 0.02, barrelR: 0.022, tips: [capB, ...post], mag: tubeB, tube: true, stock: stockB, guardY: -0.07, guardZ: -0.4, noGrip: true };
   } else if (id === 'wasp') {
     // Kestrel P-7: compact polymer-framed striker pistol. Squared slide with front and rear serrations,
@@ -2263,14 +2555,74 @@ function makeGun(id, att = {}) {
     g.userData.adsZ = AT.optic === 'reflex' ? -0.3 : -0.26; g.userData.mag = cell; g.userData.ch = slide; g.userData.cellPistol = true;
     RF = { barrel: barW, barrelZ0: -0.145, barrelY: 0.022, barrelR: 0.008, tips: [], mag: magP, magTop: -0.1, magZ: 0.012, stock: null, guardY: -0.03, guardZ: -0.05, noGrip: true, pistol: true, slide };
   } else if (id === 'lancer') {
-    B(0.1, 0.13, 0.5, 0, 0, 0); B(0.08, 0.085, 0.36, 0, 0, -0.42); C(0.016, 0.016, 0.3, 0, 0.01, -0.74);
-    B(0.06, 0.13, 0.07, 0, -0.12, -0.04, gm, -0.15); B(0.085, 0.1, 0.3, 0, -0.03, 0.38, gl, 0.08); B(0.06, 0.12, 0.06, 0, -0.1, 0.15, gm, 0.35);
-    B(0.04, 0.03, 0.1, 0, 0.08, -0.05); C(0.022, 0.022, 0.2, 0, 0.11, -0.05); C(0.022, 0.03, 0.04, 0, 0.11, -0.17); B(0.104, 0.012, 0.3, 0, -0.02, -0.42, glow); muzzle = -0.9;
+    // Lancer DMR: a dark bullpup marksman rifle. Long faceted shell with the magazine behind the grip, a
+    // tapered barrel shroud with an angled nose, a raised carry-handle rail and amber accent lines.
+    const dk = gm, lt = gl, mid = new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x3a3f46 });
+    B(0.072, 0.1, 0.56, 0, -0.008, 0.12, dk);                   // main shell, runs back to the butt
+    B(0.062, 0.03, 0.5, 0, 0.055, 0.1, mid);                     // faceted top
+    for (const sx of [-1, 1]) { B(0.006, 0.07, 0.4, sx * 0.038, -0.01, 0.12, mid); B(0.004, 0.006, 0.46, sx * 0.0395, 0.03, 0.1, heatMat); }
+    B(0.076, 0.15, 0.03, 0, -0.012, 0.415, mid);                 // butt pad
+    B(0.06, 0.04, 0.16, 0, 0.065, 0.3, mid, -0.08);              // cheek rest
+    B(0.064, 0.074, 0.36, 0, 0.012, -0.34, dk);                  // barrel shroud
+    B(0.056, 0.046, 0.12, 0, 0.028, -0.565, dk, 0.42);           // angled nose
+    B(0.05, 0.024, 0.32, 0, -0.03, -0.36, mid);
+    for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) B(0.004, 0.022, 0.03, sx * 0.033, 0.014, -0.24 - i * 0.07, heatMat);
+    // raised carry-handle rail on two uprights
+    for (const z of [0.18, -0.22]) B(0.02, 0.05, 0.04, 0, 0.09, z, mid);
+    B(0.028, 0.014, 0.5, 0, 0.12, -0.02, dk);
+    for (let i = 0; i < 11; i++) B(0.032, 0.005, 0.008, 0, 0.129, -0.24 + i * 0.044, dk);
+    const chL = B(0.012, 0.02, 0.05, 0.042, 0.012, -0.3, lt);    // forward charging lever
+    // magazine behind the grip
+    // side-loading magazine: a flat block that slides into a port on the left of the shell behind the grip
+    // big side magazine: a long flat block that sits in a port on the left of the shell and sticks well out
+    const extL = AT.mag === 'ext' ? 0.04 : 0, mL = 0.2 + extL, mC = 0.024 - mL / 2, mO = 0.024 - mL;
+    const magL = grp([B(mL, 0.056, 0.1, mC, -0.02, 0.13, dk), B(mL - 0.03, 0.01, 0.07, mC - 0.01, 0.012, 0.13, mid),
+      B(0.01, 0.064, 0.108, mO - 0.004, -0.02, 0.13, mid), B(0.11, 0.012, 0.004, mO + 0.07, -0.006, 0.181, glowCyan), B(0.11, 0.012, 0.004, mO + 0.07, -0.006, 0.079, glowCyan),
+      B(0.004, 0.02, 0.05, mO - 0.01, -0.012, 0.13, glowCyan),
+      ...(AT.mag === 'fast' ? [B(0.014, 0.034, 0.06, mO - 0.016, -0.02, 0.13, lt)] : []), ...(AT.mag === 'ovc' ? [B(0.08, 0.016, 0.004, mO + 0.07, -0.032, 0.181, glowRed)] : [])]);
+    g.userData.magC = mC;
+    for (const sx of [-1, 1]) B(0.004, 0.014, 0.07, sx * 0.0385, 0.018, 0.02, glowRed);   // red status windows
+    g.userData.mag = magL; g.userData.ch = chL;
+    B(0.042, 0.11, 0.05, 0, -0.105, -0.05, dk, 0.28);           // pistol grip, well forward
+    B(0.01, 0.01, 0.13, 0, -0.08, -0.13, dk); B(0.01, 0.04, 0.01, 0, -0.065, -0.19, dk);   // long trigger guard
+    if (AT.stock === 'mark') { B(0.05, 0.03, 0.14, 0, 0.098, 0.3, mid); B(0.054, 0.006, 0.12, 0, 0.115, 0.3, heatMat); }
+    if (AT.stock === 'heavy') B(0.08, 0.16, 0.04, 0, -0.012, 0.445, mid);
+    if (AT.stock === 'tac') { B(0.07, 0.13, 0.016, 0, -0.012, 0.438, mid); B(0.074, 0.15, 0.012, 0, -0.012, 0.452, lt); }
+    const barL = C(0.012, 0.011, 0.16, 0, 0.018, -0.69); muzzle = -0.8;
+    const tipL = B(0.03, 0.026, 0.04, 0, 0.018, muzzle + 0.02, dk);
+    RF = { barrel: barL, barrelZ0: -0.61, barrelY: 0.018, barrelR: 0.012, tips: [tipL], mag: null, stock: null, guardY: -0.044, guardZ: -0.36 }; g.userData.sideMag = true;
+    const op = AT.optic;
+    if (op === 'iron') {   // fold-up sights on the carry rail
+      B(0.03, 0.016, 0.04, 0, 0.137, 0.15, dk); for (const sx of [-1, 1]) B(0.007, 0.045, 0.03, sx * 0.02, 0.16, 0.15, lt);
+      const ring = new T.Mesh(new T.TorusGeometry(0.011, 0.002, 6, 18), dk); ring.position.set(0, 0.162, 0.15); g.add(ring);
+      B(0.022, 0.04, 0.024, 0, 0.15, -0.23, dk); for (const sx of [-1, 1]) B(0.006, 0.036, 0.024, sx * 0.014, 0.165, -0.23, dk);
+      B(0.003, 0.003, 0.003, 0, 0.162, -0.232, glow); sightY = 0.162;
+    } else sightY = railOptic(B, C, op, 0.129, -0.04);
+    g.userData.adsZ = { iron: -0.34, reflex: -0.34, holo: -0.34, prism: -0.28, acog: -0.26, hybrid: -0.24, thermal: -0.24 }[op] || -0.3;
   } else if (id === 'longshot') {
-    B(0.1, 0.12, 0.5, 0, 0, 0); C(0.018, 0.02, 0.72, 0, 0.01, -0.6); B(0.045, 0.045, 0.1, 0, 0.01, -0.98);
-    B(0.06, 0.11, 0.07, 0, -0.11, -0.02); B(0.08, 0.15, 0.36, 0, -0.03, 0.42, gm, 0.06); B(0.082, 0.05, 0.2, 0, 0.06, 0.4, gl); B(0.06, 0.12, 0.06, 0, -0.1, 0.16, gm, 0.35);
-    C(0.03, 0.03, 0.3, 0, 0.12, -0.02); C(0.03, 0.042, 0.06, 0, 0.12, -0.2); C(0.034, 0.03, 0.04, 0, 0.12, 0.15); B(0.04, 0.04, 0.1, 0, 0.075, -0.02);
-    B(0.012, 0.2, 0.012, 0.03, -0.1, -0.55, gm, 0.5); B(0.012, 0.2, 0.012, -0.03, -0.1, -0.55, gm, 0.5); B(0.102, 0.012, 0.2, 0, -0.02, -0.15, glow); muzzle = -1.03;
+    // Longshot-X: heavy bolt-action sniper. Chassis receiver, long fluted barrel with a built-in brake,
+    // 5-round box mag, adjustable skeleton chassis stock, big turret scope.
+    const dk = gm, lt = gl;
+    B(0.07, 0.07, 0.36, 0, 0.022, 0.0, lt);                     // receiver
+    B(0.074, 0.05, 0.46, 0, -0.035, -0.06, dk);                 // chassis
+    B(0.064, 0.056, 0.3, 0, 0.0, -0.4, dk);                     // forend
+    for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) B(0.004, 0.02, 0.05, sx * 0.033, 0.0, -0.3 - i * 0.07, lt);
+    B(0.026, 0.012, 0.42, 0, 0.065, -0.06, dk);                 // scope rail
+    // bolt handle: slides back after every shot (driven like a pump)
+    const bolt = grp([C(0.007, 0.007, 0.05, 0.05, 0.03, 0.06, lt), B(0.05, 0.008, 0.008, 0.03, 0.03, 0.06, lt), new T.Mesh(new T.SphereGeometry(0.012, 8, 6), dk)]);
+    bolt.children[2].position.set(0.06, 0.022, 0.06); g.userData.pump = bolt;
+    const magS = grp([B(0.04, 0.07, 0.08, 0, -0.085, -0.06, dk), B(0.044, 0.012, 0.084, 0, -0.124, -0.06, lt)]);
+    g.userData.mag = magS; g.userData.ch = bolt;
+    B(0.044, 0.11, 0.05, 0, -0.1, 0.1, dk, 0.32);               // grip
+    B(0.01, 0.01, 0.09, 0, -0.07, 0.02, dk);
+    const stockS = grp([B(0.016, 0.016, 0.26, 0, 0.01, 0.31, dk), B(0.016, 0.016, 0.24, 0, -0.06, 0.3, dk, -0.12), B(0.044, 0.03, 0.12, 0, 0.05, 0.3, lt), B(0.06, 0.15, 0.028, 0, -0.02, 0.45, lt), B(0.016, 0.06, 0.016, 0, -0.1, 0.4, dk)]);
+    const barS = C(0.016, 0.014, 0.6, 0, 0.012, -0.84); muzzle = -1.18;
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; B(0.004, 0.004, 0.42, Math.cos(a) * 0.0155, 0.012 + Math.sin(a) * 0.0155, -0.82, lt); }
+    const tipS = B(0.04, 0.034, 0.06, 0, 0.012, muzzle + 0.03, dk);
+    for (const sx of [-1, 1]) B(0.006, 0.02, 0.012, sx * 0.02, 0.012, muzzle + 0.03, lt);
+    RF = { barrel: barS, barrelZ0: -0.54, barrelY: 0.012, barrelR: 0.015, tips: [tipS], mag: magS, magTop: -0.05, magZ: -0.06, stock: stockS, guardY: -0.03, guardZ: -0.44 };
+    sightY = railOptic(B, C, AT.optic, 0.071, -0.06);
+    g.userData.adsZ = AT.optic === 'reflex' ? -0.34 : -0.2;
   } else if (id === 'furnace') {
     B(0.16, 0.18, 0.5, 0, 0, 0); C(0.06, 0.07, 0.22, 0, 0, -0.36);
     for (const z of [-0.08, -0.16, -0.24]) C(0.075, 0.075, 0.02, 0, 0, z, glowCyan);
@@ -2288,7 +2640,7 @@ function makeGun(id, att = {}) {
     C(0.025, 0.03, 0.06, 0, 0.03, -0.17); B(0.074, 0.012, 0.3, 0, 0.08, 0, gl); muzzle = -0.2;
   }
   if (RF) muzzle = applyAttVisuals(g, id, AT, RF, B, C, muzzle);
-  g.userData = { muzzle, sightY, adsZ: g.userData.adsZ, pump: g.userData.pump, pumpZ: g.userData.pump ? g.userData.pump.position.z : 0, mag: g.userData.mag, ch: g.userData.ch, hinge: g.userData.hinge, cellPistol: g.userData.cellPistol, chZ0: g.userData.ch ? g.userData.ch.position.z : 0, hip: id === 'wasp' ? new T.Vector3(0.11, -0.1, -0.33) : null };
+  g.userData = { muzzle, sightY, adsZ: g.userData.adsZ, pump: g.userData.pump, pumpZ: g.userData.pump ? g.userData.pump.position.z : 0, mag: g.userData.mag, ch: g.userData.ch, hinge: g.userData.hinge, cellPistol: g.userData.cellPistol, laser: g.userData.laser, sideMag: g.userData.sideMag, magC: g.userData.magC, chZ0: g.userData.ch ? g.userData.ch.position.z : 0, hip: id === 'wasp' ? new T.Vector3(0.11, -0.1, -0.33) : null };
   return g;
 }
 let gunModel = null;
@@ -2322,6 +2674,8 @@ const gsun = new T.DirectionalLight(0xfff1d6, 0.7); gsun.position.set(1, 2, 1); 
 const GUN_HIP = new T.Vector3(0.17, -0.17, -0.4);
 let GUN_ADS = new T.Vector3(0, -0.128, -0.34);
 const WSTATS = {
+  lancer: { mag: 15, reserve: 90, maxRes: 150, rate: 0.27, dmg: 46, pellets: 1, recoil: 0.036, reload: 2.9, shell: 0, pick: 24, wave: 36, kick: 0.1, shake: 0.05, pitch: 0.82, semi: 1, heavy: 1, hipMul: 1.6, spread: 0.45 },
+  longshot: { mag: 5, reserve: 30, maxRes: 45, rate: 1.15, dmg: 150, pellets: 1, recoil: 0.07, reload: 3.0, shell: 0, pick: 8, wave: 14, kick: 0.16, shake: 0.12, pitch: 0.62, semi: 1, heavy: 1, bolt: 1, hipMul: 3.5, spread: 0.1 },
   wasp: { mag: 17, reserve: 85, maxRes: 136, rate: 0.15, dmg: 24, pellets: 1, recoil: 0.026, reload: 3.2, shell: 0, pick: 34, wave: 51, kick: 0.115, shake: 0.012, pitch: 1.32, semi: 1 },
   hail: { mag: 32, reserve: 256, maxRes: 352, rate: 0.068, dmg: 12, pellets: 1, recoil: 0.013, reload: 1.9, shell: 0, pick: 48, wave: 64, kick: 0.04, shake: 0.015, pitch: 1.22 },
   vk9: { mag: 40, reserve: 240, maxRes: 360, rate: 0.095, dmg: 17, pellets: 1, recoil: 0.019, reload: 2.2, shell: 0, pick: 45, wave: 60, kick: 0.065, shake: 0.025 },
@@ -2415,6 +2769,8 @@ function reloadHand() {
 const GRIPS = {
   vk9: { r: [0, -0.11, 0.07, 0.3, 0.021, 0.025], l: [0, 0.004, -0.31, 0.032, 0.04] },
   breaker: { r: [0, -0.12, 0.13, 0.3, 0.03, 0.0275], l: [0, 0, 0.01, 0.037, 0.034], onPump: true },
+  lancer: { r: [0, -0.1, -0.03, 0.28, 0.021, 0.025], l: [0, 0.006, -0.38, 0.033, 0.042] },
+  longshot: { r: [0, -0.1, 0.1, 0.32, 0.022, 0.025], l: [0, -0.002, -0.4, 0.033, 0.034] },
   hail: { r: [0, -0.11, 0.07, 0.25, 0.02, 0.025], l: [0, 0.004, -0.29, 0.03, 0.034] },
   wasp: { r: [0, -0.08, 0.028, 0.1, 0.019, 0.024], l: [-0.012, -0.115, 0.03, 0.026, 0.03] }
 };
@@ -2443,8 +2799,9 @@ function updateSteam(dt) {
 function equipViewmodel(id, att) {
   if (gunModel) gun.remove(gunModel);
   gunModel = makeGun(id, att); gun.add(gunModel); attachHands(gunModel, id);
+  try { if (typeof prog !== 'undefined') updateWeaponBar(); } catch (e) {}
   flash.position.set(0, 0.01, gunModel.userData.muzzle - 0.06);
-  GUN_ADS = new T.Vector3(0, -gunModel.userData.sightY - (id === 'breaker' || id === 'hail' || (id === 'wasp' && att.optic !== 'reflex') || ((att.optic || 'iron') === 'iron' && id === 'vk9') ? 0 : 0.012), gunModel.userData.adsZ || (att.optic === 'acog' ? -0.26 : -0.34));
+  GUN_ADS = new T.Vector3(0, -gunModel.userData.sightY - (id === 'breaker' || id === 'hail' || id === 'lancer' || id === 'longshot' || (id === 'wasp' && att.optic !== 'reflex') || ((att.optic || 'iron') === 'iron' && id === 'vk9') ? 0 : 0.012), gunModel.userData.adsZ || (att.optic === 'acog' ? -0.26 : -0.34));
 }
 equipViewmodel('vk9', {});
 
@@ -2492,6 +2849,7 @@ const ENEMY = {
   trooper: { hp: 60, speed: 3.4, r: 0.4, scale: 1, armor: 0x8a8f96, visor: 0xff8a2a, pts: 100, range: [11, 24] },
   stalker: { hp: 42, speed: 7, r: 0.38, scale: 0.92, armor: 0x7d6f8c, visor: 0xff3f8f, pts: 80 },
   heavy:   { hp: 360, speed: 2.1, r: 0.7, scale: 1.45, armor: 0x5c6066, visor: 0xff3020, pts: 400, range: [8, 30] },
+  turret:  { hp: 320, speed: 0, r: 0.9, scale: 1, armor: 0x5a5e62, visor: 0xff5020, pts: 300, range: [0, 38] },
   walker:  { hp: 5200, speed: 1.5, r: 2.6, scale: 1.45, armor: 0x4e5560, visor: 0xff3020, pts: 5000, range: [9, 18] }
 };
 let enemies = [], bolts = [], debris = [], pickups = [];
@@ -2515,6 +2873,22 @@ function makeEnemy(type, x, z, nid) {
     if (mat !== visor) { m.userData.enemy = e; m.userData.head = head; hit.push(m); }
     return m;
   };
+  if (type === 'turret') {
+    // Broken Sentry: an automated gun turret on a round base, battered and half working. The whole head
+    // turns (the base is round), twin barrels, one side plate hanging off, exposed wiring.
+    const dark = new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x3a3e42 });
+    part(1.3, 0.35, 1.3, 0, 0.17, 0, dark); part(0.5, 0.7, 0.5, 0, 0.7, 0, dark);
+    const head = new T.Group(); head.position.y = 1.25; g.add(head);
+    part(0.95, 0.55, 0.9, 0, 0, 0, armor, head, true); part(0.75, 0.2, 0.7, 0, 0.36, -0.05, plate, head, true);
+    for (const sx of [-1, 1]) { part(0.12, 0.12, 0.9, sx * 0.2, -0.04, 0.8, dark, head); part(0.16, 0.16, 0.12, sx * 0.2, -0.04, 1.22, dark, head); }
+    part(0.26, 0.14, 0.05, 0, 0.12, 0.47, visor, head);
+    const hang = part(0.06, 0.5, 0.7, 0.53, -0.2, 0, plate, head); hang.rotation.z = 0.45; hang.rotation.x = 0.15;
+    part(0.02, 0.3, 0.02, 0.44, -0.05, 0.1, new T.MeshBasicMaterial({ color: 0xffb547 }), head);
+    const smoke = new T.Sprite(new T.SpriteMaterial({ map: steamTex, color: 0x555555, transparent: true, opacity: 0.4, depthWrite: false })); smoke.position.set(0.3, 0.6, -0.2); smoke.scale.set(0.9, 1.4, 1); head.add(smoke);
+    e.legs = []; e.arms = []; e.torso = head; e.smoke = smoke;
+    g.position.set(x, 0, z); scene.add(g); enemies.push(e);
+    return e;
+  }
   if (type === 'walker') {
     // Crab Walker: armoured hull on four jointed legs, twin cannons on a turret (the turret is the weak point)
     const hull = new T.Group(); hull.position.y = 2.7; g.add(hull);
@@ -2580,7 +2954,7 @@ function makeEnemy(type, x, z, nid) {
   return e;
 }
 
-const ENAMES = { trooper: 'Synth Trooper', stalker: 'Synth Stalker', heavy: 'Synth Heavy', walker: 'Crab Walker' };
+const ENAMES = { trooper: 'Synth Trooper', stalker: 'Synth Stalker', heavy: 'Synth Heavy', walker: 'Crab Walker', turret: 'Broken Sentry' };
 let dnums = [];
 function dmgNum(x, y, z, amount, crit) {
   const el = document.createElement('div'); el.className = 'dn' + (crit ? ' crit' : ''); el.textContent = Math.max(1, Math.round(amount));
@@ -2603,7 +2977,7 @@ function creditKill(type, headshot, cause) {
     if (hasT('b5') && P.hp < 35) { P.hp = Math.min(100, P.hp + 5); P.lagHp = Math.max(P.lagHp, P.hp); } }
   // during an objective the endless spawns are worth only a fraction, so they can't be farmed
   const xm = S.obj && type !== 'walker' ? 0.12 : 1, X = v => Math.max(1, Math.round(v * xm));
-  gainXP(X({ trooper: 100, stalker: 75, heavy: 300, walker: 2000 }[type]), type === 'walker' ? 'Crab Walker destroyed' : type === 'heavy' ? 'Heavy down' : 'Kill', type !== 'trooper' && type !== 'stalker');
+  gainXP(X({ trooper: 100, stalker: 75, heavy: 300, walker: 2000, turret: 150 }[type] || 100), type === 'walker' ? 'Crab Walker destroyed' : type === 'heavy' ? 'Heavy down' : 'Kill', type !== 'trooper' && type !== 'stalker');
   if (headshot) gainXP(X(50), 'Headshot', true);
   if (cause === 'pulse') gainXP(X(25), 'Shockwave kill');
   if (cause === 'nade') gainXP(X(25), 'Grenade kill');
@@ -2632,6 +3006,7 @@ function killEnemy(e, headshot, cause, by) {
   scene.remove(e.g);
   if (isAuth() && (e.type === 'heavy' || e.type === 'walker' || Math.random() < 0.16)) dropPickup(e.x, e.z, 'ammo');
   if (isAuth() && S.obj && S.obj.ty === 'kills') S.obj.k++;
+  if (e.type === 'turret') { spark(e.x, e.y + 1.2, e.z, 0xffa040, 26, 5, 4); SFX.boom(Math.hypot(S.p.x - e.x, S.p.z - e.z) + 10); const w = new T.Mesh(new T.CylinderGeometry(0.6, 0.65, 0.4, 8), MX.char); w.position.set(e.x, e.y + 0.2, e.z); scene.add(w); }
   if (e.type === 'walker') { for (let i = 0; i < 4; i++) setTimeout(() => spark(e.x + rnd(-2, 2), rnd(1, 4), e.z + rnd(-2, 2), 0xffa040, 30, 6, 5), i * 180); SFX.boom(Math.hypot(S.p.x - e.x, S.p.z - e.z)); }
 }
 const pickGeo = new T.BoxGeometry(0.45, 0.45, 0.45);
@@ -2689,7 +3064,9 @@ function updateEnemies(dt) {
       if ((e.los && dist < 24) || e.hp < e.max || heardShots(e)) wakeSweep(e);
       else { e.g.position.set(e.x, e.y, e.z); continue; }
     }
+    if (e.type === 'turret') { turretTick(e, P, dist, dt); continue; }
     let mx = ux, mz = uz, sp = D.speed;
+    if (inSwamp(e.x, e.z, e.y)) sp *= 0.6;
 
     if (D.range) {
       if (e.los && dist < D.range[0]) { mx = -ux; mz = -uz; sp *= 0.7; }
@@ -2829,6 +3206,25 @@ function walkerLaser(e, P, dist, dt) {
     if (NET.on) for (const p of NET.peers.values()) { const d = Math.hypot(p.x - a.x, p.z - a.z); if (p.a && d < LZ_R) netSend({ t: 'dmg', to: p.id, big: 1, d: Math.round(Math.min(90, 20 + 75 * (1 - d / LZ_R))) }); }
   }
 }
+// broken sentries: slow to track, fire short bursts, and keep jamming in a shower of sparks
+function turretTick(e, P, dist, dt) {
+  const want = Math.atan2(P.x - e.x, P.z - e.z);
+  let d = want - e.g.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d));
+  e.jamT = (e.jamT === undefined ? rnd(3, 7) : e.jamT) - dt;
+  if (e.smoke) { e.smoke.position.y = 0.6 + ((S.t * 0.5 + e.nid) % 1) * 0.8; e.smoke.material.opacity = 0.4 * (1 - ((S.t * 0.5 + e.nid) % 1)); }
+  if (e.flash > 0) { e.flash -= dt; for (const m of e.mats) m.emissive.setHex(e.flash > 0 ? 0xffffff : 0); }
+  e.g.position.set(e.x, e.y, e.z);
+  if (e.jamT < 0) {
+    if (e.jamT > -1.6) { if (Math.random() < dt * 10) spark(e.x + rnd(-0.4, 0.4), e.y + 1.3, e.z + rnd(-0.4, 0.4), 0xffd080, 5, 2.5, 1.5); e.g.rotation.y += Math.sin(S.t * 31) * 0.012; e.burst = 0; return; }
+    e.jamT = rnd(5, 9);
+  }
+  const engaged = e.los && dist < ENEMY.turret.range[1];
+  if (engaged) e.g.rotation.y += Math.sign(d) * Math.min(Math.abs(d), dt * 1.05);
+  else e.g.rotation.y += dt * 0.3 * Math.sin(S.t * 0.25 + e.nid);
+  e.cd -= dt;
+  if (engaged && Math.abs(d) < 0.12 && e.cd <= 0) { e.burst = 4; e.cd = rnd(2.0, 2.8); }
+  if (e.burst > 0) { e.bt = (e.bt || 0) - dt; if (e.bt <= 0) { fireBolt(e, false, P); e.burst--; e.bt = 0.15; } }
+}
 function meleeHit(e, dmg, cd, tgt) {
   if (e.cd > 0) return; e.cd = cd;
   if (tgt === S.p) damagePlayer(dmg, e.x, e.z); else netSend({ t: 'dmg', to: tgt.id, d: dmg });
@@ -2840,8 +3236,8 @@ function spawnBolt(ox, oy, oz, vx, vy, vz, big) {
 function fireBolt(e, big, tgt) {
   const P = tgt || S.p, s = e.D.scale;
   const fx = Math.sin(e.g.rotation.y), fz = Math.cos(e.g.rotation.y);
-  const tr_ = e.type === 'trooper', fw = e.type === 'walker' ? 3.8 : tr_ ? 0.95 * s : 0.6 * s, sd = tr_ ? 0.38 * s : 0.2 * s;
-  const ox = e.x + fx * fw + fz * sd, oy = e.y + (e.type === 'walker' ? 5.6 : tr_ ? 1.6 * s : 1.45 * s), oz = e.z + fz * fw - fx * sd;
+  const tr_ = e.type === 'trooper', fw = e.type === 'walker' ? 3.8 : e.type === 'turret' ? 1.25 : tr_ ? 0.95 * s : 0.6 * s, sd = tr_ ? 0.38 * s : 0.2 * s;
+  const ox = e.x + fx * fw + fz * sd, oy = e.y + (e.type === 'walker' ? 5.6 : e.type === 'turret' ? 1.21 : tr_ ? 1.6 * s : 1.45 * s), oz = e.z + fz * fw - fx * sd;
   const spread = big ? 0.02 : 0.05;
   const tx = P.x + rnd(-1, 1) * spread * 10, ty = P.y + 1.2 - 0.5 * (P.ch || P.c || 0) + rnd(-.5, .5), tz = P.z + rnd(-1, 1) * spread * 10;
   const d = Math.hypot(tx - ox, ty - oy, tz - oz), v = big ? 20 : 28;
@@ -2890,7 +3286,7 @@ function newGame() {
   for (const st of stations) { st.cd = 0; st.active = false; }
   S = {
     running: true, t: 0, wave: 0, score: 0, kills: 0, xp: 0, streak: 0, lastKill: -9, queue: [], spawnCd: 0, intermission: 0, sweep: 1,
-    p: { dead: false, x: 0, y: 0.2, z: LZ_Z - 3, vy: 0, r: 0.4, yaw: 0, pitch: 0, onGround: true, hp: 100, lagHp: 100, lagT: 0, shield: 100, recharging: false, beepT: 0, sinceHit: 9,
+    p: { dead: false, x: 0, y: 3.4, z: INS_Z - 3, vy: 0, r: 0.4, yaw: 0, pitch: 0, onGround: true, hp: 100, lagHp: 100, lagT: 0, shield: 100, recharging: false, beepT: 0, sinceHit: 9,
          mag: GS.mag, reserve: GS.reserve, pumped: false, reloadT: 0, fireCd: 0, pulseCd: 0, recoil: 0, ads: 0, bob: 0, hurt: 0, shake: 0, ch: 0, shFlash: 0, punchP: 0, punchY: 0, nadeCd: 0, glT: -1, glFired: false }
   };
 }
@@ -2972,7 +3368,7 @@ function tryFire() {
   P.yaw += rnd(-1, 1) * GS.recoil * 0.35;
   addShake((P.ads > 0.5 ? 0.55 : 1) * GS.shake);
   const moving = Math.hypot(input.mx, input.my) > 0.1;
-  const cone = (P.visT > 0 ? 0 : 1) * (1 + (P.ads > 0.5 ? 0 : (P.bloom || 0) * 0.45)) * (GS.pellets > 1 ? (P.ads > 0.5 ? 0.045 : 0.06) : (P.ads > 0.5 ? 0.004 : (moving ? 0.03 : 0.016)) * GS.spreadMul) * (1 - 0.3 * P.ch);
+  const cone = (P.visT > 0 ? 0 : 1) * (1 + (P.ads > 0.5 ? 0 : (P.bloom || 0) * 0.45)) * (GS.pellets > 1 ? (P.ads > 0.5 ? 0.045 : 0.06) : (P.ads > 0.5 ? 0.004 : (moving ? 0.03 : 0.016) * (GS.hipMul || 1)) * GS.spreadMul) * (1 - 0.3 * P.ch);
   cam.updateMatrixWorld();
   const targets = [].concat(...enemies.map(e => e.hit));
   gun.updateMatrixWorld(true); const start = gunModel ? gunModel.localToWorld(new T.Vector3(0, 0.01, gunModel.userData.muzzle)).applyQuaternion(cam.quaternion).add(cam.position) : new T.Vector3(0.18, -0.16, -0.7).applyQuaternion(cam.quaternion).add(cam.position);
@@ -3185,8 +3581,8 @@ function updateNades(dt) {
     const p = n.m.position;
     n.vy -= 18 * dt;
     const nx = p.x + n.vx * dt, nz = p.z + n.vz * dt;
-    if (inSolid(nx, p.y, p.z) || Math.abs(nx) > BOUND) { n.vx *= -0.5; bounce(n); } else p.x = nx;
-    if (inSolid(p.x, p.y, nz) || Math.abs(nz) > BOUND) { n.vz *= -0.5; bounce(n); } else p.z = nz;
+    if (inSolid(nx, p.y, p.z) || !inWorld(nx, p.z)) { n.vx *= -0.5; bounce(n); } else p.x = nx;
+    if (inSolid(p.x, p.y, nz) || !inWorld(p.x, nz)) { n.vz *= -0.5; bounce(n); } else p.z = nz;
     let ny = p.y + n.vy * dt;
     const gr = groundAt(p.x, p.z, p.y + 0.3) + 0.11;
     if (ny < gr) { ny = gr; if (Math.abs(n.vy) > 1.2) bounce(n); n.vy = -n.vy * 0.42; n.vx *= 0.72; n.vz *= 0.72; }
@@ -3293,7 +3689,7 @@ function update(dt) {
     }
   }
   const adsOn = input.ads || input.adsToggle || !!P.assistAds;
-  const speed = 5.4 * sprint * (adsOn ? 0.6 : 1) * (1 - 0.5 * P.ch) * (P.momT > 0 ? 1.12 : 1) * (GS.move || 1);
+  const speed = 5.4 * sprint * (adsOn ? 0.6 : 1) * (inSwamp(P.x, P.z, P.y) ? 0.6 : 1) * (1 - 0.5 * P.ch) * (P.momT > 0 ? 1.12 : 1) * (GS.move || 1);
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   P.x += (fx * iy + rx * ix) * speed * dt; P.z += (fz * iy + rz * ix) * speed * dt;
   collide(P, P.r, P.y, 1.75 - 0.55 * P.ch);
@@ -3367,7 +3763,7 @@ function update(dt) {
   if (S.sweep) {
     // before wave 1: synths are standing around the outpost; clear them all to start the horde
     if (S.sweep === 1) { spawnSweep(); S.sweep = 2; }
-    else if (!enemies.some(e => !e.dead)) { S.sweep = 0; S.intermission = 10; sweepCleared(); }
+    else if (!enemies.some(e => !e.dead && !e.route)) { S.sweep = 0; S.intermission = 10; despawnRoute(); sweepCleared(); }
   } else if (S.intermission > 0) {
     S.intermission -= dt;
     if (S.intermission <= 0) { S.wave++; S.queue = makeWave(S.wave); if (isObjWave(S.wave)) startObjective(); else { banner(`Wave ${S.wave}`, `${S.queue.length} hostiles inbound`, 2); SFX.wave(); } waveOmen(S.wave, S.queue); }
@@ -3447,8 +3843,11 @@ function update(dt) {
   const moving = il > 0.1 && P.onGround;
   if (moving) P.bob += dt * (sprint > 1 ? 13 : 9);
   const bobA = moving ? (sprint > 1 ? 0.028 : 0.014) * (1 - P.ads * 0.8) : 0;
-  const target = ((gunModel && gunModel.userData.hip) || GUN_HIP).clone().lerp(GUN_ADS, P.ads);
-  gun.position.x += (target.x - 0.075 * (P.rlTilt || 0) + Math.cos(P.bob) * bobA - gun.position.x) * Math.min(1, dt * 14);
+  // with a laser fitted, the pistol is carried low and centred like when you run off the dropship
+  const laserBeam = gunModel && gunModel.userData.laser, laserHold = !!laserBeam && curW === 'wasp';
+  const hip0 = laserHold ? _te.set(GUN_HIP.x, GUN_HIP.y - 0.03, GUN_HIP.z + 0.02) : ((gunModel && gunModel.userData.hip) || GUN_HIP);
+  const target = hip0.clone().lerp(GUN_ADS, P.ads);
+  gun.position.x += (target.x - (curW === 'lancer' ? 0.05 : 0.075) * (P.rlTilt || 0) + Math.cos(P.bob) * bobA - gun.position.x) * Math.min(1, dt * 14);
   updateTossed(dt);
   // reload poses: the VK-9 vents (lifted, muzzle up, left hand off); other mags dip the gun
   const venting = P.reloadT > 0 && !GS.shell;
@@ -3458,23 +3857,24 @@ function update(dt) {
   const ventGun = venting && curW === 'vk9';
   // SMG magazine change: tilt the gun, left hand pulls the mag down and away, slaps a fresh one in, racks the handle
   if (P.reloadT <= 0) P.cellOut = P.mag === 0;
-  const smg = venting && (curW === 'hail' || curW === 'wasp') && gunModel && gunModel.userData.mag;
+  const smg = venting && (curW === 'hail' || curW === 'wasp' || curW === 'lancer' || curW === 'longshot') && gunModel && gunModel.userData.mag;
   const seg = (a, b) => { const x = Math.max(0, Math.min(1, (vr - a) / (b - a))); return x * x * (3 - 2 * x); };
   const tilt = smg ? seg(0, 0.12) * (1 - seg(0.8, 0.96)) : 0;
-  P.rlTilt = smg && curW === 'wasp' ? tilt : 0;
-  gun.position.y += (target.y - 0.3 * Math.sin(Math.min(1, (P.swapT || 0) / 0.32) * Math.PI) + P.recoil * 0.12 * (1 - 0.75 * P.ads) - Math.abs(Math.sin(P.bob)) * bobA + (ventGun ? 0.05 * lift : smg ? (curW === 'wasp' ? 0.03 : -0.035) * tilt : venting ? -0.12 : 0) - gun.position.y) * Math.min(1, dt * 14);
-  gun.position.z += (target.z - gun.position.z) * Math.min(1, dt * 18);
-  gun.position.z = Math.min(gun.position.z, target.z + 0.05);
-  gun.rotation.x += ((P.visArm > 0 ? -0.18 * Math.sin((1 - P.visArm / 0.55) * Math.PI) : 0) + (ventGun ? 0.6 * lift : smg ? (curW === 'wasp' ? 0.3 : 0.22) * tilt : venting ? -0.5 : 0) + P.recoil * (0.5 - 0.28 * P.ads) - gun.rotation.x) * Math.min(1, dt * 12);
+  P.rlTilt = smg && (curW === 'wasp' || curW === 'lancer') ? tilt : 0;
+  gun.position.y += (target.y - 0.3 * Math.sin(Math.min(1, (P.swapT || 0) / 0.32) * Math.PI) + P.recoil * 0.12 * (1 - 0.75 * P.ads) - Math.abs(Math.sin(P.bob)) * bobA + (ventGun ? 0.05 * lift : smg ? (curW === 'wasp' ? 0.03 : curW === 'lancer' ? 0.055 : -0.035) * tilt : venting ? -0.12 : 0) - gun.position.y) * Math.min(1, dt * 14);
+  const tzR = target.z;
+  gun.position.z += (tzR - gun.position.z) * Math.min(1, dt * 18);
+  gun.position.z = Math.min(gun.position.z, tzR + 0.05);
+  gun.rotation.x += ((P.visArm > 0 ? -0.18 * Math.sin((1 - P.visArm / 0.55) * Math.PI) : 0) + (ventGun ? 0.6 * lift : smg ? (curW === 'wasp' ? 0.3 : curW === 'lancer' ? 0.05 : 0.22) * tilt : venting ? -0.5 : 0) + P.recoil * (0.5 - 0.28 * P.ads) + (laserHold ? 0.06 * (1 - P.ads) : 0) - gun.rotation.x) * Math.min(1, dt * 12);
   if (gunModel && gunModel.userData.pump) {
     let off = 0;
-    if (GS.pellets > 1 && P.fireCd > 0) {
+    if ((GS.pellets > 1 || GS.bolt) && P.fireCd > 0) {
       const t = 1 - P.fireCd / GS.rate;
-      if (t > 0.25 && t < 0.8) { off = Math.sin((t - 0.25) / 0.55 * Math.PI) * 0.11; if (!P.pumped) { P.pumped = true; SFX.pump(); } }
+      if (t > 0.25 && t < 0.8) { off = Math.sin((t - 0.25) / 0.55 * Math.PI) * (GS.bolt ? 0.07 : 0.11); if (!P.pumped) { P.pumped = true; GS.bolt ? SFX.bolt() : SFX.pump(); } }
     }
     gunModel.userData.pump.position.z = gunModel.userData.pumpZ + off;
   }
-  gun.rotation.y += (0.12 * (1 - P.ads) + (smg && curW === 'wasp' ? -0.5 * tilt : 0) - gun.rotation.y) * Math.min(1, dt * 10);
+  gun.rotation.y += ((laserHold ? 0.14 : 0.12) * (1 - P.ads) + (smg && curW === 'wasp' ? -0.5 * tilt : smg && curW === 'lancer' ? 0 : 0) - gun.rotation.y) * Math.min(1, dt * 10);
   // Tactical Visor: the weapon physically swings to point at the locked head
   if (P.visT > 0 && P.visTarget) {
     cam.updateMatrixWorld(); _tb.set(P.visTarget.x, P.visTarget.y, P.visTarget.z); cam.worldToLocal(_tb);
@@ -3484,7 +3884,8 @@ function update(dt) {
     gun.rotation.y = gun.rotation.y + (ty * 1.15 - gun.rotation.y) * P.visAim;
     gun.rotation.x = gun.rotation.x + (tp * 1.15 - gun.rotation.x) * P.visAim;
   } else P.visAim = 0;
-  gun.rotation.z += ((sprint > 1 && moving ? 0.25 : 0) + (GS.shell && P.reloadT > 0 ? -0.4 : 0) + (ventGun ? -0.3 * lift : smg ? (curW === 'wasp' ? 0.38 : 0.28) * tilt : 0) - gun.rotation.z) * Math.min(1, dt * 10);
+  gun.rotation.z += ((sprint > 1 && moving ? 0.25 : 0) + (GS.shell && P.reloadT > 0 ? -0.4 : 0) + (ventGun ? -0.3 * lift : smg ? (curW === 'wasp' ? 0.38 : curW === 'lancer' ? -0.1 : 0.28) * tilt : 0) + (laserHold ? 0.04 * (1 - P.ads) : 0) - gun.rotation.z) * Math.min(1, dt * 10);
+  if (laserBeam && P.ads < 0.85) aimLaser(laserBeam); else if (laserDot) laserDot.visible = false;
   if (gunModel && gunModel.userData.lh) {
     const lh = gunModel.userData.lh, base = gunModel.userData.lhBase;
     let ox = 0, oy = 0, oz = 0;
@@ -3524,6 +3925,24 @@ function update(dt) {
         if (vr > 0.5 && !R0.line) { R0.line = 1; sTone(900, 950, 0.03, 0.03, 'square'); }
         if (vr > 0.6 && !R0.seat) { R0.seat = 1; P.magIn = true; P.recoil = Math.max(P.recoil, 0.08); sTone(1100, 900, 0.03, 0.08, 'square'); sTone(1700, 1700, 0.02, 0.05, 'sine', 0.03); sTone(220, 150, 0.05, 0.08, 'sine'); }
         if (vr > 0.685 && !R0.slam) { R0.slam = 1; P.recoil = Math.max(P.recoil, 0.3); sTone(260, 110, 0.1, 0.18, 'square'); sTone(900, 500, 0.04, 0.09, 'square', 0.01); sNoise(0.08, 1800, 0.15); addShake(0.3); }
+      } else if (gunModel.userData.sideMag) {
+        // Lancer: canted to show its left side; the mag kicks out sideways, the hand pulls it clear and lets it
+        // drop, dips out of frame for a fresh one, slides it home and racks the forward lever
+        const RC = [gunModel.userData.magC, -0.02, 0.13], at = d => [RC[0] - d - 0.05, RC[1], RC[2]], b0 = base.toArray(), low = [b0[0] - 0.05, b0[1] - 0.24, b0[2] + 0.1];
+        const Ph = keyLerp(vr, [[0, ...b0], [0.08, ...b0], [0.18, ...at(0.03)], [0.22, ...at(0.03)], [0.32, ...at(0.13)], [0.35, ...at(0.13)], [0.44, ...low], [0.48, ...low],
+          [0.57, ...at(0.11)], [0.61, ...at(0.11)], [0.7, ...at(0)], [0.73, ...at(-0.004)], [0.77, -0.03, 0.03, -0.3], [0.82, -0.03, 0.03, -0.3], [0.9, ...b0], [1, ...b0]]);
+        ox = Ph[0] - base.x; oy = Ph[1] - base.y; oz = Ph[2] - base.z;
+        const mg = gunModel.userData.mag, R0 = P.rsnd || (P.rsnd = {});
+        const carried = (vr > 0.22 && vr < 0.34) || (vr > 0.48 && vr < 0.7);
+        if (carried) mg.position.set(Ph[0] + 0.05 - RC[0], Ph[1] - RC[1], Ph[2] - RC[2]);
+        else mg.position.set(vr < 0.22 ? -0.03 * seg(0.1, 0.15) : 0, 0, 0);
+        mg.visible = !(vr >= 0.34 && vr <= 0.48);
+        const rack = seg(0.78, 0.8) * (1 - seg(0.82, 0.86));
+        gunModel.userData.ch.position.z = gunModel.userData.chZ0 + 0.045 * rack;
+        if (vr > 0.1 && !R0.ej) { R0.ej = 1; sTone(1300, 900, 0.03, 0.08, 'square'); sNoise(0.08, 3000, 0.06, 'highpass'); }
+        if (vr > 0.34 && !R0.drop) { R0.drop = 1; tossCell(mg, [-0.25, -0.2, 0.08]); setTimeout(() => sTone(260, 180, 0.06, 0.06, 'square'), 380); }
+        if (vr > 0.7 && !R0.seat) { R0.seat = 1; P.magIn = true; P.recoil = Math.max(P.recoil, 0.1); sTone(1000, 820, 0.035, 0.09, 'square'); sTone(220, 150, 0.05, 0.09, 'sine'); }
+        if (vr > 0.79 && !R0.rack) { R0.rack = 1; sTone(700, 520, 0.04, 0.09, 'square'); sTone(1100, 950, 0.03, 0.07, 'square', 0.1); }
       } else {
       ox = -0.05 * toHandle; oy = (-0.21 * toMag - 0.34 * down) * (1 - toHandle) + 0.03 * toHandle; oz = 0.17 * toMag * (1 - toHandle) + (0.12 + 0.06 * rack) * toHandle;
       const mg = gunModel.userData.mag; mg.position.set(-0.08 * down, -0.34 * down, 0.04 * down); mg.visible = !(vr > 0.33 && vr < 0.41);
@@ -3893,7 +4312,7 @@ function hud() {
   const scoped = S.running && GS.optic === 'acog' && P.ads > 0.85;
   ui.scope.hidden = !scoped;
   if (scoped) ui.scope.style.setProperty('--d', scopeD() + 'px');
-  ui.scope.classList.toggle('thermal', !!GS.thermal);
+  ui.scope.classList.toggle('thermal', !!GS.thermal); ui.scope.classList.toggle('snip', !!GS.sniper);
   ui.holo.hidden = !(S.running && GS.optic === 'holo' && P.ads > 0.7);
   ui.cross.style.opacity = P.ads > 0.5 ? 0 : 1;
   ui.cross.style.setProperty('--g', ((P.bloom || 0) * 9 + Math.min(6, Math.hypot(input.mx, input.my) * 6 + (P.onGround ? 0 : 5))).toFixed(1) + 'px');
@@ -3977,6 +4396,17 @@ function waveOmen(n, q) {
   if (line) omen(line, true);
 }
 
+// point the pistol laser from its emitter at the crosshair (the gun camera looks straight down -z from the origin)
+const _laserTgt = new T.Vector3(0, 0, -9), _lp = new T.Vector3();
+let laserDot = null;
+function aimLaser(beam) {
+  if (!laserDot) { laserDot = new T.Sprite(new T.SpriteMaterial({ map: TX.flash, color: 0xff3020, blending: T.AdditiveBlending, depthWrite: false, depthTest: false, transparent: true })); laserDot.position.copy(_laserTgt); laserDot.scale.set(0.09, 0.09, 1); gunScene.add(laserDot); }
+  laserDot.visible = true; laserDot.userData.f = (performance.now());
+  gun.updateMatrixWorld(true);
+  beam.lookAt(_laserTgt);
+  _lp.copy(_laserTgt); beam.parent.worldToLocal(_lp);
+  beam.scale.z = _lp.distanceTo(beam.position);
+}
 // piecewise smooth interpolation through keyframes [t, ...values]
 function keyLerp(t, K) {
   if (t <= K[0][0]) return K[0].slice(1);
@@ -4263,8 +4693,8 @@ const WEAPONS = {
     { id: 'vk9', name: 'VK-9 Carbine', cls: 'Assault rifle', lvl: 1, live: true, st: [3, 4, 3] },
     { id: 'hail', name: 'Hailstorm', cls: 'Submachine gun', lvl: 6, live: true, st: [2, 5, 2] },
     { id: 'breaker', name: 'Breaker-12', cls: 'Pump shotgun', lvl: 5, live: true, st: [5, 1, 1] },
-    { id: 'lancer', name: 'Lancer DMR', cls: 'Marksman rifle', lvl: 20, st: [4, 2, 4] },
-    { id: 'longshot', name: 'Longshot-X', cls: 'Sniper rifle', lvl: 30, st: [5, 1, 5] },
+    { id: 'lancer', name: 'Lancer DMR', cls: 'Marksman rifle', lvl: 20, live: true, st: [4, 2, 4] },
+    { id: 'longshot', name: 'Longshot-X', cls: 'Sniper rifle', lvl: 30, live: true, st: [5, 1, 5] },
     { id: 'furnace', name: 'Furnace', cls: 'Arc projector', lvl: 45, st: [4, 3, 2] }
   ],
   sidearm: [
@@ -4298,13 +4728,14 @@ function applyLoadout() {
 function applyLoadoutBase() {
   const id = curW, att = normAtt(id, attOf(id));
   equipViewmodel(id, att);
-  for (const k of ['semi', 'pitch', 'shell']) delete GS[k]; GS.shell = 0;
+  for (const k of ['semi', 'pitch', 'shell', 'heavy', 'bolt', 'hipMul', 'spread']) delete GS[k]; GS.shell = 0;
   Object.assign(GS, WSTATS[id] || WSTATS.vk9);
   const oo = (ATT[id] && ATT[id].optic.find(o => o.id === att.optic)) || {};
   GS.optic = oo.base || 'iron'; GS.opticId = att.optic || 'iron'; GS.zoom = oo.zoom || 2; GS.thermal = !!oo.thermal;
   GS.fov = oo.fov || (id === 'vk9' ? 46 : GS.optic === 'holo' ? 50 : 54);
   GS.sens = GS.optic === 'acog' ? 0.5 + 0.03 * GS.zoom : id === 'vk9' ? 0.45 : 0.4;
-  GS.spreadMul = id === 'hail' ? 0.75 : 1;
+  GS.spreadMul = id === 'hail' ? 0.75 : (WSTATS[id] && WSTATS[id].spread) || 1;
+  GS.hipMul = (WSTATS[id] && WSTATS[id].hipMul) || 1; GS.sniper = !!oo.snip; GS.bolt = !!(WSTATS[id] && WSTATS[id].bolt); GS.heavy = !!(WSTATS[id] && WSTATS[id].heavy);
   const M_ = attMods(id, att);
   GS.dmg *= M_.dmg; GS.rate *= M_.rate; GS.recoil *= M_.recoil; GS.kick *= Math.sqrt(M_.recoil);
   GS.spreadMul *= M_.spread / (GS.pellets > 1 ? 1 : Math.sqrt(M_.range)); GS.range = M_.range;
@@ -4518,6 +4949,8 @@ function openDetail(slot, id) {
 const ANCHORS = {
   vk9: { optic: [0, 0.15, -0.08], barrel: [0, 0.012, -0.5], mag: [0, -0.19, -0.1], stock: [0, -0.02, 0.34], grip: [0, -0.07, -0.42] },
   hail: { optic: [0, 0.11, -0.04], barrel: [0, 0.008, -0.4], mag: [0, -0.24, -0.12], stock: [0, 0, 0.33], grip: [0, -0.07, -0.38] },
+  lancer: { optic: [0, 0.16, -0.04], barrel: [0, 0.018, -0.7], mag: [0, -0.16, 0.17], stock: [0, 0.02, 0.4], grip: [0, -0.08, -0.45] },
+  longshot: { optic: [0, 0.13, -0.06], barrel: [0, 0.012, -0.9], mag: [0, -0.12, -0.06], stock: [0, 0, 0.38], grip: [0, -0.06, -0.52] },
   wasp: { optic: [0, 0.06, -0.04], barrel: [0, 0.022, -0.14], mag: [0, -0.12, 0.026], stock: [0, -0.05, 0.12], grip: [0, -0.035, -0.12] },
   breaker: { optic: [0, 0.1, 0.02], barrel: [0, 0.02, -0.58], mag: [0, -0.035, -0.6], stock: [0, -0.03, 0.42] }
 };
@@ -4767,6 +5200,8 @@ function shipColors(id) {
 // Squadmates' ships fly in and hold formation on the player's ship (children of it, so they
 // follow it through the launch and hyperspace cinematics too).
 const SLOTS = [[-6.5, 2.6, 8.5], [7, -1.6, -1.5], [0.5, 5.6, 15]];
+// tighter formation used in hyperspace and on approach, kept ahead of the chase camera so squadmates stay in frame
+const TSLOTS = [[5.5, 2.4, -7], [-1.5, 4.2, -12], [9, -0.8, -15]];
 const fleet = new Map();
 function syncFleet(dt) {
   const ids = NET.on ? [...NET.peers.keys()].sort() : [];
@@ -4774,10 +5209,14 @@ function syncFleet(dt) {
   ids.forEach((id, i) => {
     let f = fleet.get(id);
     if (!f) { const [hc, ac] = shipColors(id); f = { g: makeShip(hc, ac), a: 0, ph: Math.random() * 6 }; ship.add(f.g); fleet.set(id, f); }
-    const slot = SLOTS[i % SLOTS.length];
+    const tight = travel && (travel.inWarp || travel.kind === 'warp');
+    const slot = tight ? TSLOTS[i % TSLOTS.length] : SLOTS[i % SLOTS.length];
     f.a = Math.min(1, f.a + dt / 2.8);
     const e = 1 - Math.pow(1 - f.a, 3);
-    f.g.position.set(slot[0] + 40 * (1 - e), slot[1] + 10 * (1 - e) + Math.sin(mt * 0.6 + f.ph) * 0.18, slot[2] + 110 * (1 - e));
+    _ta.set(slot[0] + 40 * (1 - e), slot[1] + 10 * (1 - e) + Math.sin(mt * 0.6 + f.ph) * 0.18, slot[2] + 110 * (1 - e));
+    if (!f.p) f.p = _ta.clone();
+    f.p.lerp(_ta, Math.min(1, dt * (tight ? 3 : 1.5)));
+    f.g.position.copy(f.p);
     f.g.rotation.set(Math.sin(mt * 0.4 + f.ph) * 0.02, 0, Math.sin(mt * 0.35 + f.ph) * 0.05 + (1 - e) * 0.4);
     for (const [g, sc] of f.g.userData.glows) g.scale.setScalar(sc * (0.92 + Math.random() * 0.12) * (travel ? 1.6 : 1));
     for (const n of f.g.userData.navs) n.visible = (mt * 1.2 + f.ph) % 1 < 0.5;
@@ -4817,7 +5256,7 @@ function renderMenu(dt) {
 
 // ---------------- magnified scope lens ----------------
 const scopeCam = new T.PerspectiveCamera(20, 1, 0.1, 400);
-const scopeD = () => Math.round(Math.min(W, H) * 0.5);
+const scopeD = () => Math.round(Math.min(W, H) * (GS.sniper ? 0.9 : 0.5));
 function renderScopeLens() {
   const D = scopeD(), x = Math.round(W / 2 - D / 2), y = Math.round(H / 2 - D / 2), mag = GS.zoom || 2;
   scopeCam.fov = 2 * Math.atan(Math.tan(cam.fov * Math.PI / 360) * (D / H) / mag) * 180 / Math.PI;
@@ -4833,7 +5272,7 @@ function renderScopeLens() {
 // ---------------- multiplayer (co-op) ----------------
 // The host's game runs waves and enemies and sends snapshots; every client simulates its own player,
 // reports hits to the host, and takes damage from bolts and melee on its own machine.
-const ETYPES = ['trooper', 'stalker', 'heavy', 'walker'];
+const ETYPES = ['trooper', 'stalker', 'heavy', 'walker', 'turret'];
 const r2 = v => Math.round(v * 100) / 100;
 let serverUrl = '';
 try { serverUrl = localStorage.getItem('kessa-server') || ''; } catch (e) {}
@@ -4988,7 +5427,7 @@ function updateProxies(dt) {
     e.phase += dt * sp * 2.2;
     const sw = sp > 0.3 ? Math.sin(e.phase) * 0.6 : 0;
     if (e.type === 'walker') walkerLegs(e, sp);
-    else { e.legs[0].rotation.x = sw; e.legs[1].rotation.x = -sw; }
+    else if (e.legs.length > 1) { e.legs[0].rotation.x = sw; e.legs[1].rotation.x = -sw; }
     if (e.flash > 0) { e.flash -= dt; for (const mm of e.mats) mm.emissive.setHex(e.flash > 0 ? 0xffffff : 0); }
   }
   for (const e of enemies) if (e.beam && e.beam.visible && !(S.t - (e.lzNet || 0) < 0.4)) drawLaser(e, null);
@@ -5092,7 +5531,7 @@ function updatePeers(dt) {
     if (p.f && p.a) {
       p.fireT -= dt;
       if (p.fireT <= 0) {
-        p.fireT = p.w === 'breaker' ? 0.85 : p.w === 'hail' ? 0.07 : p.w === 'wasp' ? 0.22 : 0.1;
+        p.fireT = p.w === 'breaker' ? 0.85 : p.w === 'hail' ? 0.07 : p.w === 'wasp' ? 0.22 : p.w === 'lancer' ? 0.3 : p.w === 'longshot' ? 1.2 : 0.1;
         const cp = Math.cos(p.pt);
         const dir = new T.Vector3(-Math.sin(p.yw) * cp, Math.sin(p.pt), -Math.cos(p.yw) * cp);
         const from = new T.Vector3(p.x, p.y + 1.55 - 0.5 * (p.c || 0), p.z);
@@ -5184,7 +5623,7 @@ function buildStreaks() {
 }
 function startTravel(kind, name, sub, done) {
   if (kind === 'warp' && !streaks) buildStreaks();
-  travel = { q0: ship.quaternion.clone(), kind, t: 0, dur: kind === 'warp' ? 6.2 : 8.4, done, flashed: false, cam: null };
+  travel = { q0: ship.quaternion.clone(), kind, t: 0, dur: kind === 'warp' ? 6.2 : 13.5, done, flashed: false, cam: null };
   $('tName').textContent = name; $('tSub').textContent = sub;
   const sq = $('tSquad'); sq.innerHTML = '';
   const crew = [{ n: callsign, c: '#ffb547' }].concat(NET.on ? [...NET.peers.values()].map(p => ({ n: p.name, c: '#' + shipColors(p.id)[1].getHexString() })) : []);
@@ -5224,21 +5663,24 @@ function renderTravel(dt) {
   if (tr.kind === 'approach') {
     // Destiny-style launch: from orbit over Earth the fleet turns, burns away and jumps to
     // hyperspace; we ride the tunnel, drop out in front of Kessa-4 and fly straight at it.
-    const J = 1.9, X = 4.4;                          // jump time, exit time
+    const J = 5.4, X = 9.0;                          // jump time, exit time
     if (!tr.cam0) { tr.cam0 = menuCam.position.clone(); tr.look0 = new T.Vector3(1.5, 0.6, 6); tr.fov0 = menuCam.fov; }
     const cl = x => Math.max(0, Math.min(1, x)), sm = x => x * x * (3 - 2 * x);
     let boost = 1;
     if (tr.t < J) {
-      const k = tr.t / J;
+      // a heavy ship: it swings round slowly on its thrusters, settles, then the main engines light and it
+      // builds speed before the jump
+      const turnK = sm(cl(tr.t / 3.4)), burnK = cl((tr.t - 2.6) / (J - 2.6)), k = burnK;
       if (!tr.D) tr.D = new T.Vector3().sub(tr.cam0).setY(0).normalize().add(new T.Vector3(0, 0.12, 0)).normalize();
-      ship.position.copy(tr.D).multiplyScalar(420 * Math.pow(k, 3.2));
-      ship.position.y += Math.sin(mt * 0.8) * 0.15;
+      ship.position.copy(tr.D).multiplyScalar(3 * turnK + 420 * Math.pow(burnK, 2.8));
+      ship.position.y += Math.sin(mt * 0.8) * 0.15 - 0.4 * Math.sin(turnK * Math.PI);
       _tObj.position.copy(ship.position); _tObj.lookAt(_td.copy(ship.position).sub(tr.D));
-      _tObj.rotateZ(-0.3 * Math.sin(Math.min(1, k * 1.5) * Math.PI));
-      ship.quaternion.slerpQuaternions(tr.q0, _tObj.quaternion, sm(cl(tr.t / 1.0)));
+      _tObj.rotateZ(-0.22 * Math.sin(turnK * Math.PI));
+      ship.quaternion.slerpQuaternions(tr.q0, _tObj.quaternion, turnK);
+      if (tr.t > 2.6 && !tr.lit) { tr.lit = true; sTone(60, 90, 1.6, 0.12, 'sawtooth'); sNoise(1.8, 500, 0.14); }
       menuCam.position.copy(tr.cam0);
       menuCam.lookAt(_te.copy(tr.look0).lerp(ship.position, Math.min(0.5, k * 0.6)));
-      boost = 1 + k * 2.5;
+      boost = 1 + (tr.lit ? 0.6 : 0) + k * 2.5;
       if (k > 0.75 && !tr.whoosh) { tr.whoosh = true; SFX.whoosh(); }
       const fl = cl((k - 0.82) / 0.18); if (fl > 0) { f.style.background = '#eaf6ff'; f.style.opacity = sm(fl).toFixed(3); }
       planet.position.copy(PLANET_LOBBY); planet.scale.setScalar(3.6);
@@ -5277,7 +5719,7 @@ function renderTravel(dt) {
         planet.position.set(-30, 10, -900); planet.scale.setScalar(3.7); planet.rotation.set(0.25, 1.2, 0.35);
         menuSun.position.set(-500, 400, -300); menuAmb.intensity = 0.55;
       }
-      const k = cl((tr.t - X) / (tr.dur - X)), e = Math.pow(k, 1.4);
+      const k = cl((tr.t - X) / (tr.dur - X)), e = Math.pow(k, 1.7);
       const fo = cl(1 - (tr.t - X) / 0.5); if (fo > 0) { f.style.background = '#eaf6ff'; f.style.opacity = (fo * fo).toFixed(3); }
       // ship enters close on the right and races away into the planet
       ship.position.set(5.5 + 26 * e, -2.4 - 5 * e, 4 - 330 * e);
@@ -5376,15 +5818,15 @@ function buildShuttle() {
 }
 function startIntro() {
   if (shuttle) scene.remove(shuttle.g);
-  const P = S.p, gy = groundAt(0, LZ_Z - 2, 5), floor = gy + 0.55;
-  const g = buildShuttle(); g.position.set(0, floor, LZ_Z); scene.add(g);
+  const P = S.p, gy = groundAt(0, INS_Z - 2, 10), floor = gy + 0.55;
+  const g = buildShuttle(); g.position.set(0, floor, INS_Z); scene.add(g);
   shuttle = { g, t: 0, floor, gy, lift: 0, openA: Math.asin(0.55 / 2.0) };
   g.userData.ramp.rotation.x = Math.PI / 2;                            // closed: standing up across the doorway
   S.intro = { t: 0, x0: Math.max(-0.75, Math.min(0.75, P.x * 0.35)), x1: P.x };
   S.introStamp = missionStamp((S.seed || 1) * 7 + 3);
   $('introDate').textContent = S.introStamp; $('introTod').textContent = TOD.name + ' insertion · ' + WX[env.w].name;
   $('intro').hidden = false; $('introN').textContent = INTRO;
-  P.x = S.intro.x0; P.z = LZ_Z + 4.2; P.y = floor; P.yaw = 0; P.pitch = -0.04;
+  P.x = S.intro.x0; P.z = INS_Z + 4.2; P.y = floor; P.yaw = 0; P.pitch = -0.04;
   SFX.ramp();
 }
 function updateIntro(dt) {
@@ -5398,11 +5840,11 @@ function updateIntro(dt) {
   poseLauncher(0, 0);
   // hold, then run down the ramp and out onto the field
   const run = ease(cl((t - 1.6) / 2.4));
-  const zIn = LZ_Z + 4.2, zOut = LZ_Z - 3.1;
+  const zIn = INS_Z + 4.2, zOut = INS_Z - 3.1;
   P.z = zIn + (zOut - zIn) * run;
   const fan = Math.max(0, Math.min(1, (run - 0.62) / 0.38));
   P.x = I.x0 + (I.x1 - I.x0) * fan * fan * (3 - 2 * fan);
-  const zr = LZ_Z, zEnd = zr - 2.0 * Math.cos(sh.openA);
+  const zr = INS_Z, zEnd = zr - 2.0 * Math.cos(sh.openA);
   P.y = P.z > zr ? sh.floor : P.z > zEnd ? sh.gy + (sh.floor - sh.gy) * (P.z - zEnd) / (zr - zEnd) : sh.gy;
   const moving = t > 1.6 && t < 4.0;
   if (moving) P.bob += dt * 11;
@@ -5428,7 +5870,7 @@ function updateShuttle(dt) {
   if (sh.t > 1.2) {
     const k = sh.t - 1.2;
     sh.g.position.y = sh.floor + k * k * 1.6;
-    sh.g.position.z = LZ_Z + k * k * k * 1.4;
+    sh.g.position.z = INS_Z + k * k * k * 1.4;
     sh.g.rotation.x = -Math.min(0.35, k * 0.12);
   }
   if (sh.t > 9) { scene.remove(sh.g); shuttle = null; }
@@ -6101,7 +6543,7 @@ function renderInterHud() {
   el.hidden = !on; if (!on) { S && (S.myVote = false, S.votes = null); return; }
   const t = Math.ceil(S.intermission);
   const need = NET.on ? 1 + NET.peers.size : 1, have = NET.on ? (NET.host ? (S.votes ? S.votes.size : 0) : (S.voteN || (S.myVote ? 1 : 0))) : 0;
-  const exTxt = exfilReady() ? `<span class="exh">Exfil open · terminal at ${LZ_NAME}</span>` : '';
+  const exTxt = exfilReady() ? `<span class="exh">Exfil open · terminal at ${EX_NAME}</span>` : '';
   el.innerHTML = `<b>Next wave in ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}</b><span>${isTouch ? 'Tap SKIP' : 'Press V'} to ${NET.on ? `vote to skip · ${have}/${need}` : 'skip'} · Support terminal open</span>${exTxt}`;
 }
 
@@ -6117,7 +6559,14 @@ function spawnSweep() {
     const e = makeEnemy(ty, x, z); e.y = y; e.g.position.y = y; e.idle = true;
     e.g.rotation.y = Math.random() * Math.PI * 2;
   }
+  // the insertion route: broken sentries and stragglers between the LZ and the outpost
+  for (const [ty, x, z, y] of ROUTE_SPAWNS) {
+    const e = makeEnemy(ty, x, z); e.y = y; e.g.position.y = y; e.route = true; e.idle = ty !== 'turret';
+    e.g.rotation.y = ty === 'turret' ? 0 : Math.random() * Math.PI * 2;
+  }
 }
+// once the outpost is secured the route is behind you: clear what's left out there
+function despawnRoute() { for (const e of enemies) if (e.route && !e.dead) { e.dead = true; scene.remove(e.g); if (e.beam) scene.remove(e.beam, e.beamDot); } }
 function heardShots(e) {
   if (S.noise && S.t - S.noise.t < 0.3 && Math.hypot(S.noise.x - e.x, S.noise.z - e.z) < 30) return true;
   if (NET.on) for (const p of NET.peers.values()) if (p.f && Math.hypot(p.x - e.x, p.z - e.z) < 30) return true;
@@ -6131,12 +6580,17 @@ function sweepCleared() {
   banner('Outpost secured', 'Dig in. Wave 1 is coming', 2.8); SFX.level();
   if (isAuth()) omen('Something out there heard the gunfire..', true);
 }
+const AREAS = [
+  { id: 'marsh', name: 'Thornfield Marsh', sub: 'Flooded lowlands · Kessa-4', at: P => P.z < 126 && P.z > 96 },
+  { id: 'way', name: AREA_NAME, sub: AREA_SUB, at: P => Math.abs(P.x) < 30 && P.z < 24 }
+];
 function areaCheck() {
-  if (!S || S.areaShown || S.intro) return;
-  const P = S.p;
-  if (Math.abs(P.x) < 30 && P.z < 24) {
-    S.areaShown = true;
-    const c = $('areaCard'); c.querySelector('b').textContent = AREA_NAME; c.querySelector('span').textContent = AREA_SUB;
+  if (!S || S.intro) return;
+  const P = S.p; S.areasSeen = S.areasSeen || {};
+  const A = AREAS.find(a => !S.areasSeen[a.id] && a.at(P));
+  if (A) {
+    S.areasSeen[A.id] = true;
+    const c = $('areaCard'); c.querySelector('b').textContent = A.name; c.querySelector('span').textContent = A.sub;
     c.hidden = false; c.style.animation = 'none'; void c.offsetWidth; c.style.animation = '';
     setTimeout(() => { c.hidden = true; }, 6000);
   }
@@ -6146,12 +6600,13 @@ function renderMissionHud() {
   let html = '', cls = '';
   if (S.running && S.exfil) {
     const X = S.exfil, t = Math.max(0, Math.ceil(X.t)), mm = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-    if (X.ph === 'hold') html = `<b>Dropship inbound · ${mm}</b><span>Hold out, then get to ${LZ_NAME}</span>`;
-    else if (X.ph === 'board') { if (S.p.aboard) { cls = 'go'; html = `<b>Aboard · lifting off in ${mm}</b><span>Waiting for the squad</span>`; } else { cls = 'bad'; html = `<b>Board the dropship · ${mm}</b><span>Get up the ramp at ${LZ_NAME} or be left behind</span>`; } }
+    if (X.ph === 'hold') html = `<b>Dropship inbound · ${mm}</b><span>Hold out, then get to ${EX_NAME}</span>`;
+    else if (X.ph === 'board') { if (S.p.aboard) { cls = 'go'; html = `<b>Aboard · lifting off in ${mm}</b><span>Waiting for the squad</span>`; } else { cls = 'bad'; html = `<b>Board the dropship · ${mm}</b><span>Get up the ramp at ${EX_NAME} or be left behind</span>`; } }
     else { cls = S.p.aboard ? 'go' : 'bad'; html = S.p.aboard ? '<b>Exfil successful</b><span>Wheels up</span>' : '<b>Left behind</b><span>The dropship is gone</span>'; }
   } else if (S.running && !S.intro && S.wave === 0 && !(S.intermission > 0)) {
-    const n = enemies.filter(e => !e.dead).length;
-    html = `<b>Clear the outpost</b><span>${n ? `${n} hostile${n === 1 ? '' : 's'} remaining` : 'Move up the trail'}</span>`;
+    const n = enemies.filter(e => !e.dead && !e.route).length;
+    html = S.p.z > 66 ? `<b>Push through to ${AREA_NAME}</b><span>Broken sentries and stragglers on the route</span>`
+      : `<b>Clear the outpost</b><span>${n ? `${n} hostile${n === 1 ? '' : 's'} remaining` : 'Move up the trail'}</span>`;
   }
   el.hidden = !html;
   if (html && el.dataset.h !== html + cls) { el.dataset.h = html + cls; el.innerHTML = html; el.className = 'interhud mhud ' + cls; }
