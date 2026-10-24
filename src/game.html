@@ -1043,7 +1043,10 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
         <label for="sAuto">Auto-fire on touch screens</label><input id="sAuto" type="checkbox"><span></span>
       </div>
       <div class="sres"><span>Resolution</span><div class="seg" id="sRes">
-        <button type="button" data-res="low">Low</button><button type="button" data-res="med">PS2</button><button type="button" data-res="high">High</button><button type="button" data-res="native">Full</button>
+        <button type="button" data-res="low">Low</button><button type="button" data-res="med">Med</button><button type="button" data-res="high">High</button><button type="button" data-res="native">Full</button>
+      </div></div>
+      <div class="sres"><span>Graphics</span><div class="seg" id="sGfx">
+        <button type="button" data-gfx="modern">Modern</button><button type="button" data-gfx="retro">Retro</button>
       </div></div>
       <div class="lbtns"><button class="go" id="sDone" type="button">Done</button></div>
     </div>
@@ -1083,8 +1086,27 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (isTouch) $('touchUI').hidden = false;
 
 // ---------------- renderer ----------------
+const CFG = { sens: 1, touchSens: 1, fov: 72, vol: 0.8, music: 0.6, invertY: false, res: 'high', gfx: 'modern', autoFire: true };
+try { Object.assign(CFG, JSON.parse(localStorage.getItem('vp-settings') || '{}')); } catch (e) {}
 const R = new T.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' });
 R.autoClear = false;
+// ---------------- graphics: modern (PBR, shadows, sky, post) or retro (the original low-res look) ----------------
+const GFX = CFG.gfx !== 'retro';
+if (GFX) {
+  // colours are authored as sRGB hex; light in linear space and convert once at the end
+  const _setHex = T.Color.prototype.setHex;
+  T.Color.prototype.setHex = function (hex) { _setHex.call(this, hex); return this.convertSRGBToLinear(); };
+  const _CT = T.CanvasTexture;
+  T.CanvasTexture = class extends _CT { constructor(...a) { super(...a); this.encoding = T.sRGBEncoding; } };
+  R.outputEncoding = T.sRGBEncoding; R.toneMapping = T.ACESFilmicToneMapping; R.toneMappingExposure = 0.95;
+  R.shadowMap.enabled = true; R.shadowMap.type = T.PCFSoftShadowMap;
+  // every lit surface becomes a physically based material; textures bring their own normal maps
+  T.MeshLambertMaterial = function (p = {}) {
+    const q = Object.assign({ roughness: 0.82, metalness: 0, envMapIntensity: 0.7 }, p);
+    if (window.__noNM !== true && q.map && q.map.userData && q.map.userData.normal && !q.normalMap) q.normalMap = q.map.userData.normal;
+    const m = new T.MeshStandardMaterial(q); if (q.normalMap) m.normalScale.set(0.75, -0.75); return m;
+  };
+}
 const scene = new T.Scene();
 const FOG = 0xbfd3d6;
 scene.fog = new T.Fog(FOG, 22, 105);
@@ -1093,13 +1115,14 @@ cam.rotation.order = 'YXZ';
 const gunScene = new T.Scene();
 const gunCam = new T.PerspectiveCamera(60, 1, 0.01, 10);
 let W = 1, H = 1;
-const CFG = { sens: 1, touchSens: 1, fov: 72, vol: 0.8, music: 0.6, invertY: false, res: 'med', autoFire: true };
-try { Object.assign(CFG, JSON.parse(localStorage.getItem('vp-settings') || '{}')); } catch (e) {}
 const saveCfg = () => { try { localStorage.setItem('vp-settings', JSON.stringify(CFG)); } catch (e) {} };
 const RES_H = { low: 220, med: 300, high: 480 };
 function resize() {
   W = game.clientWidth; H = game.clientHeight;
-  R.setPixelRatio(CFG.res === 'native' ? Math.min(window.devicePixelRatio || 1, 2) : Math.max(0.2, Math.min(1, RES_H[CFG.res] / H)));
+  const dpr = window.devicePixelRatio || 1;
+  if (GFX) R.setPixelRatio(CFG.res === 'native' ? Math.min(dpr, 2) : Math.min(dpr, isTouch ? 1.5 : 2) * ({ low: 0.5, med: 0.7, high: 0.9 }[CFG.res] || 0.9));
+  else R.setPixelRatio(CFG.res === 'native' ? Math.min(dpr, 2) : Math.max(0.2, Math.min(1, RES_H[CFG.res] / H)));
+  try { if (POST) POST.resize(); } catch (e) {}
   R.setSize(W, H, false);
   cam.aspect = gunCam.aspect = W / H;
   cam.updateProjectionMatrix(); gunCam.updateProjectionMatrix();
@@ -1118,12 +1141,54 @@ const srand = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul
 const rnd = (a, b) => a + Math.random() * (b - a);
 const srnd = (a, b) => a + srand() * (b - a);
 
+// a box with bevelled, smoothly shaded edges: the grid lines sit where the bevel starts, corners are pushed
+// onto a sphere, normals point out from the inner box, UVs are projected per face so textures still tile
+function roundBox(w, h, d, tile, r) {
+  const g = new T.BoxGeometry(1, 1, 1, 3, 3, 3), pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv;
+  const hx = w / 2, hy = h / 2, hz = d / 2, map = (v, hh) => v <= -0.49 ? -hh : v >= 0.49 ? hh : v < 0 ? -hh + r : hh - r;
+  const v = new T.Vector3(), inn = new T.Vector3(), n = new T.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.set(map(pos.getX(i), hx), map(pos.getY(i), hy), map(pos.getZ(i), hz));
+    inn.set(Math.max(-hx + r, Math.min(hx - r, v.x)), Math.max(-hy + r, Math.min(hy - r, v.y)), Math.max(-hz + r, Math.min(hz - r, v.z)));
+    n.subVectors(v, inn); const l = n.length();
+    if (l > 1e-6) { n.divideScalar(l); v.copy(inn).addScaledVector(n, r); } else n.set(nor.getX(i), nor.getY(i), nor.getZ(i));
+    const fx = Math.abs(nor.getX(i)), fy = Math.abs(nor.getY(i));
+    const u = fx > 0.5 ? v.z : v.x, vv = fy > 0.5 ? v.z : v.y;
+    pos.setXYZ(i, v.x, v.y, v.z); nor.setXYZ(i, n.x, n.y, n.z); uv.setXY(i, (u + 50) / tile, (vv + 50) / tile);
+  }
+  return g;
+}
 function ctex(sz, fn) {
   const c = document.createElement('canvas'); c.width = c.height = sz;
   const g = c.getContext('2d'); fn(g, sz);
+  if (GFX) return hiTex(c);
   const t = new T.CanvasTexture(c);
   t.magFilter = T.NearestFilter; t.minFilter = T.NearestMipmapLinearFilter;
   t.wrapS = t.wrapT = T.RepeatWrapping;
+  return t;
+}
+// upscale a small pattern smoothly, add fine grain, and derive a normal map from its brightness
+function hiTex(src, N = 256) {
+  const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  for (const dx of [-N, 0, N]) for (const dy of [-N, 0, N]) g.drawImage(src, dx, dy, N, N);   // tiled so edges blend
+  const id = g.getImageData(0, 0, N, N), d = id.data, lum = new Float32Array(N * N);
+  let seed = 1234567; const rnd8 = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let i = 0; i < N * N; i++) { const n = (rnd8() - 0.5) * 18; d[i * 4] = Math.max(0, Math.min(255, d[i * 4] + n)); d[i * 4 + 1] = Math.max(0, Math.min(255, d[i * 4 + 1] + n)); d[i * 4 + 2] = Math.max(0, Math.min(255, d[i * 4 + 2] + n));
+    lum[i] = (d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11) / 255; }
+  g.putImageData(id, 0, 0);
+  const nc = document.createElement('canvas'); nc.width = nc.height = N; const ng = nc.getContext('2d'), nd = ng.createImageData(N, N);
+  const L = (x, y) => lum[((y + N) % N) * N + ((x + N) % N)];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const sx = (L(x + 1, y - 1) + 2 * L(x + 1, y) + L(x + 1, y + 1)) - (L(x - 1, y - 1) + 2 * L(x - 1, y) + L(x - 1, y + 1));
+    const sy = (L(x - 1, y + 1) + 2 * L(x, y + 1) + L(x + 1, y + 1)) - (L(x - 1, y - 1) + 2 * L(x, y - 1) + L(x + 1, y - 1));
+    let nx = -sx * 2.2, ny = -sy * 2.2, nz = 1; const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+    const k = (y * N + x) * 4; nd.data[k] = (nx * 0.5 + 0.5) * 255; nd.data[k + 1] = (ny * 0.5 + 0.5) * 255; nd.data[k + 2] = (nz * 0.5 + 0.5) * 255; nd.data[k + 3] = 255;
+  }
+  ng.putImageData(nd, 0, 0);
+  const t = new T.CanvasTexture(c), nt = new T.Texture(nc);
+  for (const x of [t, nt]) { x.wrapS = x.wrapT = T.RepeatWrapping; x.magFilter = T.LinearFilter; x.minFilter = T.LinearMipmapLinearFilter; x.anisotropy = 8; x.needsUpdate = true; }
+  t.userData = t.userData || {}; t.userData.normal = nt;
   return t;
 }
 function speckle(g, sz, base, cols, n, s = 1) {
@@ -1246,6 +1311,7 @@ function finalizeLevel() {
   buckets.clear();
 }
 function boxGeo(w, h, d, tile = 2) {
+  if (GFX && Math.min(w, h, d) >= 0.2) return roundBox(w, h, d, tile, Math.min(0.07, Math.min(w, h, d) * 0.18));
   const g = new T.BoxGeometry(w, h, d);
   const uv = g.attributes.uv;
   const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
@@ -1567,7 +1633,7 @@ function buildRoute(palm, fern) {
   geo.setAttribute('color', new T.BufferAttribute(col, 3)); geo.computeVertexNormals();
   const terr = new T.Mesh(geo, new T.MeshLambertMaterial({ map: TX.grass, vertexColors: true })); scene.add(terr);
   // swamp water, scum and mist
-  const water = new T.Mesh(new T.PlaneGeometry(70, 40), new T.MeshLambertMaterial({ color: 0x3c4a2c, transparent: true, opacity: 0.84, depthWrite: false }));
+  const water = new T.Mesh(new T.PlaneGeometry(70, 40), GFX ? new T.MeshStandardMaterial({ color: 0x2e3a22, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.9, depthWrite: false }) : new T.MeshLambertMaterial({ color: 0x3c4a2c, transparent: true, opacity: 0.84, depthWrite: false }));
   water.rotation.x = -Math.PI / 2; water.position.set(-4, WATER_Y, 110); water.renderOrder = 2; scene.add(water);
   const padMat = new T.MeshLambertMaterial({ color: 0x4f7a34 });
   for (let i = 0; i < 40; i++) { const x = srnd(-28, 18), z = srnd(94, 126); if (H(x, z) > WATER_Y - 0.1) continue; const d = new T.Mesh(new T.CircleGeometry(srnd(0.25, 0.6), 7), padMat); d.rotation.x = -Math.PI / 2; d.position.set(x, WATER_Y + 0.02, z); scene.add(d); }
@@ -4743,6 +4809,7 @@ bindRange('sSens', 'sens', parseFloat); bindRange('sTouch', 'touchSens', parseFl
 $('sInv').addEventListener('change', e => { CFG.invertY = e.target.checked; saveCfg(); });
 $('sAuto').addEventListener('change', e => { CFG.autoFire = e.target.checked; saveCfg(); });
 for (const b of document.querySelectorAll('#sRes button')) b.addEventListener('click', () => { CFG.res = b.dataset.res; saveCfg(); syncSettingsUI(); resize(); });
+for (const b of document.querySelectorAll('#sGfx button')) { b.setAttribute('aria-pressed', (CFG.gfx || 'modern') === b.dataset.gfx ? 'true' : 'false'); b.addEventListener('click', () => { if (CFG.gfx === b.dataset.gfx) return; CFG.gfx = b.dataset.gfx; saveCfg(); location.reload(); }); }
 $('sDone').addEventListener('click', closeSettings);
 $('menuSettingsBtn').addEventListener('click', () => openSettings());
 
@@ -4886,6 +4953,7 @@ const thumbs = new Map();
 function initPreview() {
   if (R2) return;
   R2 = new T.WebGLRenderer({ canvas: $('wpCanvas'), antialias: false, alpha: true, preserveDrawingBuffer: true });
+  if (GFX) { R2.outputEncoding = T.sRGBEncoding; R2.toneMapping = T.ACESFilmicToneMapping; }
   R2.setClearColor(0x000000, 0);
   pvScene = new T.Scene();
   pvScene.add(new T.HemisphereLight(0xe4efff, 0x2a3040, 0.95));
@@ -6140,13 +6208,13 @@ function updateWeather(dt) {
   const [A, B, f] = todBlend(S.clock);
   lerpHex(A.fog, B.fog, f, scene.fog.color).lerp(env.fogCol, env.fogAmt * 0.75);
   const near = A.near + (B.near - A.near) * f, far = A.far + (B.far - A.far) * f;
-  scene.fog.near = near * env.fogMul; scene.fog.far = far * env.fogMul;
+  scene.fog.near = near * env.fogMul * (GFX ? 1.5 : 1); scene.fog.far = far * env.fogMul * (GFX ? 1.8 : 1);
   lerpHex(A.sky, B.sky, f, sky.material.color).multiply(env.sky);
   const fl = env.flash;
   lerpHex(A.hs, B.hs, f, hemi.color); lerpHex(A.hg, B.hg, f, hemi.groundColor);
-  hemi.intensity = (A.hi + (B.hi - A.hi) * f) * env.light + fl * 1.1;
+  hemi.intensity = ((A.hi + (B.hi - A.hi) * f) * env.light + fl * 1.1) * (GFX ? 0.45 : 1);
   lerpHex(A.sc, B.sc, f, sun.color); if (env.meteors > 0.05) sun.color.lerp(_c1.setHex(0xff7040), env.meteors * 0.5);
-  sun.intensity = (A.si + (B.si - A.si) * f) * env.light + fl * 0.6;
+  sun.intensity = ((A.si + (B.si - A.si) * f) * env.light + fl * 0.6) * (GFX ? 2.3 : 1);
   sun.position.set(A.sp[0] + (B.sp[0] - A.sp[0]) * f, A.sp[1] + (B.sp[1] - A.sp[1]) * f, A.sp[2] + (B.sp[2] - A.sp[2]) * f);
   if (fl > 0) { sky.material.color.lerp(_c1.setHex(0xe8f0ff), fl * 0.8); scene.fog.color.lerp(_c1.setHex(0xd0dcff), fl * 0.5); }
   gsun.color.copy(sun.color); gsun.intensity = 0.4 + sun.intensity * 0.4;
@@ -6891,6 +6959,182 @@ function updateExfil(dt) {
   } else mk.hidden = true;
 }
 
+// ---------------- modern graphics: sky, image-based light, shadows, wet weather, post-processing ----------------
+let POST = null, envRT = null, pmrem = null, envT = 0, skyUni = null, wetMats = [], puddles = null, rainSplash = null;
+function gfxInit() {
+  // sky: gradient from the fog colour at the horizon to the zenith colour, a sun disc and drifting clouds
+  skyUni = { uTop: { value: new T.Color(0xffffff) }, uHor: { value: scene.fog.color }, uSun: { value: new T.Vector3(0.4, 0.8, 0.3) }, uSunCol: { value: sun.color },
+    uCloud: { value: 0.35 }, uTime: { value: 0 }, uNight: { value: 0 } };
+  const skyMat = new T.ShaderMaterial({ uniforms: skyUni, side: T.BackSide, depthWrite: false, fog: false,
+    vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `uniform vec3 uTop, uHor, uSun, uSunCol; uniform float uCloud, uTime, uNight; varying vec3 vP;
+      float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+      float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h(i), h(i+vec2(1,0)), f.x), mix(h(i+vec2(0,1)), h(i+vec2(1,1)), f.x), f.y); }
+      float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { v += a * n(p); p *= 2.03; a *= 0.5; } return v; }
+      void main(){
+        vec3 d = normalize(vP); float y = d.y;
+        vec3 sky = mix(uHor, uTop * 0.9, pow(clamp(y, 0.0, 1.0), 0.55));
+        sky = mix(sky, uHor * 0.75, smoothstep(0.0, -0.25, y));
+        float sd = max(dot(d, normalize(uSun)), 0.0);
+        sky += uSunCol * (pow(sd, 900.0) * 30.0 + pow(sd, 12.0) * 0.35) * (1.0 - uNight * 0.8) * (1.0 - uCloud * 0.6);
+        if (y > 0.0) {
+          vec2 cp = d.xz / (y + 0.12) * 1.6 + vec2(uTime * 0.012, uTime * 0.004);
+          float c = smoothstep(0.62 - uCloud * 0.42, 1.0, fbm(cp)) * smoothstep(0.0, 0.18, y);
+          vec3 cc = mix(uHor * 1.05, vec3(1.0) * (0.6 + 0.6 * pow(sd, 4.0)), 0.55) * (1.0 - uNight * 0.85);
+          sky = mix(sky, cc, c * 0.85);
+          float st = step(0.9975, h(floor(d.xz / (y + 0.3) * 260.0))) * uNight * smoothstep(0.1, 0.4, y) * (1.0 - c);
+          sky += vec3(st);
+        }
+        gl_FragColor = vec4(sky, 1.0);
+      }` });
+  skyMat.color = skyUni.uTop.value;                 // the weather code tints the sky through material.color
+  sky.material = skyMat;
+  // image-based lighting: a small cube map painted from the current sky colours
+  updateEnv();
+  // shadows from the sun, following the player
+  sun.castShadow = true; scene.add(sun.target);
+  const sz = isTouch ? 1024 : 2048; sun.shadow.mapSize.set(sz, sz);
+  const sc = sun.shadow.camera; sc.left = -42; sc.right = 42; sc.top = 42; sc.bottom = -42; sc.near = 1; sc.far = 220; sc.updateProjectionMatrix();
+  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  scene.traverse(o => {
+    if (!o.isMesh || !o.material) return;
+    const m = o.material, tr = m.transparent || (m.isMeshBasicMaterial);
+    o.receiveShadow = !m.isMeshBasicMaterial; o.castShadow = !tr && o !== sky && !(o.geometry && o.geometry.parameters && o.geometry.parameters.width > 150);
+  });
+  // material character: metals shine, wet surfaces in the rain
+  const tune = (m, r, me, wet) => { if (!m || !m.isMeshStandardMaterial) return; m.roughness = r; m.metalness = me; m.userData.r0 = r; m.userData.c0 = m.color.clone(); if (wet) wetMats.push(m); };
+  tune(M.concrete, 0.86, 0, 1); tune(M.trim, 0.5, 0.35, 1); tune(M.crate, 0.72, 0.05, 1); tune(M.grass, 0.95, 0, 1); tune(M.dirt, 0.97, 0, 1);
+  tune(M.rock, 0.82, 0, 1); tune(M.bark, 0.9, 0, 1); tune(M.leaf, 0.7, 0, 0); tune(M.grate, 0.42, 0.7, 1);
+  for (const k of ['metal', 'burnt', 'char', 'synth', 'cloth', 'cloth2']) if (MX[k]) tune(MX[k], k === 'metal' ? 0.4 : 0.85, k === 'metal' ? 0.75 : 0, 1);
+  for (const m of [gm, gl]) if (m && m.isMeshStandardMaterial) { m.roughness = 0.34; m.metalness = 0.72; m.envMapIntensity = 1.1; }
+  scene.traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && o.material.vertexColors && !wetMats.includes(o.material)) tune(o.material, 0.93, 0, 1); });
+  // puddles that appear on the plaza, roads and pads when it rains, reflecting the sky
+  puddles = new T.MeshStandardMaterial({ color: 0x0c1014, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  const pg = new T.CircleGeometry(1, 14), pp = pg.attributes.position;
+  for (let i = 1; i < pp.count; i++) { const a = Math.atan2(pp.getY(i), pp.getX(i)), k = 0.75 + 0.25 * Math.sin(a * 3 + i) ; pp.setXY(i, pp.getX(i) * k, pp.getY(i) * k); }
+  pg.rotateX(-Math.PI / 2);
+  for (const [x, z, y, r] of [[-4, 4, 0.9, 1.6], [6, -1, 0.9, 1.2], [-8, -0.5, 0.9, 1.0], [2, 7, 0.9, 1.3], [9, 2.5, 0.9, 0.9], [0, 18, 0, 1.4], [0, -16, 0, 1.2], [-20, 0, 0, 1.3], [-34, 0, 0, 1.6],
+    [38, -3, 0, 1.2], [0, 40, 0, 1.1], [0, 56, 0.14, 2.0], [25, 17, 0, 1.4], [-12, 24, 0, 1.2], [21, -21, 0, 1.3], [-18, -10, 0, 1.2], [11, -25, 0, 1.0], [30, 8, 0, 1.1]]) {
+    const m = new T.Mesh(pg, puddles); m.position.set(x, y + 0.03, z); m.scale.set(r * 1.4, 1, r); m.rotation.y = x * 1.7; m.receiveShadow = true; scene.add(m);
+  }
+  // rain hitting the ground: rings that pop up and spread around you
+  const rg = new T.RingGeometry(0.06, 0.1, 10); rg.rotateX(-Math.PI / 2);
+  rainSplash = new T.InstancedMesh(rg, new T.MeshBasicMaterial({ color: 0xd8e4f0, transparent: true, opacity: 0.4, depthWrite: false }), 220);
+  rainSplash.frustumCulled = false; rainSplash.userData.t = new Float32Array(220).map(() => Math.random()); rainSplash.userData.p = new Float32Array(220 * 3); scene.add(rainSplash);
+  // glows and sprites: smooth filtering instead of the retro nearest-pixel look
+  for (const t of Object.values(TX)) if (t && t.isTexture && !t.userData?.normal) { t.magFilter = T.LinearFilter; t.needsUpdate = true; }
+  for (const l of lampHeads) l.scale.setScalar(1.0);
+  if (M.grass.isMeshStandardMaterial) { M.grass.color.multiplyScalar(0.82); M.grass.userData.c0 = M.grass.color.clone(); }
+  POST = makePost();
+}
+// re-light the scene from the current sky every few seconds (time of day and weather keep changing)
+let envCube = null;
+function updateEnv() {
+  const N = 32, faces = [], top = new T.Color().copy(skyUni.uTop.value).convertLinearToSRGB(), hor = new T.Color().copy(scene.fog.color).convertLinearToSRGB(),
+    gnd = new T.Color(0x3a4a2a).convertLinearToSRGB().lerp(hor, 0.25), sd = new T.Vector3().copy(sun.position).normalize(), sc = new T.Color().copy(sun.color).convertLinearToSRGB();
+  // cube face orientations (+x, -x, +y, -y, +z, -z): direction for pixel (u, v) in [-1, 1]
+  const dirs = [(u, v) => [1, -v, -u], (u, v) => [-1, -v, u], (u, v) => [u, 1, v], (u, v) => [u, -1, -v], (u, v) => [u, -v, 1], (u, v) => [-u, -v, -1]];
+  const c = new T.Color(), d = new T.Vector3();
+  for (let f = 0; f < 6; f++) {
+    const cv_ = (envCube && envCube.image[f]) || document.createElement('canvas'); cv_.width = cv_.height = N;
+    const g = cv_.getContext('2d'), id = g.createImageData(N, N);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      d.set(...dirs[f]((x + 0.5) / N * 2 - 1, (y + 0.5) / N * 2 - 1)).normalize();
+      if (d.y >= 0) c.copy(hor).lerp(top, Math.pow(d.y, 0.55)); else c.copy(hor).lerp(gnd, Math.min(1, -d.y * 3));
+      const k = Math.pow(Math.max(0, d.dot(sd)), 8) * 0.6; c.r += sc.r * k; c.g += sc.g * k; c.b += sc.b * k;
+      const i = (y * N + x) * 4; id.data[i] = Math.min(255, c.r * 255); id.data[i + 1] = Math.min(255, c.g * 255); id.data[i + 2] = Math.min(255, c.b * 255); id.data[i + 3] = 255;
+    }
+    g.putImageData(id, 0, 0); faces.push(cv_);
+  }
+  if (!envCube) { envCube = new T.CubeTexture(faces); envCube.encoding = T.sRGBEncoding; envCube.generateMipmaps = true; envCube.minFilter = T.LinearMipmapLinearFilter; scene.environment = envCube; gunScene.environment = envCube; }
+  envCube.needsUpdate = true;
+}
+const _mt = new T.Matrix4(), _q0 = new T.Quaternion(), _sv = new T.Vector3();
+function gfxFrame(dt) {
+  const P = S && S.p;
+  // sky
+  skyUni.uTime.value += dt; skyUni.uSun.value.copy(sun.position).normalize();
+  const hr = ((S && S.clock) || 12) % 24; skyUni.uNight.value = hr > 20.5 || hr < 4.5 ? 1 : hr > 19 ? (hr - 19) / 1.5 : hr < 6 ? (6 - hr) / 1.5 : 0;
+  skyUni.uCloud.value = Math.min(1, 0.3 + env.rain * 0.6 + env.fogAmt * 0.3);
+  envT -= dt; if (envT <= 0) { envT = 3; updateEnv(); }
+  // shadow camera follows the player; the sun's direction comes from the weather/time code
+  if (P) {
+    _sv.copy(sun.position).normalize(); if (_sv.y < 0.15) _sv.y = 0.15; _sv.normalize();
+    sun.target.position.set(P.x, P.y, P.z); sun.position.set(P.x + _sv.x * 90, P.y + _sv.y * 90, P.z + _sv.z * 90);
+    sun.castShadow = skyUni.uNight.value < 0.9;
+    for (const e of enemies) if (!e.g.userData.sh) { e.g.userData.sh = 1; e.g.traverse(m => { if (m.isMesh) m.castShadow = true; }); }
+  }
+  // wet surfaces: darker and glossier in the rain, puddles fill up
+  const w = env.rain;
+  for (const m of wetMats) { m.roughness = m.userData.r0 * (1 - 0.55 * w); m.color.copy(m.userData.c0).multiplyScalar(1 - 0.28 * w); }
+  if (puddles) puddles.opacity = Math.min(0.85, w * 0.95);
+  // rainSplashes
+  if (rainSplash) {
+    rainSplash.visible = w > 0.08 && !!P;
+    if (rainSplash.visible) {
+      const T_ = rainSplash.userData.t, pp = rainSplash.userData.p, n = Math.floor(220 * Math.min(1, w));
+      for (let i = 0; i < 220; i++) {
+        T_[i] += dt * 2.6;
+        if (T_[i] >= 1) { T_[i] = 0; const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * 16, x = P.x + Math.cos(a) * r, z = P.z + Math.sin(a) * r; pp[i * 3] = x; pp[i * 3 + 1] = groundAt(x, z, P.y + 4) + 0.04; pp[i * 3 + 2] = z; }
+        const k = i < n ? T_[i] : 0, sc = 0.4 + k * 1.6;
+        _mt.compose(_sv.set(pp[i * 3], pp[i * 3 + 1], pp[i * 3 + 2]), _q0, new T.Vector3(sc, 1, sc)); rainSplash.setMatrixAt(i, k > 0.95 || i >= n ? _mt.makeScale(0, 0, 0) : _mt);
+      }
+      rainSplash.instanceMatrix.needsUpdate = true;
+    }
+  }
+}
+// post-processing: scene (and view model) into an HDR target, bloom from the bright parts, then tone map,
+// grade and vignette onto the screen
+function makePost() {
+  const gl2 = R.capabilities.isWebGL2, opt = { type: T.HalfFloatType, format: T.RGBAFormat, minFilter: T.LinearFilter, magFilter: T.LinearFilter };
+  const main = gl2 ? new T.WebGLMultisampleRenderTarget(4, 4, opt) : new T.WebGLRenderTarget(4, 4, opt);
+  if (gl2) main.samples = isTouch ? 2 : 4;
+  const levels = [0, 1, 2].map(() => [new T.WebGLRenderTarget(4, 4, opt), new T.WebGLRenderTarget(4, 4, opt)]);
+  const quad = new T.Mesh(new T.PlaneGeometry(2, 2)), qs = new T.Scene(), qc = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1); qs.add(quad); quad.frustumCulled = false;
+  const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+  const bright = new T.ShaderMaterial({ uniforms: { t: { value: null }, thr: { value: 1.0 } }, vertexShader: vs, depthTest: false, depthWrite: false,
+    fragmentShader: 'uniform sampler2D t; uniform float thr; varying vec2 vUv; void main(){ vec3 c = texture2D(t, vUv).rgb; float l = max(max(c.r, c.g), c.b); gl_FragColor = vec4(c * smoothstep(thr, thr + 1.2, l), 1.0); }' });
+  const blur = new T.ShaderMaterial({ uniforms: { t: { value: null }, dir: { value: new T.Vector2() } }, vertexShader: vs, depthTest: false, depthWrite: false,
+    fragmentShader: 'uniform sampler2D t; uniform vec2 dir; varying vec2 vUv; void main(){ vec3 c = texture2D(t, vUv).rgb * 0.227; c += (texture2D(t, vUv + dir * 1.385).rgb + texture2D(t, vUv - dir * 1.385).rgb) * 0.316; c += (texture2D(t, vUv + dir * 3.23).rgb + texture2D(t, vUv - dir * 3.23).rgb) * 0.07; gl_FragColor = vec4(c, 1.0); }' });
+  const comp = new T.ShaderMaterial({ uniforms: { t: { value: null }, b0: { value: null }, b1: { value: null }, b2: { value: null }, exp: { value: 1.0 }, bloom: { value: 0.55 }, wet: { value: 0 } }, vertexShader: vs, depthTest: false, depthWrite: false,
+    fragmentShader: `uniform sampler2D t, b0, b1, b2; uniform float exp, bloom, wet; varying vec2 vUv;
+      vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+      void main(){
+        vec3 c = texture2D(t, vUv).rgb;
+        vec3 b = texture2D(b0, vUv).rgb * 0.5 + texture2D(b1, vUv).rgb * 0.3 + texture2D(b2, vUv).rgb * 0.35;
+        c = (c + b * bloom) * exp;
+        c = aces(c);
+        float l = dot(c, vec3(0.299, 0.587, 0.114));
+        c = mix(vec3(l), c, 1.08 - wet * 0.18);                       // a touch more saturation, greyer in the rain
+        c = pow(c, vec3(1.0 / 2.2));
+        c = (c - 0.5) * 1.06 + 0.5;                                     // gentle contrast
+        vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * 0.55;               // vignette
+        gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+      }` });
+  const pass = (mat, target) => { quad.material = mat; R.setRenderTarget(target); R.render(qs, qc); };
+  const sizeV = new T.Vector2();
+  const P_ = {
+    resize() { R.getDrawingBufferSize(sizeV); main.setSize(sizeV.x, sizeV.y); levels.forEach((l, i) => { const d = 2 << i; l[0].setSize(Math.max(1, sizeV.x / d | 0), Math.max(1, sizeV.y / d | 0)); l[1].setSize(Math.max(1, sizeV.x / d | 0), Math.max(1, sizeV.y / d | 0)); }); },
+    render(withGun) {
+      R.setRenderTarget(main); R.clear(); R.render(scene, cam);
+      if (withGun) { R.clearDepth(); R.render(gunScene, gunCam); }
+      bright.uniforms.t.value = main.texture; pass(bright, levels[0][0]);
+      let src = levels[0][0];
+      levels.forEach((l, i) => {
+        if (i > 0) { blur.uniforms.t.value = src.texture; blur.uniforms.dir.value.set(0, 0); pass(blur, l[0]); }
+        blur.uniforms.t.value = l[0].texture; blur.uniforms.dir.value.set(1 / l[0].width, 0); pass(blur, l[1]);
+        blur.uniforms.t.value = l[1].texture; blur.uniforms.dir.value.set(0, 1 / l[1].height); pass(blur, l[0]);
+        src = l[0];
+      });
+      comp.uniforms.t.value = main.texture; comp.uniforms.b0.value = levels[0][0].texture; comp.uniforms.b1.value = levels[1][0].texture; comp.uniforms.b2.value = levels[2][0].texture;
+      comp.uniforms.wet.value = env.rain;
+      R.setRenderTarget(null); quad.material = comp; R.render(qs, qc);
+    }
+  };
+  P_.resize();
+  return P_;
+}
+
 // ---------------- loop & flow ----------------
 let last = performance.now(), mode = 'menu', mt = 0;
 function frame(now) {
@@ -6901,9 +7145,13 @@ function frame(now) {
   else if (S) {
     if (S.running && (NET.on || (!paused && !document.hidden))) update(dt);
     placeCamera();
-    R.clear(); R.render(scene, cam);
-    if (S.running && GS.optic === 'acog' && S.p.ads > 0.85) renderScopeLens();
-    else if (S.running && !S.p.dead && !S.missile) { R.clearDepth(); R.render(gunScene, gunCam); }
+    const scoped = S.running && GS.optic === 'acog' && S.p.ads > 0.85, showGun = !scoped && S.running && !S.p.dead && !S.missile;
+    if (GFX && POST) { gfxFrame(dt); POST.render(showGun); if (scoped) renderScopeLens(); }
+    else {
+      R.clear(); R.render(scene, cam);
+      if (scoped) renderScopeLens();
+      else if (showGun) { R.clearDepth(); R.render(gunScene, gunCam); }
+    }
     hud();
   }
   requestAnimationFrame(frame);
@@ -7003,7 +7251,7 @@ $('overMenuBtn').addEventListener('click', toMenu);
 $('quitBtn').addEventListener('click', toMenu);
 
 setTimeout(() => {
-  buildLevel(); buildMenu();
+  buildLevel(); buildMenu(); if (GFX) gfxInit();
   try {
     initPreview();
     const c = new T.PerspectiveCamera(50, 16 / 9, 0.1, 400); c.position.set(-30, 24, 32); c.lookAt(3, 0, -3);
