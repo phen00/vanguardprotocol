@@ -1737,7 +1737,7 @@ function buildRoute(palm, fern) {
     m.position.set(x, y + s * sy * 0.35, z); m.scale.set(s, s * sy, s * srnd(0.8, 1.2)); m.rotation.set(srand(), srand() * 6, srand() * 0.3); build.add(m);
     if (solid) boxes.push({ x0: x - s * 0.7, x1: x + s * 0.7, z0: z - s * 0.7, z1: z + s * 0.7, y0: y - 1, y1: y + s * sy * 0.95 });
   };
-  for (let z = 66; z < REG_Z1; z += 3.2) for (const sd of [-1, 1]) { const w = regW(z), c = regC(z); rockOn(c + sd * (w - srnd(2.5, 4.5)), z + srnd(-1, 1), srnd(1.6, 3.4), false, srnd(0.8, 1.6)); }
+  for (let z = 66; z < REG_Z1; z += 5.5) for (const sd of [-1, 1]) { const w = regW(z), c = regC(z); rockOn(c + sd * (w - srnd(2.5, 4.5)), z + srnd(-1, 1), srnd(1.6, 3.4), false, srnd(0.8, 1.6)); }
   // ruined south gate where the gorge opens onto the outpost
   addBox(-5.6, 70, 1.3, 1.3, 6, 0, M.concrete); addBox(5.6, 70, 1.3, 1.3, 4.2, 0, M.concrete);
   addBox(-1.4, 70, 9.6, 1.0, 1.0, 6, M.concrete); addBox(4.2, 70.4, 2.6, 1.0, 0.8, 0.4, M.concrete, true, 1);
@@ -1763,22 +1763,25 @@ function buildRoute(palm, fern) {
   };
   const t1 = bunker(-8, 139, 6, 5, 1.6); ROUTE_SPAWNS.push(['turret', -8.5, 139.5, t1]);
   // the basin: jungle, hills, sentry posts on high ground, wreckage of the first wave down
-  for (let i = 0, n = 0; i < 900 && n < 80; i++) {
+  for (let i = 0, n = 0; i < 900 && n < 46; i++) {
     const z = srnd(128, REG_Z1 - 4), c = regC(z), w = regW(z), x = c + srnd(-w + 6, w - 6);
     if (Math.abs(x - (regC(z) + Math.sin(z * 0.13) * 1.2)) < 3.2 || Math.hypot(x, z - INS_Z) < 14 || nearBox(x, z, 2)) continue;
     palm(x, z, srnd(0.8, 1.25), H(x, z)); n++;
   }
-  for (let i = 0, n = 0; i < 1500 && n < 160; i++) {
+  for (let i = 0, n = 0; i < 1500 && n < 70; i++) {
     const z = srnd(128, REG_Z1 - 4), c = regC(z), w = regW(z), x = c + srnd(-w + 5, w - 5);
-    if (Math.hypot(x, z - INS_Z) < 12 || nearBox(x, z, 0.6)) continue;
+    if (Math.hypot(x, z - INS_Z) < 12 || nearBox(x, z, 0.6) || Math.abs(x - c) < 4.5) continue;   // keep the path itself clear
     fern(x, z, H(x, z), srnd(0.26, 0.5)); n++;
   }
-  for (let i = 0; i < 26; i++) { const z = srnd(66, REG_Z1 - 4), c = regC(z), w = regW(z), x = c + srnd(-w + 6, w - 6); if (Math.abs(x - c) < 4 || Math.hypot(x, z - INS_Z) < 14 || (z > 94 && z < 126)) continue; rockOn(x, z, srnd(0.8, 2.0), true, srnd(0.6, 1)); }
+  for (let i = 0; i < 10; i++) { const z = srnd(66, REG_Z1 - 4), c = regC(z), w = regW(z), x = c + srnd(-w + 6, w - 6); if (Math.abs(x - c) < 4 || Math.hypot(x, z - INS_Z) < 14 || (z > 94 && z < 126)) continue; rockOn(x, z, srnd(0.8, 2.0), true, srnd(0.6, 1)); }
   const t2 = bunker(17, 164, 5, 5, 1.4); ROUTE_SPAWNS.push(['turret', 17, 164.5, t2]);
   const t3 = bunker(-20, 175, 5, 5, 1.4); ROUTE_SPAWNS.push(['turret', -20, 175.5, t3]);
   ROUTE_SPAWNS.push(['turret', 3, 120, Math.max(WATER_Y + 0.36, H(3, 120) + 0.2)]);
-  addBox(3, 120, 2.6, 2.6, 0.5 + Math.max(WATER_Y + 0.36, H(3, 120) + 0.2) - H(3, 120) - 0.3, H(3, 120) - 0.3, M.concrete);   // sentry pad in the swamp
-  ROUTE_SPAWNS.push(['turret', -4, 84, H(-4, 84)]);
+  addBox(3, 120, 2.6, 2.6, Math.max(WATER_Y + 0.36, H(3, 120) + 0.2) - H(3, 120) + 0.3, H(3, 120) - 0.3, M.concrete);   // sentry pad in the swamp
+  { const hs = [H(-4, 84)]; for (const [dx, dz] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) hs.push(H(-4 + dx, 84 + dz));
+    const top = Math.max(...hs) + 0.1, lo = Math.min(...hs) - 0.3;
+    addBox(-4, 84, 2.0, 2.0, top - lo, lo, M.concrete);                  // sentry plinth, so the turret never hangs off the slope
+    ROUTE_SPAWNS.push(['turret', -4, 84, top]); }
   // stragglers: synths standing guard along the way
   for (const [ty, x, z] of [['trooper', -9, 104], ['trooper', -2, 110], ['stalker', -12, 116], ['trooper', 6, 132], ['trooper', -4, 148], ['trooper', 11, 172], ['stalker', -8, 166], ['trooper', 2, 88]])
     ROUTE_SPAWNS.push([ty, x, z, H(x, z)]);
@@ -1838,7 +1841,7 @@ function buildRing() {
   const headMat = new T.MeshBasicMaterial({ color: 0xffd9a0 });
   for (let i = 0; i < RING.length; i++) {
     const [x, z] = RING[i], l = Math.hypot(x, z), ox = x + x / l * 2.9, oz = z + z / l * 2.9;
-    if (nearBox(ox, oz, 0.3)) continue;
+    if (nearBox(ox, oz, 0.3) || (Math.abs(ox) < 5.5 && Math.abs(oz) > 20) || (Math.abs(oz) < 5.5 && ox < -10) || (oz > -7.5 && oz < 1.5 && ox > 10)) continue;   // never on a spoke road
     addBox(ox, oz, 0.16, 0.16, 3.4, 0, MX.metal); addBox(ox - x / l * 0.45, oz - z / l * 0.45, 1.0, 0.12, 0.1, 3.35, MX.metal, false);
     const h = new T.Mesh(new T.BoxGeometry(0.34, 0.12, 0.34), headMat); h.position.set(ox - x / l * 0.85, 3.3, oz - z / l * 0.85); scene.add(h);
     const gl_ = new T.Sprite(new T.SpriteMaterial({ map: TX.flash, color: 0xffc070, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 })); gl_.position.copy(h.position); gl_.scale.setScalar(1.6); scene.add(gl_);
@@ -1855,12 +1858,6 @@ function buildRing() {
     dish.position.set(mx + 0.4, H * 0.82, mz + 0.4); dish.rotation.set(-1.1, 0.7, 0); build.add(dish);
     mastLight = new T.Mesh(new T.SphereGeometry(0.22, 8, 6), new T.MeshBasicMaterial({ color: 0xff2a1a })); mastLight.position.set(mx, H + 0.9, mz); scene.add(mastLight);
     const halo = new T.Sprite(new T.SpriteMaterial({ map: TX.flash, color: 0xff3020, blending: T.AdditiveBlending, depthWrite: false, transparent: true })); halo.scale.setScalar(3); mastLight.add(halo); }
-  // grav lifts: step on to be thrown onto a roof, a tower, or across to the extraction pad
-  jumpPad(-10.5, 6.0, 0.9, -6.5, -4.6, 5.45, 1.6);
-  jumpPad(16, -26.4, 0, 16, -29.6, 3.5, 1.4);
-  jumpPad(-20, 29.6, 0, -20, 32.6, 3.5, 1.4);
-  jumpPad(2.8, 12.6, 0, 1.2, 49.5, 0.14, 7);
-  jumpPad(-3.6, 49.8, 0.14, -1.5, 13.4, 0, 7);
   // a catwalk from the ops roof down onto the store roof
   for (const [x0, x1, top] of [[-0.75, 0.5, 5.05], [0.5, 1.7, 4.75], [1.7, 2.95, 4.45]]) { addBox((x0 + x1) / 2, -5, x1 - x0, 1.4, 0.18, top - 0.18, MX.metal, true, 1); }
   for (const sz of [-5.72, -4.28]) addBox(1.1, sz, 3.7, 0.06, 0.06, 5.6, MX.metal, false);
@@ -2037,9 +2034,9 @@ function buildLevel() {
   }
   // the jungle the squad pushes through from the LZ to the outpost: dense palms and undergrowth either side of the trail
   { let n = 0, tries = 0;
-    while (n < 46 && tries++ < 900) { const x = srnd(-22, 22), z = srnd(28, 50); if (Math.abs(x) < 4.2 || nearBox(x, z, 2.2)) continue; palm(x, z, srnd(0.75, 1.2)); n++; }
+    while (n < 22 && tries++ < 900) { const x = srnd(-22, 22), z = srnd(28, 50); if (Math.abs(x) < 6 || nearBox(x, z, 2.2)) continue; palm(x, z, srnd(0.75, 1.2)); n++; }
     n = 0; tries = 0;
-    while (n < 90 && tries++ < 1200) { const x = srnd(-22, 22), z = srnd(26, 51); if (Math.abs(x) < 3.2 || nearBox(x, z, 0.8)) continue; fern(x, z, 0, srnd(0.3, 0.55)); n++; }
+    while (n < 40 && tries++ < 1200) { const x = srnd(-22, 22), z = srnd(26, 51); if (Math.abs(x) < 4.5 || nearBox(x, z, 0.8)) continue; fern(x, z, 0, srnd(0.3, 0.55)); n++; }
     for (const [x, z, r] of [[-6.5, 38, 0.4], [7.5, 44, -0.3], [-9, 47, 1.2]]) {   // fallen trunks
       const log = new T.Mesh(new T.CylinderGeometry(0.32, 0.38, 5, 6), M.bark); log.rotation.set(0, r, Math.PI / 2); log.position.set(x, 0.3, z); build.add(log);
       boxes.push({ x0: x - 1.6, x1: x + 1.6, z0: z - 1.6, z1: z + 1.6, y0: 0, y1: 0.55 });
@@ -2432,11 +2429,12 @@ const ATT = {
 // marksman and sniper rifles
 ATT.lancer = {
   optic: [
-    { id: 'iron', name: 'Flip-up irons', desc: 'Folding rear aperture and front post', wl: 1, m: {} },
+    { id: 'scope2', name: 'Ridgeline 2× scope', desc: 'Factory marksman optic', wl: 1, base: 'acog', fov: 58, zoom: 2, m: {} },
+    { id: 'iron', name: 'Flip-up irons', desc: 'Folding rear aperture and front post, quicker to aim', wl: 1, m: { ads: 1.08 } },
     { id: 'reflex', name: 'Kestrel reflex', desc: 'Open dot for close fights', wl: 3, base: 'holo', fov: 50, m: { ads: 1.04 } },
     { id: 'holo', name: 'Vanta holo', desc: 'Amber ring, wide window', wl: 5, base: 'holo', fov: 46, m: { ads: 1.0 } },
     { id: 'prism', name: 'Halcyon 1.5× prism', desc: 'Compact etched prism', wl: 8, base: 'acog', fov: 54, zoom: 1.5, m: { ads: 0.96 } },
-    { id: 'acog', name: 'Ridgeline 2.5× scope', desc: 'The classic marksman pairing', wl: 12, base: 'acog', fov: 58, zoom: 2.5, m: { ads: 0.92 } },
+    { id: 'acog', name: 'Ridgeline 2.5× scope', desc: 'A little more reach than the factory scope', wl: 12, base: 'acog', fov: 58, zoom: 2.5, m: { ads: 0.92 } },
     { id: 'hybrid', name: 'Longwatch 4× scope', desc: 'Reaches across the map', wl: 17, base: 'acog', fov: 62, zoom: 4, m: { ads: 0.86, move: 0.98 } },
     { id: 'thermal', name: 'Pyre thermal 4×', desc: 'Heat lens that cuts through fog and rain', wl: 25, base: 'acog', fov: 62, zoom: 4, thermal: 1, m: { ads: 0.82, move: 0.97 } }
   ],
@@ -2922,50 +2920,54 @@ function makeGun(id, att = {}) {
     g.userData.adsZ = AT.optic === 'reflex' ? -0.3 : -0.26; g.userData.mag = cell; g.userData.ch = slide; g.userData.cellPistol = true;
     RF = { barrel: barW, barrelZ0: -0.145, barrelY: 0.022, barrelR: 0.008, tips: [], mag: magP, magTop: -0.1, magZ: 0.012, stock: null, guardY: -0.03, guardZ: -0.05, noGrip: true, pistol: true, slide };
   } else if (id === 'lancer') {
-    // Lancer DMR: a dark bullpup marksman rifle. Long faceted shell with the magazine behind the grip, a
-    // tapered barrel shroud with an angled nose, a raised carry-handle rail and amber accent lines.
-    const dk = gm, lt = gl, mid = new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x3a3f46 });
-    B(0.072, 0.1, 0.56, 0, -0.008, 0.12, dk);                   // main shell, runs back to the butt
-    B(0.062, 0.03, 0.5, 0, 0.055, 0.1, mid);                     // faceted top
-    for (const sx of [-1, 1]) { B(0.006, 0.07, 0.4, sx * 0.038, -0.01, 0.12, mid); B(0.004, 0.006, 0.46, sx * 0.0395, 0.03, 0.1, heatMat); }
-    B(0.076, 0.15, 0.03, 0, -0.012, 0.415, mid);                 // butt pad
-    B(0.06, 0.04, 0.16, 0, 0.065, 0.3, mid, -0.08);              // cheek rest
-    B(0.064, 0.074, 0.36, 0, 0.012, -0.34, dk);                  // barrel shroud
-    P_([[0.515, -0.025], [0.515, 0.049], [0.628, 0.022], [0.628, -0.014]], 0.058, 0, 0, 0, dk, GFX ? 0.002 : 0);   // tapered nose that funnels into the barrel
-    B(0.05, 0.024, 0.32, 0, -0.03, -0.36, mid);
-    for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) B(0.004, 0.022, 0.03, sx * 0.033, 0.014, -0.24 - i * 0.07, heatMat);
-    // raised carry-handle rail on two uprights
-    B(0.02, 0.05, 0.04, 0, 0.09, 0.18, mid); B(0.02, 0.072, 0.04, 0, 0.08, -0.22, mid);
-    B(0.028, 0.014, 0.5, 0, 0.12, -0.02, dk);
-    for (let i = 0; i < 11; i++) B(0.032, 0.005, 0.008, 0, 0.129, -0.24 + i * 0.044, dk);
-    const chL = B(0.012, 0.016, 0.05, 0.036, -0.016, -0.2, lt);    // forward charging lever
-    // magazine behind the grip
-    // side-loading magazine: a flat block that slides into a port on the left of the shell behind the grip
-    // big side magazine: a long flat block that sits in a port on the left of the shell and sticks well out
-    const extL = AT.mag === 'ext' ? 0.04 : 0, mL = 0.2 + extL, mC = 0.024 - mL / 2, mO = 0.024 - mL;
-    const magL = grp([B(mL, 0.056, 0.1, mC, -0.02, 0.13, dk), B(mL - 0.03, 0.01, 0.07, mC - 0.01, 0.012, 0.13, mid),
-      B(0.01, 0.064, 0.108, mO - 0.004, -0.02, 0.13, mid), B(0.11, 0.012, 0.004, mO + 0.07, -0.006, 0.181, glowCyan), B(0.11, 0.012, 0.004, mO + 0.07, -0.006, 0.079, glowCyan),
-      B(0.004, 0.02, 0.05, mO - 0.01, -0.012, 0.13, glowCyan),
-      ...(AT.mag === 'fast' ? [B(0.014, 0.034, 0.06, mO - 0.016, -0.02, 0.13, lt)] : []), ...(AT.mag === 'ovc' ? [B(0.08, 0.016, 0.004, mO + 0.07, -0.032, 0.181, glowRed)] : [])]);
-    g.userData.magC = mC;
-    for (const sx of [-1, 1]) B(0.004, 0.014, 0.07, sx * 0.0385, 0.018, 0.02, glowRed);   // red status windows
+    // Lancer DMR: a slab-sided bullpup marksman rifle. Tall chassis that runs straight into a skeletal thumbhole
+    // butt, a flat full-length optics rail, slim slotted handguard, and a long exposed fluted barrel ending in a
+    // ported brake. The side magazine plugs into the left of the chassis behind the grip.
+    const dk = gm, lt = gl, mid = new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x3a3f46 }), bev = GFX ? 0.003 : 0;
+    // chassis profile (x = forward, y = up) with the thumbhole cut through the butt
+    P_([[0.215, 0.044], [0.215, -0.03], [0.17, -0.05], [-0.075, -0.05], [-0.2, -0.044], [-0.31, -0.062], [-0.4, -0.09], [-0.44, -0.09], [-0.44, 0.06], [-0.3, 0.062], [-0.19, 0.05], [0.1, 0.05]],
+      0.064, 0, 0, 0, dk, bev, 0, g, [[[-0.235, -0.004], [-0.245, 0.03], ['q', -0.3, 0.044, -0.365, 0.03], [-0.39, -0.035], ['q', -0.33, -0.04, -0.26, -0.022]]]);
+    for (const sx of [-1, 1]) { P_([[0.2, 0.03], [0.2, -0.026], [-0.18, -0.03], [-0.18, 0.034]], 0.004, sx * 0.032, 0, 0, mid, 0);    // inset side panels
+      B(0.004, 0.005, 0.3, sx * 0.0345, 0.04, 0.02, heatMat); }
+    B(0.07, 0.17, 0.028, 0, -0.016, 0.452, mid);                                // rubber butt pad
+    B(0.05, 0.022, 0.13, 0, 0.073, 0.33, mid);                                  // cheek riser
+    // flat optics rail from the butt to the end of the handguard
+    B(0.03, 0.012, 0.76, 0, 0.056, -0.13, dk);
+    for (let i = 0; i < 17; i++) B(0.034, 0.004, 0.008, 0, 0.064, -0.49 + i * 0.044, dk);
+    // slim square handguard with long slots and a few heat vents
+    B(0.05, 0.05, 0.3, 0, 0.012, -0.35, mid);
+    for (const sx of [-1, 1]) { B(0.002, 0.01, 0.2, sx * 0.0255, 0.0, -0.36, dk); for (let i = 0; i < 3; i++) B(0.003, 0.014, 0.024, sx * 0.0255, 0.024, -0.26 - i * 0.07, heatMat); }
+    B(0.034, 0.012, 0.24, 0, -0.019, -0.36, dk);                                // under rail
+    const chL = B(0.012, 0.016, 0.05, 0.031, -0.004, -0.23, lt);                // forward charging lever
+    // side magazine: a flat block that plugs into the left of the chassis behind the grip
+    const extL = AT.mag === 'ext' ? 0.035 : 0, mL = 0.15 + extL, mC = 0.024 - mL / 2, mO = 0.024 - mL;
+    const magL = grp([B(mL, 0.048, 0.084, mC, -0.02, 0.13, dk), B(mL - 0.03, 0.008, 0.06, mC - 0.01, 0.007, 0.13, mid),
+      B(0.01, 0.056, 0.092, mO - 0.004, -0.02, 0.13, mid), B(0.08, 0.01, 0.004, mO + 0.055, -0.008, 0.173, glowCyan), B(0.08, 0.01, 0.004, mO + 0.055, -0.008, 0.087, glowCyan),
+      B(0.004, 0.018, 0.04, mO - 0.01, -0.014, 0.13, glowCyan),
+      ...(AT.mag === 'fast' ? [B(0.014, 0.03, 0.05, mO - 0.016, -0.02, 0.13, lt)] : []), ...(AT.mag === 'ovc' ? [B(0.06, 0.014, 0.004, mO + 0.055, -0.03, 0.173, glowRed)] : [])]);
+    g.userData.magC = mC; g.userData.magO = mO;
     g.userData.mag = magL; g.userData.ch = chL;
     B(0.042, 0.11, 0.05, 0, -0.105, -0.05, dk, -0.28);           // pistol grip, well forward
     B(0.01, 0.01, 0.13, 0, -0.08, -0.13, dk); B(0.01, 0.04, 0.01, 0, -0.065, -0.19, dk);   // long trigger guard
-    if (AT.stock === 'mark') { B(0.05, 0.03, 0.14, 0, 0.098, 0.3, mid); B(0.054, 0.006, 0.12, 0, 0.115, 0.3, heatMat); }
-    if (AT.stock === 'heavy') B(0.08, 0.16, 0.04, 0, -0.012, 0.445, mid);
-    if (AT.stock === 'tac') { B(0.07, 0.13, 0.016, 0, -0.012, 0.438, mid); B(0.074, 0.15, 0.012, 0, -0.012, 0.452, lt); }
-    const barL = C(0.012, 0.011, 0.16, 0, 0.004, -0.69); muzzle = -0.8;
-    const tipL = B(0.03, 0.026, 0.04, 0, 0.004, muzzle + 0.02, dk);
-    RF = { barrel: barL, barrelZ0: -0.61, barrelY: 0.004, barrelR: 0.012, tips: [tipL], mag: null, stock: null, guardY: -0.044, guardZ: -0.36 }; g.userData.sideMag = true;
-    const op = AT.optic;
-    if (op === 'iron') {   // fold-up sights on the carry rail
-      B(0.03, 0.016, 0.04, 0, 0.137, 0.15, dk); for (const sx of [-1, 1]) B(0.007, 0.045, 0.03, sx * 0.02, 0.16, 0.15, lt);
-      const ring = new T.Mesh(new T.TorusGeometry(0.011, 0.002, 6, 18), dk); ring.position.set(0, 0.162, 0.15); g.add(ring);
-      B(0.022, 0.04, 0.024, 0, 0.15, -0.23, dk); for (const sx of [-1, 1]) B(0.006, 0.036, 0.024, sx * 0.014, 0.165, -0.23, dk);
-      B(0.003, 0.003, 0.003, 0, 0.162, -0.232, glow); sightY = 0.162;
-    } else sightY = railOptic(B, C, op, 0.129, -0.04);
-    g.userData.adsZ = { iron: -0.34, reflex: -0.34, holo: -0.34, prism: -0.28, acog: -0.26, hybrid: -0.24, thermal: -0.24 }[op] || -0.3;
+    // folding monopod tucked under the butt
+    B(0.014, 0.07, 0.014, 0, -0.115, 0.37, lt); B(0.03, 0.008, 0.03, 0, -0.152, 0.37, dk);
+    if (AT.stock === 'mark') { B(0.05, 0.03, 0.14, 0, 0.096, 0.33, mid); B(0.054, 0.006, 0.12, 0, 0.112, 0.33, heatMat); }
+    if (AT.stock === 'heavy') B(0.08, 0.18, 0.04, 0, -0.016, 0.48, mid);
+    if (AT.stock === 'tac') { B(0.07, 0.15, 0.016, 0, -0.016, 0.474, mid); B(0.074, 0.17, 0.012, 0, -0.016, 0.488, lt); }
+    // long exposed fluted barrel and a ported brake
+    const barL = C(0.011, 0.011, 0.26, 0, 0.012, -0.63); muzzle = -0.82;
+    for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3, fl = B(0.003, 0.003, 0.2, Math.cos(a) * 0.0105, 0.012 + Math.sin(a) * 0.0105, -0.63, gunSteel); barL.userData.fl = (barL.userData.fl || []).concat(fl); }
+    const tipL = grp([B(0.03, 0.028, 0.06, 0, 0.012, -0.79, dk), ...[-0.775, -0.795].map(z => B(0.032, 0.008, 0.008, 0, 0.012, z, gunSteel))]);
+    RF = { barrel: barL, barrelZ0: -0.5, barrelY: 0.012, barrelR: 0.011, tips: [tipL], mag: null, stock: null, guardY: -0.025, guardZ: -0.36 }; g.userData.sideMag = true;
+    const op = AT.optic, ry = 0.066;
+    if (op === 'iron') {   // flip-up sights on the rail
+      B(0.03, 0.014, 0.036, 0, ry + 0.007, 0.15, dk); for (const sx of [-1, 1]) B(0.007, 0.04, 0.028, sx * 0.02, ry + 0.028, 0.15, lt);
+      const ring = new T.Mesh(new T.TorusGeometry(0.011, 0.002, 6, 18), dk); ring.position.set(0, ry + 0.03, 0.15); g.add(ring);
+      B(0.022, 0.016, 0.024, 0, ry + 0.008, -0.46, dk); for (const sx of [-1, 1]) B(0.006, 0.036, 0.024, sx * 0.014, ry + 0.03, -0.46, dk);
+      B(0.004, 0.026, 0.004, 0, ry + 0.024, -0.46, dk); B(0.003, 0.003, 0.003, 0, ry + 0.03, -0.462, glow); sightY = ry + 0.03;
+    } else sightY = railOptic(B, C, op === 'scope2' ? 'acog' : op, ry, -0.04);
+    g.userData.adsZ = { iron: -0.34, reflex: -0.34, holo: -0.34, prism: -0.28, scope2: -0.26, acog: -0.26, hybrid: -0.24, thermal: -0.24 }[op] || -0.3;
+    g.userData.hip = new T.Vector3(0.205, -0.15, -0.47);            // carried further out and forward than the carbine
   } else if (id === 'longshot') {
     // Longshot-X: heavy bolt-action sniper. Chassis receiver, long fluted barrel with a built-in brake,
     // 5-round box mag, adjustable skeleton chassis stock, big turret scope.
@@ -3007,7 +3009,7 @@ function makeGun(id, att = {}) {
     C(0.025, 0.03, 0.06, 0, 0.03, -0.17); B(0.074, 0.012, 0.3, 0, 0.08, 0, gl); muzzle = -0.2;
   }
   if (RF) muzzle = applyAttVisuals(g, id, AT, RF, B, C, muzzle);
-  g.userData = { muzzle, sightY, adsZ: g.userData.adsZ, pump: g.userData.pump, pumpZ: g.userData.pump ? g.userData.pump.position.z : 0, mag: g.userData.mag, ch: g.userData.ch, hinge: g.userData.hinge, cellPistol: g.userData.cellPistol, laser: g.userData.laser, sideMag: g.userData.sideMag, magC: g.userData.magC, chZ0: g.userData.ch ? g.userData.ch.position.z : 0, hip: id === 'wasp' ? new T.Vector3(0.11, -0.1, -0.33) : null };
+  g.userData = { muzzle, sightY, adsZ: g.userData.adsZ, pump: g.userData.pump, pumpZ: g.userData.pump ? g.userData.pump.position.z : 0, mag: g.userData.mag, ch: g.userData.ch, hinge: g.userData.hinge, cellPistol: g.userData.cellPistol, laser: g.userData.laser, sideMag: g.userData.sideMag, magC: g.userData.magC, magO: g.userData.magO, chZ0: g.userData.ch ? g.userData.ch.position.z : 0, hip: id === 'wasp' ? new T.Vector3(0.11, -0.1, -0.33) : g.userData.hip || null };
   return g;
 }
 let gunModel = null;
@@ -4082,7 +4084,7 @@ function update(dt) {
   if (!P.climbing) { P.vy -= 20 * dt; P.y += P.vy * dt; }
   const g = groundAt(P.x, P.z, P.y);
   if (P.y <= g) { P.y = g; P.vy = 0; P.onGround = true; if (P.launch && P.launch.t > 0.15) P.launch = null; } else if (P.y > g + 0.05) P.onGround = false;
-  if (pads.length) updatePads(dt);
+  updatePads(dt);
 
   // weapon
   P.fireCd -= dt;
@@ -4323,13 +4325,15 @@ function update(dt) {
       } else if (gunModel.userData.sideMag) {
         // Lancer: canted to show its left side; the mag kicks out sideways, the hand pulls it clear and lets it
         // drop, dips out of frame for a fresh one, slides it home and racks the forward lever
-        const RC = [gunModel.userData.magC, -0.02, 0.13], at = d => [RC[0] - d - 0.05, RC[1], RC[2]], b0 = base.toArray(), low = [b0[0] - 0.05, b0[1] - 0.24, b0[2] + 0.1];
+        const RC = [gunModel.userData.magC, -0.02, 0.13], hx0 = (gunModel.userData.magO !== undefined ? gunModel.userData.magO : RC[0] * 2 - 0.024) + 0.033, at = d => [hx0 - d, RC[1], RC[2]], b0 = base.toArray(), low = [b0[0] - 0.05, b0[1] - 0.24, b0[2] + 0.1];
         const Ph = keyLerp(vr, [[0, ...b0], [0.08, ...b0], [0.18, ...at(0.03)], [0.22, ...at(0.03)], [0.32, ...at(0.13)], [0.35, ...at(0.13)], [0.44, ...low], [0.48, ...low],
           [0.57, ...at(0.11)], [0.61, ...at(0.11)], [0.7, ...at(0)], [0.73, ...at(-0.004)], [0.77, -0.03, 0.03, -0.3], [0.82, -0.03, 0.03, -0.3], [0.9, ...b0], [1, ...b0]]);
         ox = Ph[0] - base.x; oy = Ph[1] - base.y; oz = Ph[2] - base.z;
+        // turn the hand side-on so the palm cups the outer end of the magazine and the fingers wrap over and under it
+        { const rk = seg(0.1, 0.18) * (1 - seg(0.72, 0.78)); lh.rotation.z = -Math.PI / 2 * rk; lh.rotation.x = 0.6 * rk; }   // tip the wrist so the forearm drops away below the gun
         const mg = gunModel.userData.mag, R0 = P.rsnd || (P.rsnd = {});
         const carried = (vr > 0.22 && vr < 0.34) || (vr > 0.48 && vr < 0.7);
-        if (carried) mg.position.set(Ph[0] + 0.05 - RC[0], Ph[1] - RC[1], Ph[2] - RC[2]);
+        if (carried) mg.position.set(Ph[0] - hx0, Ph[1] - RC[1], Ph[2] - RC[2]);
         else mg.position.set(vr < 0.22 ? -0.03 * seg(0.1, 0.15) : 0, 0, 0);
         mg.visible = !(vr >= 0.34 && vr <= 0.48);
         const rack = seg(0.78, 0.8) * (1 - seg(0.82, 0.86));
@@ -4348,6 +4352,7 @@ function update(dt) {
       const r = 1 - P.reloadT / GS.shell, k = Math.sin(Math.PI * Math.min(1, r * 1.15));
       oy = -0.07 * k; oz = 0.42 * k;
     }
+    if (!(smg && gunModel.userData.sideMag)) lh.rotation.z = lh.rotation.x = 0;
     lh.position.set(base.x + ox, base.y + oy, base.z + oz);
     if (!smg) { P.rsnd = null; lh.visible = true; if (gunModel.userData.rlh) gunModel.userData.rlh.visible = false; if (gunModel.userData.hinge) gunModel.userData.hinge.rotation.x = 0; }
     if (!smg && gunModel.userData.mag) { gunModel.userData.mag.position.set(0, 0, gunModel.userData.cellPistol && P.mag === 0 ? 0.045 : 0); gunModel.userData.mag.visible = true; P.magIn = false; if (gunModel.userData.ch) gunModel.userData.ch.position.z = gunModel.userData.chZ0; }
@@ -5355,7 +5360,7 @@ function openDetail(slot, id) {
 const ANCHORS = {
   vk9: { optic: [0, 0.15, -0.08], barrel: [0, 0.012, -0.5], mag: [0, -0.19, -0.1], stock: [0, -0.02, 0.34], grip: [0, -0.07, -0.42] },
   hail: { optic: [0, 0.11, -0.04], barrel: [0, 0.008, -0.4], mag: [0, -0.24, -0.12], stock: [0, 0, 0.33], grip: [0, -0.07, -0.38] },
-  lancer: { optic: [0, 0.16, -0.04], barrel: [0, 0.018, -0.7], mag: [0, -0.16, 0.17], stock: [0, 0.02, 0.4], grip: [0, -0.08, -0.45] },
+  lancer: { optic: [0, 0.12, -0.04], barrel: [0, 0.012, -0.66], mag: [-0.1, -0.03, 0.13], stock: [0, 0.0, 0.42], grip: [0, -0.06, -0.4] },
   longshot: { optic: [0, 0.13, -0.06], barrel: [0, 0.012, -0.9], mag: [0, -0.12, -0.06], stock: [0, 0, 0.38], grip: [0, -0.06, -0.52] },
   wasp: { optic: [0, 0.06, -0.04], barrel: [0, 0.022, -0.14], mag: [0, -0.12, 0.026], stock: [0, -0.05, 0.12], grip: [0, -0.035, -0.12] },
   breaker: { optic: [0, 0.1, 0.02], barrel: [0, 0.02, -0.58], mag: [0, -0.035, -0.6], stock: [0, -0.03, 0.42] }
@@ -7215,18 +7220,9 @@ function gfxInit() {
   if (HM.glove.isMeshStandardMaterial) { HM.glove.roughness = 0.92; HM.plate.roughness = 0.5; HM.plate.metalness = 0.15; HM.skin.roughness = 0.55; HM.sleeve.roughness = 0.9; HM.cuff.roughness = 0.45; HM.cuff.metalness = 0.6; }
   if (gunSteel.isMeshStandardMaterial) { gunSteel.roughness = 0.4; gunSteel.metalness = 0.7; gunSteel.envMapIntensity = 0.9; }
   scene.traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && o.material.vertexColors && !wetMats.includes(o.material)) tune(o.material, 0.93, 0, 1); });
-  // puddles that appear on the plaza, roads and pads when it rains, reflecting the sky
-  puddles = new T.MeshStandardMaterial({ color: 0x0c1014, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
-  const pg = new T.CircleGeometry(1, 14), pp = pg.attributes.position;
-  for (let i = 1; i < pp.count; i++) { const a = Math.atan2(pp.getY(i), pp.getX(i)), k = 0.75 + 0.25 * Math.sin(a * 3 + i) ; pp.setXY(i, pp.getX(i) * k, pp.getY(i) * k); }
-  pg.rotateX(-Math.PI / 2);
-  for (const [x, z, y, r] of [[-4, 4, 0.9, 1.6], [6, -1, 0.9, 1.2], [-8, -0.5, 0.9, 1.0], [2, 7, 0.9, 1.3], [9, 2.5, 0.9, 0.9], [0, 18, 0, 1.4], [0, -16, 0, 1.2], [-20, 0, 0, 1.3], [-34, 0, 0, 1.6],
-    [38, -3, 0, 1.2], [0, 40, 0, 1.1], [0, 56, 0.14, 2.0], [25, 17, 0, 1.4], [-12, 24, 0, 1.2], [21, -21, 0, 1.3], [-18, -10, 0, 1.2], [11, -25, 0, 1.0], [30, 8, 0, 1.1]]) {
-    const m = new T.Mesh(pg, puddles); m.position.set(x, y + 0.03, z); m.scale.set(r * 1.4, 1, r); m.rotation.y = x * 1.7; m.receiveShadow = true; scene.add(m);
-  }
   // rain hitting the ground: rings that pop up and spread around you
-  const rg = new T.RingGeometry(0.06, 0.1, 10); rg.rotateX(-Math.PI / 2);
-  rainSplash = new T.InstancedMesh(rg, new T.MeshBasicMaterial({ color: 0xd8e4f0, transparent: true, opacity: 0.4, depthWrite: false }), 220);
+  const rg = new T.RingGeometry(0.075, 0.09, 14); rg.rotateX(-Math.PI / 2);
+  rainSplash = new T.InstancedMesh(rg, new T.MeshBasicMaterial({ color: 0xd8e4f0, transparent: true, opacity: 0.14, depthWrite: false }), 220);   // faint, small and few: a hint of rain on the ground
   rainSplash.frustumCulled = false; rainSplash.userData.t = new Float32Array(220).map(() => Math.random()); rainSplash.userData.p = new Float32Array(220 * 3); scene.add(rainSplash);
   // glows and sprites: smooth filtering instead of the retro nearest-pixel look
   for (const t of Object.values(TX)) if (t && t.isTexture && !t.userData?.normal) { t.magFilter = T.LinearFilter; t.needsUpdate = true; }
@@ -7274,17 +7270,16 @@ function gfxFrame(dt) {
   // wet surfaces: darker and glossier in the rain, puddles fill up
   const w = env.rain;
   for (const m of wetMats) { m.roughness = m.userData.r0 * (1 - 0.55 * w); m.color.copy(m.userData.c0).multiplyScalar(1 - 0.28 * w); }
-  if (puddles) puddles.opacity = Math.min(0.85, w * 0.95);
   // rainSplashes
   if (rainSplash) {
     rainSplash.visible = w > 0.08 && !!P;
     if (rainSplash.visible) {
-      const T_ = rainSplash.userData.t, pp = rainSplash.userData.p, n = Math.floor(220 * Math.min(1, w));
+      const T_ = rainSplash.userData.t, pp = rainSplash.userData.p, n = Math.floor(90 * Math.min(1, w));
       for (let i = 0; i < 220; i++) {
         T_[i] += dt * 2.6;
         if (T_[i] >= 1) { T_[i] = 0; const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * 16, x = P.x + Math.cos(a) * r, z = P.z + Math.sin(a) * r; pp[i * 3] = x; pp[i * 3 + 1] = groundAt(x, z, P.y + 4) + 0.04; pp[i * 3 + 2] = z; }
-        const k = i < n ? T_[i] : 0, sc = 0.4 + k * 1.6;
-        _mt.compose(_sv.set(pp[i * 3], pp[i * 3 + 1], pp[i * 3 + 2]), _q0, new T.Vector3(sc, 1, sc)); rainSplash.setMatrixAt(i, k > 0.95 || i >= n ? _mt.makeScale(0, 0, 0) : _mt);
+        const k = i < n ? T_[i] : 0, sc = 0.3 + k * 0.8;
+        _mt.compose(_sv.set(pp[i * 3], pp[i * 3 + 1], pp[i * 3 + 2]), _q0, new T.Vector3(sc, 1, sc)); rainSplash.setMatrixAt(i, k > 0.7 || i >= n ? _mt.makeScale(0, 0, 0) : _mt);
       }
       rainSplash.instanceMatrix.needsUpdate = true;
     }
