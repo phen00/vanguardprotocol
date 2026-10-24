@@ -1680,45 +1680,76 @@ function wreckShuttle(x, z) {
   boxes.push({ x0: x - 2.8, x1: x + 2.8, z0: z - 2.8, z1: z + 2.8, y0: 0, y1: 2.6 });
   fire(x + 0.5, 2.2, z - 0.5); fire(x - 1.5, 1, z + 1.2);
 }
-// lush meadow grass: one instanced mesh of soft, tall blade clumps that sway in the wind, dark at the root and
-// bright toward the tips, with every clump tinted a little differently
-let grassMat = null;
-function grassField(spots) {
-  const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
+// meadow grass: short, soft, everywhere. A fixed grid of small blade clumps travels with the player (rows and
+// columns that fall behind are moved to the front), so the ground is covered without placing grass map-wide.
+// Clumps fade out with distance in the shader and sway in the wind.
+let grassMat = null, grassReady = false, GR = null;
+const GRASS_N = isTouch ? 84 : 128, GRASS_SP = isTouch ? 0.42 : 0.34;
+const gHash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
+function grassY(x, z) {
+  if (!inWorld(x, z)) return null;
+  if (z > 62) { if (Math.abs(x - (regC(z) + Math.sin(z * 0.13) * 1.2)) < 2.3) return null; const y = terrainH(x, z); return y < WATER_Y + 0.05 ? null : y; }
+  if ((Math.abs(x) < 13.6 && Math.abs(z) < 9.6) || (Math.abs(x) < 4.4 && Math.abs(z) > 26) || (Math.abs(z) < 4.4 && x < -12) || (z > -6.4 && z < 0.4 && x > 12)) return null;
+  if (ringDist(x, z) < 2.45 || nearBox(x, z, 0.15)) return null;
+  return 0;
+}
+function initGrassMesh() {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
   let sd = 4242; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < 46; i++) {
-    const x = 6 + r() * 116, w = 3 + r() * 5, h = 70 + r() * 56, bend = (r() - 0.5) * 34;
-    const gr = g.createLinearGradient(0, 128, 0, 128 - h); gr.addColorStop(0, '#2c4a1c'); gr.addColorStop(0.55, '#6c9a3a'); gr.addColorStop(1, '#c4e07a');
-    g.fillStyle = gr; g.beginPath(); g.moveTo(x - w / 2, 128); g.quadraticCurveTo(x - w / 3 + bend * 0.5, 128 - h * 0.55, x + bend, 128 - h); g.quadraticCurveTo(x + w / 3 + bend * 0.5, 128 - h * 0.55, x + w / 2, 128); g.fill();
+  g.lineCap = 'round';
+  for (let i = 0; i < 90; i++) {
+    const x = 4 + r() * 120, h = 46 + r() * 78, bend = (r() - 0.5) * 30, w = 1.6 + r() * 2.2;
+    const gr = g.createLinearGradient(0, 128, 0, 128 - h); gr.addColorStop(0, '#2a4318'); gr.addColorStop(0.5, '#5a8530'); gr.addColorStop(1, '#94bd52');
+    g.strokeStyle = gr; g.lineWidth = w; g.beginPath(); g.moveTo(x, 128); g.quadraticCurveTo(x + bend * 0.3, 128 - h * 0.6, x + bend, 128 - h); g.stroke();
   }
   const tex = new T.CanvasTexture(c); tex.magFilter = T.LinearFilter; tex.minFilter = T.LinearMipmapLinearFilter;
-  // clump: three crossed, gently curved cards
   const geos = [];
-  for (let k = 0; k < 3; k++) { const pg = new T.PlaneGeometry(0.95, 0.8, 1, 3), pp = pg.attributes.position;
-    for (let i = 0; i < pp.count; i++) { const t = (pp.getY(i) + 0.4) / 0.8; pp.setZ(i, t * t * 0.14); }
-    pg.translate(0, 0.4, 0); pg.rotateY(k * Math.PI / 3); geos.push(pg); }
+  for (let k = 0; k < 2; k++) { const pg = new T.PlaneGeometry(0.5, 0.34, 1, 2), pp = pg.attributes.position;
+    for (let i = 0; i < pp.count; i++) { const t = (pp.getY(i) + 0.17) / 0.34; pp.setZ(i, t * t * 0.06); }
+    pg.translate(0, 0.17, 0); pg.rotateY(k * Math.PI / 2 + 0.4); geos.push(pg); }
   const geo = mergeGeos(geos); geo.computeVertexNormals();
-  // light the cards as if they pointed up, so the field shades like a soft surface instead of flickering cards
   const nr = geo.attributes.normal; for (let i = 0; i < nr.count; i++) nr.setXYZ(i, 0, 1, 0);
-  grassMat = new T.MeshLambertMaterial({ map: tex, alphaTest: 0.45, side: T.DoubleSide });
+  grassMat = new T.MeshLambertMaterial({ map: tex, alphaTest: 0.35, side: T.DoubleSide });
+  if (GFX) grassMat.alphaToCoverage = true;   // smooth blade edges with the multisampled buffer
+  const R = GRASS_N * GRASS_SP * 0.5;
   grassMat.onBeforeCompile = sh => { sh.uniforms.uTime = { value: 0 }; grassMat.userData.sh = sh;
     sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-      float gh = clamp(position.y / 0.8, 0.0, 1.0); gh *= gh;
+      float gh = clamp(position.y / 0.34, 0.0, 1.0); gh *= gh;
       #ifdef USE_INSTANCING
-        vec2 gp = vec2(instanceMatrix[3][0], instanceMatrix[3][2]);
+        vec3 gwp = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
       #else
-        vec2 gp = vec2(0.0);
+        vec3 gwp = vec3(0.0);
       #endif
-      float gw = sin(uTime * 1.6 + gp.x * 0.31 + gp.y * 0.17) + 0.5 * sin(uTime * 2.7 + gp.x * 0.9);
-      transformed.x += gw * 0.07 * gh; transformed.z += cos(uTime * 1.2 + gp.y * 0.27) * 0.05 * gh;`); };
-  const im = new T.InstancedMesh(geo, grassMat, spots.length); im.frustumCulled = false; im.receiveShadow = true;
-  const m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(), pos = new T.Vector3(), col = new T.Color(), up = new T.Vector3(0, 1, 0);
-  spots.forEach(([x, y, z], i) => {
-    q.setFromAxisAngle(up, srand() * Math.PI * 2); const s_ = srnd(0.75, 1.35); sc.set(s_, s_ * srnd(0.8, 1.35), s_); pos.set(x, y - 0.03, z);
-    im.setMatrixAt(i, m4.compose(pos, q, sc));
-    col.setRGB(srnd(0.82, 1.05), srnd(0.9, 1.08), srnd(0.72, 0.95)); im.setColorAt(i, col);
-  });
+      float gfade = smoothstep(${R.toFixed(2)}, ${(R * 0.62).toFixed(2)}, distance(gwp.xz, cameraPosition.xz));
+      transformed *= gfade;
+      float gw = sin(uTime * 1.7 + gwp.x * 0.35 + gwp.z * 0.2) + 0.5 * sin(uTime * 2.9 + gwp.x * 0.9);
+      transformed.x += gw * 0.035 * gh; transformed.z += cos(uTime * 1.3 + gwp.z * 0.3) * 0.025 * gh;`); };
+  const im = new T.InstancedMesh(geo, grassMat, GRASS_N * GRASS_N); im.frustumCulled = false; im.receiveShadow = true;
+  for (let i = 0; i < GRASS_N * GRASS_N; i++) im.setColorAt(i, new T.Color(1, 1, 1));
   scene.add(im);
+  GR = { im, colX: new Int32Array(GRASS_N).fill(-1e9), rowZ: new Int32Array(GRASS_N).fill(-1e9), m4: new T.Matrix4(), q: new T.Quaternion(), sc: new T.Vector3(), p: new T.Vector3(), col: new T.Color(), up: new T.Vector3(0, 1, 0) };
+}
+function placeGrass(a, b) {
+  const G = GR, ci = G.colX[a], cj = G.rowZ[b], i = a * GRASS_N + b;
+  const h1 = gHash(ci, cj), h2 = gHash(cj + 17.3, ci - 4.1), x = (ci + h1) * GRASS_SP, z = (cj + h2) * GRASS_SP, y = grassY(x, z);
+  if (y === null || h1 * h2 > 0.82) { G.im.setMatrixAt(i, G.m4.makeScale(0, 0, 0)); return; }
+  G.q.setFromAxisAngle(G.up, h1 * 6.283); const s_ = 0.7 + h2 * 0.65; G.sc.set(s_, s_ * (0.75 + h1 * 0.6), s_); G.p.set(x, y - 0.02, z);
+  G.im.setMatrixAt(i, G.m4.compose(G.p, G.q, G.sc));
+  const k = gHash(ci * 0.07, cj * 0.07); G.col.setRGB(0.72 + 0.22 * k, 0.8 + 0.12 * h1, 0.6 + 0.16 * h2); G.im.setColorAt(i, G.col);
+}
+function updateGrass() {
+  if (!grassReady || window.__noGrass) return;
+  if (!GR) initGrassMesh();
+  const N = GRASS_N, h = N >> 1, cc = Math.floor(cam.position.x / GRASS_SP), cr = Math.floor(cam.position.z / GRASS_SP);
+  const want = (c, a) => c - h + (((a - (c - h)) % N) + N) % N;
+  let dirty = false;
+  const dc = [], dr = [];
+  for (let a = 0; a < N; a++) { const w = want(cc, a); if (GR.colX[a] !== w) { GR.colX[a] = w; dc.push(a); } }
+  for (let b = 0; b < N; b++) { const w = want(cr, b); if (GR.rowZ[b] !== w) { GR.rowZ[b] = w; dr.push(b); } }
+  for (const a of dc) for (let b = 0; b < N; b++) placeGrass(a, b);
+  for (const b of dr) for (let a = 0; a < N; a++) if (!dc.includes(a)) placeGrass(a, b);
+  if (dc.length || dr.length) { GR.im.instanceMatrix.needsUpdate = true; if (GR.im.instanceColor) GR.im.instanceColor.needsUpdate = true; }
+  if (grassMat.userData.sh) grassMat.userData.sh.uniforms.uTime.value = performance.now() / 1000;
 }
 function mergeGeos(gs) {
   const pos = [], uv = [], idx = []; let off = 0;
@@ -2146,15 +2177,7 @@ function buildLevel() {
   while (placed < 110 && tries++ < 3000) { const x = srnd(-66, 66), z = srnd(-66, 60); if (band(x, z) < 40 || onRoad(x, z, 0.5) || !okSpot(x, z, 1.2)) continue; fern(x, z, 0, srnd(0.24, 0.36)); placed++; }
   // grass: thick near the jungle, sparse in the clearing, never on the roads
   placed = 0; tries = 0;
-  { const spots = [], N = isTouch ? 3800 : 9000;
-    // outpost meadows: dense toward the jungle edge, patchy in the clearing, never on roads, paths or the plaza
-    while (spots.length < N * 0.62 && tries++ < N * 8) { const x = srnd(-70, 70), z = srnd(-70, 62), b = band(x, z);
-      if (nearBox(x, z, 0.35) || onRoad(x, z, 0.4) || (Math.abs(x) < 13.6 && Math.abs(z) < 9.6) || (b < 34 && srand() < 0.55)) continue; spots.push([x, 0, z]); }
-    // the route: either side of the track, out of the swamp water
-    tries = 0;
-    while (spots.length < N && tries++ < N * 10) { const z = srnd(64, 200), c = regC(z), w = regW(z), x = c + srnd(-w + 2, w - 2), y = terrainH(x, z);
-      if (Math.abs(x - (c + Math.sin(z * 0.13) * 1.2)) < 2.8 || y < WATER_Y + 0.05 || nearBox(x, z, 0.35) || Math.hypot(x, z - INS_Z) < 9) continue; spots.push([x, y, z]); }
-    grassField(spots); }
+  grassReady = true;   // the meadow grass is streamed in around the player (see updateGrass)
   fern(0, -1, 1.4, 0.3);
   // background palms beyond the cliffs
   for (let i = 0; i < 60; i++) { const a = srand() * Math.PI * 2, r = srnd(82, 110); if (Math.sin(a) * r > 50) continue; palm(Math.cos(a) * r, Math.sin(a) * r, srnd(1.4, 2.2)); boxes.pop(); }
@@ -4182,7 +4205,7 @@ function update(dt) {
   // movement input
   if (S.missile) updateMissile(dt);
   // co-op: the run ends when the whole squad is down at once
-  updateDowned(dt); updateMist(dt); if (grassMat && grassMat.userData.sh) grassMat.userData.sh.uniforms.uTime.value = S.t;
+  updateDowned(dt); updateMist(dt);
   if (NET.on && (P.dead || P.downed) && S.running) {
     const up = [...NET.peers.values()].some(p => p.a && !p.dn && !p.ab);
     S.wipeT = up ? 0 : (S.wipeT || 0) + dt;
@@ -7507,7 +7530,7 @@ function frame(now) {
   else if (mode !== 'game') { renderMenu(dt); if (mode === 'loadout' && detailOpen) renderPreview(); }
   else if (S) {
     if (S.running && (NET.on || (!paused && !document.hidden))) update(dt);
-    placeCamera();
+    placeCamera(); updateGrass();
     const scoped = S.running && GS.optic === 'acog' && S.p.ads > 0.85, showGun = !scoped && S.running && !S.p.dead && !S.p.downed && !S.missile;
     if (GFX && POST) { gfxFrame(dt); POST.render(showGun); if (scoped) renderScopeLens(); }
     else {
