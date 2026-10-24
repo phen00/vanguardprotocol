@@ -768,6 +768,33 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 #ptags b.mate { border-top-color: #5cb8ff; filter: drop-shadow(0 0 4px rgba(92,184,255,.9)); }
 .omk.amk i { border-color: #ffd060; background: rgba(255,208,96,.18); box-shadow: 0 0 10px rgba(255,208,96,.55); } .omk.amk span { color: #ffe9b0; }
 .omk.hmk i { border-color: #ff6a8a; background: rgba(255,106,138,.18); box-shadow: 0 0 10px rgba(255,106,138,.55); } .omk.hmk span { color: #ffd0da; }
+/* ---- touch layout: one copy of every control, grouped around the thumbs ---- */
+@media (pointer: coarse) {
+  .abil { display: none; }
+  .tb.crouch, .tb.swap { display: none !important; }
+  .hudbar { top: auto; bottom: 10px; transform: scale(.55); transform-origin: bottom center; }
+  .mammo { pointer-events: auto; padding: 4px 8px; border-radius: 10px; background: rgba(8,14,26,.4); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+  .mammo::after { content: 'TAP TO SWAP'; display: block; font: 700 7px var(--display); letter-spacing: .16em; color: rgba(200,225,245,.5); }
+  .kslot:not(.on) { display: none; }
+  .tb.ultb.ready { background: rgba(110,60,10,.6); box-shadow: 0 0 12px rgba(255,170,60,.6); }
+  .tb.ultb.cool, .tb.pulse.cool { opacity: .45; }
+}
+@media (pointer: coarse) and (max-height: 500px) {
+  .nameplate { transform: scale(.82); transform-origin: top left; }
+  .tb.sq { width: 54px; height: 26px; top: max(8px, env(safe-area-inset-top, 0px)) !important; left: auto !important; }
+  .tb.menu { right: max(84px, calc(env(safe-area-inset-right, 0px) + 78px)) !important; }
+  .tb.score { right: max(144px, calc(env(safe-area-inset-right, 0px) + 138px)) !important; }
+  .mammo { top: 84px; right: max(6px, env(safe-area-inset-right, 0px)); font-size: 20px; }
+  .streakbar { top: 50%; right: auto; left: max(10px, env(safe-area-inset-left, 0px)); }
+  .hudbar { transform: scale(.46); }
+  .lookpad { width: 96px; height: 96px; right: max(16px, calc(env(safe-area-inset-right, 0px) + 6px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
+  .tb.jump { width: 54px; height: 54px; right: max(124px, calc(env(safe-area-inset-right, 0px) + 116px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
+  .tb.reload { width: 48px; height: 48px; right: max(30px, calc(env(safe-area-inset-right, 0px) + 22px)); bottom: 122px; }
+  .tb.nade { width: 48px; height: 48px; right: max(92px, calc(env(safe-area-inset-right, 0px) + 86px)); bottom: 128px; }
+  .tb.ultb { width: 54px; height: 54px; right: max(186px, calc(env(safe-area-inset-right, 0px) + 178px)); bottom: 56px; }
+  .tb.pulse { width: 48px; height: 48px; right: max(152px, calc(env(safe-area-inset-right, 0px) + 146px)); bottom: 120px; }
+  .tb.use { bottom: 92px; }
+}
 </style>
 
 <div id="game">
@@ -829,7 +856,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
       <div class="ob-pts"><span>Points</span><b id="scoreN">0</b><i id="ptsDelta"></i></div>
     </div>
   </div>
-  <div class="edge mammo" id="mAmmo"></div>
+  <div class="edge mammo" id="mAmmo" data-act="swap"></div>
 
   <div class="feed" id="feed"><div class="total" id="feedTotal"></div></div>
   <div class="edge xp"><span class="xpb" id="xpBadge"></span><span class="xprank" id="xpRank"></span><div class="bars"><div class="track"><i id="xpFill"></i></div><div class="track tal"><i id="tFill"></i></div></div><span class="val"><span id="xpVal"></span><span id="tVal"></span></span><span class="tpchip" id="tChip" hidden></span></div>
@@ -1492,7 +1519,7 @@ function scatterCorpses(okSpot) {
   // along the plaza line and against building walls
   slumped(-6, 7.8, 0.9, Math.PI, 'marine'); slumped(12.0, 6.4, 0.9, -Math.PI / 2, 'colonist'); slumped(-12.0, -6.2, 0.9, Math.PI / 2, 'marine');
   slumped(-26, 13.2, 0, 0, 'colonist'); slumped(-29.9, 7, 0, Math.PI / 2, 'marine'); slumped(28.5, 30, 0, -Math.PI / 2, 'colonist');
-  corpse(16, 12, 0, 1.2, 'synth'); corpse(-18, -12, 0, 2.5, 'synth'); corpse(4, 15, 0, 0.4, 'colonist');
+  corpse(16, 12, 0, 1.2, 'synth'); corpse(-21.5, -10, 0, 2.5, 'synth'); corpse(4, 15, 0, 0.4, 'colonist');
   return;
 }
 function _unusedScatter(okSpot) {
@@ -1651,6 +1678,81 @@ function buildRoute(palm, fern) {
     const lamp = new T.Mesh(new T.BoxGeometry(0.3, 0.2, 0.3), new T.MeshBasicMaterial({ color: lz < INS_Z ? 0x5dff96 : 0xff5a3a })); lamp.position.set(lx, py + 1.2, lz); scene.add(lamp);
   }
 }
+// ---------------- the ring road, landmarks and traversal ----------------
+// a loop road around the plaza links all four approaches: it's the main way to move (and kite) around the outpost
+const RING = [[0, -26], [11, -25], [21, -21], [27, -12], [33, -3], [30, 8], [25, 17], [13, 24], [0, 27], [-12, 24], [-19, 16], [-18, 4], [-18, -6], [-18, -14], [-11, -22]];
+let ringPts = null;
+function ringDist(x, z) {
+  if (!ringPts) { const c = new T.CatmullRomCurve3(RING.map(([a, b]) => new T.Vector3(a, 0, b)), true, 'centripetal'); ringPts = c.getSpacedPoints(160); }
+  let d = 1e9; for (const p of ringPts) { const q = (p.x - x) * (p.x - x) + (p.z - z) * (p.z - z); if (q < d) d = q; } return Math.sqrt(d);
+}
+const lampHeads = [], pads = [];
+let mastLight = null;
+function buildRing() {
+  ringDist(0, 0);
+  // ribbon of dirt along the loop
+  const pts = [], idx = [], uvs = [], n = ringPts.length - 1;
+  for (let i = 0; i <= n; i++) {
+    const p = ringPts[i], q = ringPts[(i + 1) % n], tx = q.x - p.x, tz = q.z - p.z, l = Math.hypot(tx, tz) || 1, nx = -tz / l, nz = tx / l;
+    for (const sd of [-2.1, 2.1]) { pts.push(p.x + nx * sd, 0.022, p.z + nz * sd); }
+    uvs.push(0, i * 0.7, 1.4, i * 0.7);
+    if (i > 0) { const a = 2 * (i - 1), b = 2 * i; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  }
+  const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uvs, 2)); g.setIndex(idx); g.computeVertexNormals();
+  scene.add(new T.Mesh(g, M.dirt));
+  // street lamps along the outside of the loop
+  const headMat = new T.MeshBasicMaterial({ color: 0xffd9a0 });
+  for (let i = 0; i < RING.length; i++) {
+    const [x, z] = RING[i], l = Math.hypot(x, z), ox = x + x / l * 2.9, oz = z + z / l * 2.9;
+    if (nearBox(ox, oz, 0.3)) continue;
+    addBox(ox, oz, 0.16, 0.16, 3.4, 0, MX.metal); addBox(ox - x / l * 0.45, oz - z / l * 0.45, 1.0, 0.12, 0.1, 3.35, MX.metal, false);
+    const h = new T.Mesh(new T.BoxGeometry(0.34, 0.12, 0.34), headMat); h.position.set(ox - x / l * 0.85, 3.3, oz - z / l * 0.85); scene.add(h);
+    const gl_ = new T.Sprite(new T.SpriteMaterial({ map: TX.flash, color: 0xffc070, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 })); gl_.position.copy(h.position); gl_.scale.setScalar(1.6); scene.add(gl_);
+    lampHeads.push(gl_);
+  }
+  // the relay mast: a tall lattice tower with a dish and a blinking beacon, visible from anywhere on the map
+  { const mx = 12.5, mz = -13.5, H = 26;
+    addBox(mx, mz, 2.6, 2.6, 0.6, 0, M.concrete);
+    for (let k = 0; k < 6; k++) { const y0 = 0.6 + k * (H / 6), s0 = 2.0 - k * 0.28, h = H / 6;
+      for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) addBox(mx + a * s0 / 2, mz + b * s0 / 2, 0.14, 0.14, h, y0, MX.metal, k === 0);
+      addBox(mx, mz, s0 + 0.1, 0.1, 0.1, y0 + h - 0.05, MX.metal, false); addBox(mx, mz, 0.1, s0 + 0.1, 0.1, y0 + h - 0.05, MX.metal, false);
+      const br = new T.Mesh(new T.BoxGeometry(0.06, Math.hypot(h, s0), 0.06), MX.metal); br.position.set(mx, y0 + h / 2, mz - s0 / 2); br.rotation.z = Math.atan2(s0, h); build.add(br); }
+    const dish = new T.Mesh(new T.SphereGeometry(1.6, 12, 6, 0, Math.PI * 2, 0, 0.9), new T.MeshLambertMaterial({ color: 0xc8ccd0, side: T.DoubleSide }));
+    dish.position.set(mx + 0.4, H * 0.82, mz + 0.4); dish.rotation.set(-1.1, 0.7, 0); build.add(dish);
+    mastLight = new T.Mesh(new T.SphereGeometry(0.22, 8, 6), new T.MeshBasicMaterial({ color: 0xff2a1a })); mastLight.position.set(mx, H + 0.9, mz); scene.add(mastLight);
+    const halo = new T.Sprite(new T.SpriteMaterial({ map: TX.flash, color: 0xff3020, blending: T.AdditiveBlending, depthWrite: false, transparent: true })); halo.scale.setScalar(3); mastLight.add(halo); }
+  // grav lifts: step on to be thrown onto a roof, a tower, or across to the extraction pad
+  jumpPad(-10.5, 6.0, 0.9, -6.5, -4.6, 5.45, 1.6);
+  jumpPad(16, -26.4, 0, 16, -29.6, 3.5, 1.4);
+  jumpPad(-20, 29.6, 0, -20, 32.6, 3.5, 1.4);
+  jumpPad(2.8, 12.6, 0, 1.2, 49.5, 0.14, 7);
+  jumpPad(-3.6, 49.8, 0.14, -1.5, 13.4, 0, 7);
+  // a catwalk from the ops roof down onto the store roof
+  for (const [x0, x1, top] of [[-0.75, 0.5, 5.05], [0.5, 1.7, 4.75], [1.7, 2.95, 4.45]]) { addBox((x0 + x1) / 2, -5, x1 - x0, 1.4, 0.18, top - 0.18, MX.metal, true, 1); }
+  for (const sz of [-5.72, -4.28]) addBox(1.1, sz, 3.7, 0.06, 0.06, 5.6, MX.metal, false);
+}
+function jumpPad(x, z, y0, tx, tz, ty, apex) {
+  const ring = new T.Mesh(new T.CylinderGeometry(0.85, 0.95, 0.12, 20), new T.MeshLambertMaterial({ map: TX.gunmetal, color: 0x50565c })); ring.position.set(x, y0 + 0.06, z); build.add(ring);
+  const glowM = new T.MeshBasicMaterial({ color: 0x5fd8ff, transparent: true, opacity: 0.8 });
+  const disc = new T.Mesh(new T.CircleGeometry(0.66, 20), glowM); disc.rotation.x = -Math.PI / 2; disc.position.set(x, y0 + 0.125, z); scene.add(disc);
+  const ag = new T.Group(); ag.position.set(x, y0 + 0.16, z); ag.rotation.y = Math.atan2(-(tx - x), -(tz - z)); scene.add(ag);
+  const arrow = new T.Mesh(new T.ConeGeometry(0.22, 0.42, 3), glowM); arrow.rotation.x = -Math.PI / 2; ag.add(arrow);
+  const col = new T.Mesh(new T.CylinderGeometry(0.6, 0.6, 2.6, 16, 1, true), new T.MeshBasicMaterial({ color: 0x5fd8ff, transparent: true, opacity: 0.12, side: T.DoubleSide, depthWrite: false })); col.position.set(x, y0 + 1.4, z); scene.add(col);
+  pads.push({ x, z, y0, tx, tz, ty, apex, glowM, col, cd: 0 });
+}
+// launch the player when they step onto a lift: a ballistic arc that lands on the target
+function updatePads(dt) {
+  const P = S.p;
+  for (const p of pads) {
+    p.cd = Math.max(0, p.cd - dt);
+    p.glowM.opacity = 0.55 + 0.35 * Math.sin(S.t * 5 + p.x); p.col.material.opacity = 0.08 + 0.06 * Math.sin(S.t * 3 + p.z);
+    if (P.dead || P.launch || !P.onGround || p.cd > 0 || Math.hypot(P.x - p.x, P.z - p.z) > 0.85 || Math.abs(P.y - p.y0) > 0.5) continue;
+    const g = 20, hUp = Math.max(0, p.ty - p.y0) + p.apex, vy = Math.sqrt(2 * g * hUp), tUp = vy / g, tDown = Math.sqrt(2 * Math.max(0.05, p.y0 + hUp - p.ty) / g), Tt = tUp + tDown;
+    P.vy = vy; P.onGround = false; P.y += 0.05; P.launch = { vx: (p.tx - P.x) / Tt, vz: (p.tz - P.z) / Tt, t: 0 }; p.cd = 1;
+    sTone(220, 880, 0.35, 0.12, 'sine'); sNoise(0.4, 1800, 0.1, 'highpass'); addShake(0.2);
+  }
+  if (mastLight) mastLight.visible = (S.t % 1.6) < 0.8;
+}
 // small flickering fires in the wreckage
 let fires = [], fireTex = null;
 function fire(x, y, z) {
@@ -1713,14 +1815,11 @@ function buildLevel() {
   // west pillbox and walls
   room(-26, 9, 7, 7, 3.2, 0, [{ side: 'e', off: 0, w: 2 }, { side: 'n', off: 1.5, w: 1.8 }, { side: 'w', off: -1.5, w: 2, h: 0.5, sill: 1.6 }], { roofW: 7.8, roofD: 7.8 });
   wreckInterior(-26, 9, 7, 7, 0, 'bunk');
-  sandbags(-26, 15.3, 6, 0.8, 1.2); sandbags(-31.2, 4, 0.8, 5, 1.2);
+  sandbags(-26, 15.3, 6, 0.8, 1.2);
   // north ruins
-  addBox(6, -24, 10, 1, 2.6); addBox(-10, -22, 1, 7, 2.1); 
-  addBox(18, -18, 0.6, 6, 1.6);
   room(-24, -16, 5, 5, 4, 0, [{ side: 's', off: 0.8, w: 1.8 }, { side: 'e', off: -0.6, w: 1.8 }, { side: 'n', off: 0, w: 1.8 }], { roofW: 5.6, roofD: 5.6 });
   wreckInterior(-24, -16, 5, 5, 0, 'lab');
   // south
-  addBox(14, 22, 8, 1, 2.2); addBox(-14, 24, 1, 8, 1.8);
   room(24, 30, 5, 5, 3, 0, [{ side: 'n', off: -0.8, w: 1.6 }, { side: 'w', off: 0.6, w: 1.5 }], { roofW: 5.6, roofD: 5.6 });
   wreckInterior(24, 30, 5, 5, 0, 'store');
   // ---- verticality: rooftop perch on the ops building, and two watchtowers ----
@@ -1748,18 +1847,21 @@ function buildLevel() {
   wreckShuttle(43, 42);
   // the defenders' last stand by the east road: wrecked APC, sandbags, the ammo box they fought from
   burntVehicle(18.6, 8, 0.5); sandbags(17.0, 12.4, 3, 0.8, 1.15); slumped(15.6, 11.9, 0, Math.PI, 'marine');
-  burntVehicle(-36, 22, 0.6); burntVehicle(22, 50, -1.1); burntVehicle(-14, -46, 2.2); burntVehicle(56, 14, 0.3);
+  burntVehicle(-36, 22, 0.6); burntVehicle(-14, -46, 2.2); burntVehicle(56, 14, 0.3);
   // extra cover out in the wider ring
   // forward fighting positions on every approach, open to the rear, facing where the attack came from
   // checkpoints where each road leaves the outpost: a nest on either side of the road, facing outward
   // one checkpoint per road, alternating sides, so the approaches stay open
-  nest(4.2, -27, 'n'); nest(-4.2, 27, 's'); nest(-29, 4.2, 'w'); nest(39, -7.6, 'e');
-  for (const [x, z, sc] of [[-44, 4, 2.6], [36, 14, 2.2], [-14, 40, 2.4], [14, -44, 2.8], [52, -20, 2.4], [-56, -30, 3]]) rockAt(x, z, sc, sc * 0.8, sc, true);
+  nest(4.2, -36, 'n'); nest(-4.2, 38, 's'); nest(-29, 4.2, 'w'); nest(39, -7.6, 'e');
+  for (const [x, z, sc] of [[-44, 4, 2.6], [38, 16, 2.2], [14, -44, 2.8], [52, -20, 2.4], [-56, -30, 3]]) rockAt(x, z, sc, sc * 0.8, sc, true);
   // crates
-  for (const [x, z, s, y] of [[20, 15, 1.3, 0], [21.4, 15.1, 1.3, 0], [20.7, 15.2, 1.1, 1.3], [-18, -10, 1.3, 0], [-18.2, -8.6, 1.3, 0], [15, -14, 1.3, 0], [-12, 18, 1.3, 0], [-10.6, 18.3, 1.2, 0], [29, -18, 1.3, 0], [-34, -24, 1.3, 0], [33, 16, 1.3, 0], [-30, 28, 1.3, 0], [8, 32, 1.3, 0]])
+  // supplies stacked where they'd actually be kept: by buildings and pads, never out in the open
+  for (const [x, z, s, y] of [[29, -17, 1.3, 0], [30.4, -17.2, 1.3, 0], [29.7, -17.1, 1.1, 1.3], [-21, -21.2, 1.3, 0], [-22.4, -21.4, 1.2, 0], [-31, 8.6, 1.3, 0], [-31, 10, 1.2, 0],
+    [27.6, 33.4, 1.3, 0], [29, 33.5, 1.2, 0], [36.6, 35, 1.3, 0], [38, 35.2, 1.3, 0], [37.3, 35.1, 1.1, 1.3]])
     addBox(x, z, s, s, s, y, M.crate, true, s);
 
-  rockAt(-30, -28, 3, 2.4, 2.6, true); rockAt(31, 26, 3.4, 2.2, 3, true); rockAt(-34, 18, 2.2, 1.8, 2.4, true); rockAt(26, -30, 2.6, 2, 2.2, true);
+  rockAt(-30, -28, 3, 2.4, 2.6, true); rockAt(33, 26, 3.4, 2.2, 3, true);
+  buildRing();
   // perimeter cliffs
   for (let s = 0; s < 4; s++) for (let t = -84; t <= 84; t += 8) {
     const o = 75 + srnd(0, 5), a = t + srnd(-2, 2);
@@ -1811,13 +1913,21 @@ function buildLevel() {
   }
   buildRoute(palm, fern);
   const okSpot = (x, z, pad) => !nearBox(x, z, pad) && !GATES.some(([gx, gz]) => Math.hypot(gx - x, gz - z) < 6) && !(Math.abs(x) < 15 && Math.abs(z) < 12);
+  // jungle wall around the outpost: dense palms in a band near the edge, open where roads and gate trails come in
+  const onRoad = (x, z, pad = 0) => (Math.abs(x) < 4 + pad && Math.abs(z) > 26) || (Math.abs(z) < 4 + pad && x < -12) || (z > -6 - pad && z < 0 + pad && x > 12) || ringDist(x, z) < 3 + pad;
+  const band = (x, z) => Math.max(Math.abs(x), Math.abs(z));
   let placed = 0, tries = 0;
-  while (placed < 95 && tries++ < 1600) { const x = srnd(-64, 64), z = srnd(-64, 64); if (okSpot(x, z, 2.5)) { palm(x, z, srnd(0.85, 1.25)); placed++; } }
+  while (placed < 130 && tries++ < 4000) { const x = srnd(-64, 64), z = srnd(-64, 64), b = band(x, z);
+    if (b < 44 || z > 60 || onRoad(x, z, 1.5) || !okSpot(x, z, 2.2) || GATES.some(([gx, gz]) => Math.hypot(gx - x, gz - z) < 9)) continue;
+    palm(x, z, srnd(0.85, 1.3)); placed++; }
+  // a few framing clusters inside the clearing, around the edges of the districts
+  for (const [cx, cz, n] of [[-36, -8, 4], [36, -26, 4], [-10, -38, 3], [40, 22, 3], [-38, 38, 3], [18, 38, 3]]) for (let i = 0, k = 0; i < 40 && k < n; i++) { const x = cx + srnd(-4, 4), z = cz + srnd(-4, 4); if (!onRoad(x, z, 1) && okSpot(x, z, 2)) { palm(x, z, srnd(0.9, 1.3)); fern(x + 0.6, z + 0.4, 0, 0.32); k++; } }
   placed = 0; tries = 0;
-  while (placed < 70 && tries++ < 1400) { const x = srnd(-66, 66), z = srnd(-66, 66); if (okSpot(x, z, 1.5)) { fern(x, z, 0, 0.26); placed++; } }
-  // grass tufts everywhere off the paved areas
+  while (placed < 110 && tries++ < 3000) { const x = srnd(-66, 66), z = srnd(-66, 60); if (band(x, z) < 40 || onRoad(x, z, 0.5) || !okSpot(x, z, 1.2)) continue; fern(x, z, 0, srnd(0.24, 0.36)); placed++; }
+  // grass: thick near the jungle, sparse in the clearing, never on the roads
   placed = 0; tries = 0;
-  while (placed < 2100 && tries++ < 8000) { const x = srnd(-70, 70), z = srnd(-70, 70); if (!nearBox(x, z, 0.4) && !(Math.abs(x) < 13.5 && Math.abs(z) < 9.5)) { tuft(x, z); placed++; } }
+  while (placed < 1100 && tries++ < 9000) { const x = srnd(-70, 70), z = srnd(-70, 64), b = band(x, z);
+    if (nearBox(x, z, 0.4) || onRoad(x, z, 0.3) || (Math.abs(x) < 13.5 && Math.abs(z) < 9.5) || (b < 36 && srand() < 0.75)) continue; tuft(x, z); placed++; }
   fern(0, -1, 1.4, 0.3);
   // background palms beyond the cliffs
   for (let i = 0; i < 60; i++) { const a = srand() * Math.PI * 2, r = srnd(82, 110); if (Math.sin(a) * r > 50) continue; palm(Math.cos(a) * r, Math.sin(a) * r, srnd(1.4, 2.2)); boxes.pop(); }
@@ -3707,23 +3817,17 @@ function update(dt) {
   if (isTouch && !P.dead && !S.missile) {
     const lx = input.lx || 0, ly = input.ly || 0, m = Math.hypot(lx, ly);
     if (m > 0.05) { const c = m * m * 2.6 * CFG.touchSens * (1 - 0.45 * P.ads); look(lx / m * c * dt / 0.0058, ly / m * c * dt / 0.0058, 0.0058); }
-    // aim assist: drift onto the nearest head close to the crosshair, aim down sights when on target
-    P.assistT = (P.assistT || 0) - dt;
-    if (P.assistT <= 0) { P.assistT = 0.1; P.assist = CFG.autoFire !== false ? assistTarget() : null; }
-    P.assistAds = false;
-    if (P.assist && !P.assist.e.dead && !(P.visT > 0)) {
-      const tg = P.assist, hy = tg.e.y + (tg.e.type === 'walker' ? 4.4 : 1.6 * tg.e.D.scale);
-      const dx = tg.e.x - cam.position.x, dy = hy - cam.position.y, dz = tg.e.z - cam.position.z;
-      let dyaw = Math.atan2(-dx, -dz) - P.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
-      const dp = Math.atan2(dy, Math.hypot(dx, dz)) - P.recoil - P.pitch, k = Math.min(1, dt * 4.5);
-      P.yaw += dyaw * k; P.pitch += dp * k;
-      P.assistAds = Math.abs(dyaw) < 0.12 && Math.abs(dp) < 0.12;
-    }
+    // no aim pull: you steer. When the crosshair is over an enemy the gun aims down sights and fires by itself;
+    // it keeps aiming for a moment after you slip off so it doesn't flicker
+    P.adsHold = P.autoOn ? 0.35 : Math.max(0, (P.adsHold || 0) - dt);
+    P.assistAds = CFG.autoFire !== false && P.adsHold > 0 && !(P.visT > 0);
   }
   const adsOn = input.ads || input.adsToggle || !!P.assistAds;
   const speed = 5.4 * sprint * (adsOn ? 0.6 : 1) * (inSwamp(P.x, P.z, P.y) ? 0.6 : 1) * (1 - 0.5 * P.ch) * (P.momT > 0 ? 1.12 : 1) * (GS.move || 1);
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
-  P.x += (fx * iy + rx * ix) * speed * dt; P.z += (fz * iy + rz * ix) * speed * dt;
+  const air = P.launch ? 0.25 : 1;
+  P.x += (fx * iy + rx * ix) * speed * dt * air; P.z += (fz * iy + rz * ix) * speed * dt * air;
+  if (P.launch) { P.x += P.launch.vx * dt; P.z += P.launch.vz * dt; P.launch.t += dt; }
   collide(P, P.r, P.y, 1.75 - 0.55 * P.ch);
   if (input.jump && P.onGround && !P.dead) { P.vy = 6.6; P.onGround = false; }
   input.jump = false;
@@ -3744,7 +3848,8 @@ function update(dt) {
   }
   if (!P.climbing) { P.vy -= 20 * dt; P.y += P.vy * dt; }
   const g = groundAt(P.x, P.z, P.y);
-  if (P.y <= g) { P.y = g; P.vy = 0; P.onGround = true; } else if (P.y > g + 0.05) P.onGround = false;
+  if (P.y <= g) { P.y = g; P.vy = 0; P.onGround = true; if (P.launch && P.launch.t > 0.15) P.launch = null; } else if (P.y > g + 0.05) P.onGround = false;
+  if (pads.length) updatePads(dt);
 
   // weapon
   P.fireCd -= dt;
@@ -4310,6 +4415,10 @@ function hud() {
     el.style.setProperty('--p', (cd / max).toFixed(3));
     const t = el.querySelector('.t'), txt = cd > 0 ? String(Math.ceil(cd)) : '';
     if (t.textContent !== txt) t.textContent = txt;
+  }
+  if (isTouch) for (const [id, cd, label] of [['tUlt', P.visT > 0 ? 0 : P.visCd || 0, 'ULT'], ['tPulse', P.bubCd || 0, 'DOME']]) {
+    const b = $(id); if (!b) continue; const txt = cd > 0 ? String(Math.ceil(cd)) : label;
+    if (b.textContent !== txt) b.textContent = txt; b.classList.toggle('cool', cd > 0); b.classList.toggle('ready', cd <= 0);
   }
   renderObjHud(); renderInterHud(); renderMissionHud(); updateAltWidget(false);
   { const ks = P.streaks || [], key = ks.join(',') + (S.missile ? 'm' : ''); if ($('streakBar').dataset.k !== key) { $('streakBar').dataset.k = key; $('streakBar').innerHTML = [0, 1, 2].map(i => { const id = ks[i], k = id && STREAKS.find(x => x.id === id); return `<div class="kslot ${k ? 'on' : ''}" ${k ? `data-act="streak${i}"` : ''}><b>${i + 3}</b>${k ? KICON[id] + `<span>${k.name}</span>` : '<span>Empty</span>'}</div>`; }).join(''); } $('tSkip').hidden = !isTouch || !(S.intermission > 3.2 && S.wave > 0); }
