@@ -696,12 +696,11 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
 #game.predator canvas#cv { filter: grayscale(1) contrast(1.35) brightness(1.1); }
 #game.predator #etags, #game.predator #dnums, #game.predator .hudbar, #game.predator .xp, #game.predator .cross, #game.predator .weapon, #game.predator .touch-ui .tb { visibility: hidden; }
 .pred { position: absolute; inset: 0; pointer-events: none; }
-.drone { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(10,30,40,.55) 100%), repeating-linear-gradient(0deg, rgba(120,220,255,.05) 0 1px, transparent 1px 3px); }
-.drone .dret { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; transform: translate(-50%, -50%); border: 2px solid rgba(140,230,255,.85); border-radius: 50%; box-shadow: 0 0 10px rgba(120,220,255,.5); }
-.drone .dret::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #9ff0ff; }
-.drone .dret.on { border-color: #ff6a4a; box-shadow: 0 0 12px rgba(255,90,60,.7); }
-.drone .dinfo { position: absolute; left: 50%; top: max(70px, calc(env(safe-area-inset-top, 0px) + 60px)); transform: translateX(-50%); display: grid; gap: 2px; justify-items: center; font: 600 12px var(--mono); color: #cfefff; text-shadow: 0 1px 2px #000; text-align: center; }
-.drone .dinfo b { font: 800 18px var(--display); letter-spacing: .2em; color: #9ff0ff; }
+.downed { position: absolute; inset: 0; pointer-events: none; display: grid; place-items: center; background: radial-gradient(ellipse at center, transparent 35%, rgba(120,0,0,.55) 100%); }
+.downed div { display: grid; gap: 6px; justify-items: center; margin-top: -26vh; font: 600 13px var(--mono); color: #ffd6d0; text-shadow: 0 1px 3px #000; text-align: center; }
+.downed b { font: 800 26px var(--display); letter-spacing: .18em; color: #ff6a5a; }
+.downed i { display: block; width: 220px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.18); overflow: hidden; }
+.downed i::before { content: ''; display: block; height: 100%; width: var(--p, 100%); background: var(--c, #ff5a4a); }
 .pred .pbox { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,.75); }
 .pred .pcross { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; transform: translate(-50%, -50%); background: linear-gradient(#fff, #fff) center / 2px 100% no-repeat, linear-gradient(#fff, #fff) center / 100% 2px no-repeat; opacity: .8; }
 .pred .pinfo { position: absolute; left: 24px; top: 70px; display: grid; gap: 2px; font: 600 12px var(--mono); color: #fff; text-shadow: 0 1px 2px #000; }
@@ -828,7 +827,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
   <div class="areacard" id="areaCard" hidden><i></i><b></b><span></span><i></i></div>
   <div class="visor" id="visor" hidden><div class="vscan"></div><div class="vtxt"><b>WRAITH SIGHT</b><span>TARGET LOCK ACTIVE · <em id="visT">6.0</em>s</span></div><div id="vtags"></div></div>
   <div class="streakbar" id="streakBar"></div>
-  <div class="drone" id="drone" hidden><div class="dret" id="dRet"></div><div class="dinfo"><b>KITE DRONE</b><span>You are down · back in when the squad clears the wave</span><small id="dHelp">Move and look to fly · Jump / crouch for height · Fire to zap</small></div></div>
+  <div class="downed" id="downed" hidden><div><b>DOWNED</b><span id="dnTxt">Crawl to cover · a squadmate can revive you</span><i id="dnBar"></i></div></div>
   <div class="pred" id="pred" hidden><div class="pbox"></div><div class="pcross"></div><div class="pinfo"><b>PREDATOR</b><span id="predAlt">0 m</span><small>Steer with look · Fire to boost</small></div><div id="ptags"></div></div>
   <div class="shop" id="shop" hidden><div class="spanel">
     <div class="shead"><div><div class="eyebrow">Armory net terminal</div><h2>Tactical Support</h2></div><div class="spts"><span>Points</span><b id="shopPts">0</b></div></div>
@@ -2178,6 +2177,13 @@ function shotHit(o, d, far, enemyMeshes) {
   if (tb !== Infinity) return { point: d.clone().multiplyScalar(tb).add(o), distance: tb, object: LEVEL_HIT };
   return null;
 }
+// line of sight that also respects hills and ridges on the route, not just walls and props
+function seeLOS(ax, ay, az, bx, by, bz) {
+  if (!lineOfSight(ax, ay, az, bx, by, bz)) return false;
+  const d = Math.hypot(bx - ax, bz - az), n = Math.ceil(d / 1.2);
+  for (let i = 1; i < n; i++) { const t = i / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t; if (z > 62 && ay + (by - ay) * t < terrainH(x, z) + 0.1) return false; }
+  return true;
+}
 function lineOfSight(ax, ay, az, bx, by, bz) {
   _v.set(ax, ay, az); _v2.set(bx - ax, by - ay, bz - az); const d = _v2.length(); _v2.divideScalar(d);
   return rayBox(_v, _v2, d) === Infinity;
@@ -3138,7 +3144,7 @@ function rightHand(gw, gd) {
 }
 // Left hand holding a horizontal handguard or pump from below. Tube frame: axis = local z,
 // w/hh = half width/height. Palm under the tube, fingers curl up the right side, thumb lies along the left.
-function leftHand(w, hh) {
+function leftHand(w, hh, thumbWrap = false) {
   const h = new T.Group(), F = FT;
   hbox(h, w * 2 + 0.008, 0.016, 0.08, 0.002, -hh - 0.008, 0.008, HM.glove);    // palm cradling the underside
   hbox(h, w * 2 - 0.006, 0.008, 0.064, 0, -hh - 0.02, 0.012, HM.plate);       // back of the hand
@@ -3147,7 +3153,8 @@ function leftHand(w, hh) {
     chain(h, [V3(w * 0.4, -hh - 0.004, z), V3(w + F * 0.45, -hh * 0.45, z), V3(w + F * 0.45, hh * 0.45, z), V3(w * 0.3, hh + F * 0.35, z)], F * k, F * k, HM.skin);
   }
   // thumb: a gentle diagonal from the heel of the palm up the left side, pointing forward
-  chain(h, [V3(-w * 0.4, -hh - 0.006, 0.034), V3(-w - F * 0.45, -hh * 0.45, 0.012), V3(-w - F * 0.5, -0.002, -0.022), V3(-w - F * 0.5, 0.002, -0.05)], F * 1.05, F * 1.05, HM.skin);
+  if (thumbWrap) chain(h, [V3(-w * 0.4, -hh - 0.006, 0.026), V3(-w - F * 0.42, -hh * 0.5, 0.014), V3(-w - F * 0.45, hh * 0.15, 0.006), V3(-w - F * 0.4, hh * 0.72, 0.002)], F * 1.05, F * 1.05, HM.skin);   // thumb hooked over the far face
+  else chain(h, [V3(-w * 0.4, -hh - 0.006, 0.034), V3(-w - F * 0.45, -hh * 0.45, 0.012), V3(-w - F * 0.5, -0.002, -0.022), V3(-w - F * 0.5, 0.002, -0.05)], F * 1.05, F * 1.05, HM.skin);
   hbox(h, 0.044, 0.04, 0.04, -0.008, -hh - 0.03, 0.06, HM.cuff);               // wrist strap
   limb(h, -0.01, -hh - 0.042, 0.076, -0.42, -0.5, 1, 0.55, 0.032, 0.04, HM.sleeve);
   return h;
@@ -3181,6 +3188,7 @@ function attachHands(model, id) {
   const holder = gp.onPump && model.userData.pump ? model.userData.pump : model;
   lh.position.set(gp.l[0], gp.l[1], gp.l[2]); holder.add(lh);
   if (id === 'wasp') { const rl = reloadHand(); rl.visible = false; model.add(rl); model.userData.rlh = rl; }
+  if (id === 'lancer') { const mh = leftHand(0.025, 0.032, true); mh.visible = false; holder.add(mh); model.userData.mh = mh; }   // tighter grip sized to the magazine end
   model.userData.trig = rh.userData.trig; model.userData.lh = lh; model.userData.lhBase = lh.position.clone(); model.userData.lhHolder = holder;
 }
 // steam puffs for the VK-9 vent
@@ -3680,7 +3688,7 @@ function newGame() {
   nades = []; booms = [];
   for (const d of domes) scene.remove(d.g); domes = [];
   if (typeof clearObjFx === 'function') { clearObjFx(); clearWeatherFx(); }
-  { const dr = $('drone'); if (dr) dr.hidden = true; const vs = $('visor'); if (vs) vs.hidden = true; const sh = $('shop'); if (sh) sh.hidden = true; const pr = $('pred'); if (pr) pr.hidden = true; $('game').classList.remove('predator'); }
+  { const dn = $('downed'); if (dn) dn.hidden = true; const vs = $('visor'); if (vs) vs.hidden = true; const sh = $('shop'); if (sh) sh.hidden = true; const pr = $('pred'); if (pr) pr.hidden = true; $('game').classList.remove('predator'); }
   for (const d of debris) scene.remove(d.m);
   for (const k of pickups) scene.remove(k.m);
   enemies = []; bolts = []; debris = []; pickups = [];
@@ -3714,7 +3722,7 @@ function hitReaction(P, toShield, toHull, fromX, fromZ) {
   while (box.children.length > 5) box.firstChild.remove();
 }
 function damagePlayer(d, fromX, fromZ) {
-  const P = S.p; if (!S.running || P.dead || P.aboard || mode !== 'game') return;
+  const P = S.p; if (!S.running || P.dead || P.downed || P.aboard || mode !== 'game') return;
   P.sinceHit = 0;
   if (hasT('s3')) d *= 0.8;
   if (P.swT > 0) d *= 0.5;
@@ -3726,55 +3734,50 @@ function damagePlayer(d, fromX, fromZ) {
   addShake(Math.min(1, 0.25 + d / 25));
   if (d > 0) { P.lagT = 0.45; P.hp -= d; P.hurt = Math.min(1, P.hurt + d / 25); SFX.hurt(); }
   if (P.hp <= 0 && hasT('s5') && S.lastStand !== S.wave) { S.lastStand = S.wave; P.hp = 1; P.lagHp = Math.max(P.lagHp, 1); P.shield = 100; banner('Last Stand', 'Shields restored', 1.8); SFX.recharge(); return; }
-  if (P.hp <= 0) { if (NET.on) playerDown(); else gameOver(); }
+  if (P.hp <= 0) { if (NET.on) goDown(); else gameOver(); }
+}
+// ---------------- down but not out (co-op) ----------------
+// At zero health you drop to the ground instead of dying: you can crawl but not fight. A squadmate who holds
+// X next to you for a few seconds gets you back up; if nobody reaches you in time you bleed out.
+const DOWN_T = 18, REVIVE_T = 3;
+function goDown() {
+  const P = S.p; if (P.downed || P.dead) return;
+  P.downed = true; P.downT = DOWN_T; P.revBy = 0; P.hp = 0; P.lagHp = 0; P.shield = 0; input.fire = false; P.ads = 0; P.reloadT = 0;
+  $('downed').hidden = false; SFX.hurt(); addShake(0.5);
+  banner('Downed', 'A squadmate can revive you', 2.2);
+}
+function reviveMe(name) {
+  const P = S.p; if (!P.downed) return;
+  P.downed = false; P.hp = 40; P.lagHp = 40; P.shield = 40; P.sinceHit = 0; $('downed').hidden = true;
+  banner('Revived', name ? `${name} got you back up` : 'Back in the fight', 2); SFX.recharge();
+}
+function updateDowned(dt) {
+  const P = S.p;
+  if (P.downed) {
+    P.downT -= dt; P.revBy = Math.max(0, (P.revBy || 0) - dt);
+    const bar = $('dnBar'), being = P.revBy > 0;
+    bar.style.setProperty('--p', (being ? Math.min(1, P.revProg || 0) : Math.max(0, P.downT / DOWN_T)) * 100 + '%');
+    bar.style.setProperty('--c', being ? '#5dff96' : '#ff5a4a');
+    $('dnTxt').textContent = being ? 'Being revived…' : `Bleeding out · ${Math.ceil(Math.max(0, P.downT))}s`;
+    if (P.downT <= 0) { P.downed = false; $('downed').hidden = true; playerDown(); }
+    return;
+  }
+  // reviving someone: stand next to a downed squadmate and hold X (USE on touch)
+  S.revPeer = null;
+  if (!NET.on || P.dead || P.aboard) { S.revHold = 0; return; }
+  let bd = 2.0;
+  for (const p of NET.peers.values()) { if (!p.a || !p.dn) continue; const d = Math.hypot(p.x - P.x, p.z - P.z); if (d < bd && Math.abs(p.y - P.y) < 1.6) { bd = d; S.revPeer = p; } }
+  const held = S.revPeer && (input.keys.x || input.useHeld);
+  S.revHold = held ? (S.revHold || 0) + dt : 0;
+  if (held) { S.revNt = (S.revNt || 0) - dt; if (S.revNt <= 0) { S.revNt = 0.2; netSend({ t: 'revp', to: S.revPeer.id, p: r2(S.revHold / REVIVE_T) }); } }
+  if (held && S.revHold >= REVIVE_T) { netSend({ t: 'rev', to: S.revPeer.id, n: callsign }); S.revHold = 0; gainXP(100, 'Revive'); }
 }
 function playerDown() {
   const P = S.p; P.dead = true; P.hp = 0; P.lagHp = 0; input.fire = false; P.ads = 0;
   banner('You are down', 'You respawn when the squad clears this wave', 3);
-  if ((loadout.cls || 'soldier') === 'soldier') setTimeout(() => { if (S && S.running && S.p.dead && !S.drone) startDrone(); }, 1600);
-}
-// ---------------- Soldier: Kite drone while you are down ----------------
-// A small recon drone launches from your body. It flies over the fight and its zapper does a little
-// damage: not enough to carry a wave, but enough to pick off wounded enemies and help the squad.
-const DRONE_DMG = 3, DRONE_RATE = 0.3, DRONE_SPEED = 8.5;
-function startDrone() {
-  const P = S.p, gy = groundAt(P.x, P.z, P.y + 2);
-  S.drone = { x: P.x, y: Math.max(P.y, gy) + 3.2, z: P.z, yaw: P.yaw, pitch: -0.25, cd: 0.5, alt: 3.2 };
-  $('drone').hidden = false; $('dHelp').textContent = isTouch ? 'Left stick to fly · swipe to look · zaps when the ring is on a target' : 'WASD to fly · Space / C for height · Fire to zap';
-  sTone(300, 900, 0.4, 0.06, 'square'); sNoise(0.3, 3000, 0.04, 'highpass');
-}
-function stopDrone() { if (!S || !S.drone) return; S.drone = null; $('drone').hidden = true; }
-function updateDrone(dt) {
-  const d = S.drone, k = input.keys;
-  let ix = input.mx || 0, iy = input.my || 0;
-  if (!isTouch || (!ix && !iy)) { if (k.w || k.arrowup) iy += 1; if (k.s || k.arrowdown) iy -= 1; if (k.a || k.arrowleft) ix -= 1; if (k.d || k.arrowright) ix += 1; }
-  const il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; }
-  const fx = -Math.sin(d.yaw), fz = -Math.cos(d.yaw), rx = Math.cos(d.yaw), rz = -Math.sin(d.yaw);
-  if (k[' ']) d.alt += 4 * dt; if (k.c || k.control) d.alt -= 4 * dt; d.alt = Math.max(1.4, Math.min(14, d.alt));
-  const nx = d.x + (fx * iy + rx * ix) * DRONE_SPEED * dt, nz = d.z + (fz * iy + rz * ix) * DRONE_SPEED * dt;
-  if (inWorld(nx, nz)) { d.x = nx; d.z = nz; }
-  const ty = groundAt(d.x, d.z, 60) + d.alt; d.y += (ty - d.y) * Math.min(1, dt * 3);
-  if (inSolid(d.x, d.y, d.z)) d.y += 3 * dt;
-  // zapper: hitscan from the drone, a little damage per hit
-  cam.updateMatrixWorld(); _ta.set(0, 0, -1).applyQuaternion(cam.quaternion);
-  const targets = [].concat(...enemies.filter(e => !e.dead).map(e => e.hit)), sh = shotHit(cam.position, _ta, 60, targets);
-  const onT = !!(sh && sh.object.userData.enemy); $('dRet').classList.toggle('on', onT);
-  d.cd -= dt;
-  if (d.cd <= 0 && (input.fire || (isTouch && onT))) {
-    d.cd = DRONE_RATE;
-    const start = new T.Vector3(0.12, -0.12, -0.3).applyQuaternion(cam.quaternion).add(cam.position);
-    const end = sh ? sh.point.clone() : _ta.clone().multiplyScalar(60).add(cam.position);
-    tracer(start, end); sTone(1500, 700, 0.06, 0.035, 'square');
-    if (onT) {
-      const en = sh.object.userData.enemy;
-      if (isAuth()) hurtEnemy(en, DRONE_DMG, false, 'drone');
-      else { en.flash = 0.08; en.hurtT = 4; dmgNum(en.x, en.y + 2 * en.D.scale, en.z, DRONE_DMG, false); netSend({ t: 'hit', to: NET.hostId, n: en.nid, d: DRONE_DMG, h: 0, kx: 0, kz: 0 }); }
-      showHit(en.dead); if (!en.dead) SFX.hit(false);
-    }
-  }
 }
 function respawn() {
-  const P = S.p; stopDrone();
+  const P = S.p; P.downed = false; $('downed').hidden = true;
   Object.assign(P, { dead: false, hp: 60, lagHp: 60, shield: 100, x: rnd(-2, 2), y: 0.9, z: 4, vy: 0, sinceHit: 9 });
   banner('Back in the fight', 'Respawned at the pad', 2);
 }
@@ -3785,13 +3788,14 @@ function waveCleared() {
   banner('Wave cleared', `+${250 * S.wave} · ammo resupplied`, 2.6);
   gainXP(200 + 50 * S.wave, 'Wave cleared', true);
   if (P.dead) setTimeout(() => S && S.running && S.p.dead && respawn(), 2700);
+  if (P.downed) reviveMe();
   if (S.wave >= EXFIL_WAVE && !S.exOffered) { S.exOffered = true; setTimeout(() => omen('A dropship is on standby. Call it from the terminal at the LZ..'), 2800); }
 }
 
 function tryFire() {
   const P = S.p;
   if (GS.shell && P.reloadT > 0 && P.mag > 0) P.reloadT = 0;   // firing interrupts a shell-by-shell reload
-  if (P.dead || P.reloadT > 0 || P.fireCd > 0) return;
+  if (P.dead || P.downed || P.reloadT > 0 || P.fireCd > 0) return;
   if (P.mag <= 0) { P.fireCd = 0.25; SFX.empty(); if (P.reserve > 0) startReload(); return; }
   S.noise = { x: P.x, z: P.z, t: S.t };
   P.fireCd = GS.rate * (P.odT > 0 ? 0.7 : 1); if (!(P.odT > 0) && !(P.visT > 0)) P.mag--; P.pumped = false; P.trigT = 0.08;
@@ -3958,7 +3962,7 @@ function visorTarget() {
     const hy = e.y + (e.type === 'walker' ? 4.4 : 1.86 * e.D.scale);
     _ta.set(e.x, hy, e.z).project(cam);
     if (_ta.z > 1 || Math.abs(_ta.x) > 0.95 || Math.abs(_ta.y) > 0.95) continue;
-    if (!lineOfSight(cam.position.x, cam.position.y, cam.position.z, e.x, hy, e.z)) continue;
+    if (!seeLOS(cam.position.x, cam.position.y, cam.position.z, e.x, hy, e.z)) continue;
     const d = Math.hypot(_ta.x, _ta.y) + Math.hypot(e.x - P.x, e.z - P.z) * 0.004;
     if (d < bd) { bd = d; best = { e, x: e.x, y: hy, z: e.z }; }
   }
@@ -3983,6 +3987,8 @@ function updateVisor(dt) {
   let html = '';
   for (const e of enemies) {
     if (e.dead || Math.hypot(e.x - P.x, e.z - P.z) > VIS_RANGE) continue;
+    { const hy = e.y + (e.type === 'walker' ? 4.4 : 1.86 * e.D.scale), by = e.y + (e.type === 'walker' ? 2.4 : 1.1 * e.D.scale);   // only what you can actually see
+      if (!seeLOS(cam.position.x, cam.position.y, cam.position.z, e.x, hy, e.z) && !seeLOS(cam.position.x, cam.position.y, cam.position.z, e.x, by, e.z)) continue; }
     _ta.set(e.x, e.y + (e.type === 'walker' ? 4.4 : 1.86 * e.D.scale), e.z).project(cam);
     if (_ta.z > 1 || Math.abs(_ta.x) > 1 || Math.abs(_ta.y) > 1) continue;
     const on = tg && tg.e === e;
@@ -4104,12 +4110,12 @@ function update(dt) {
 
   // movement input
   if (S.missile) updateMissile(dt);
-  if (S.drone) { if (P.dead) updateDrone(dt); else stopDrone(); }
   // co-op: the run ends when the whole squad is down at once
-  if (NET.on && P.dead && S.running) {
-    const up = [...NET.peers.values()].some(p => p.a && !p.ab);
+  updateDowned(dt);
+  if (NET.on && (P.dead || P.downed) && S.running) {
+    const up = [...NET.peers.values()].some(p => p.a && !p.dn && !p.ab);
     S.wipeT = up ? 0 : (S.wipeT || 0) + dt;
-    if (S.wipeT > 1.5) { S.wipeT = 0; stopDrone(); gameOver(); return; }
+    if (S.wipeT > 1.5) { S.wipeT = 0; gameOver(); return; }
   }
   const noCtl = P.dead || !!S.missile;
   let ix = noCtl ? 0 : input.mx, iy = noCtl ? 0 : input.my;
@@ -4119,7 +4125,7 @@ function update(dt) {
     if (k.a || k.arrowleft) ix -= 1; if (k.d || k.arrowright) ix += 1;
   }
   const il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; }
-  const crouching = !P.dead && (!!k.c || input.crouchToggle);
+  const crouching = !P.dead && (P.downed || !!k.c || input.crouchToggle);
   P.ch += ((crouching ? 1 : 0) - P.ch) * Math.min(1, dt * 12);
   const sprint = (k.shift && iy > 0 && !input.fire && !crouching) ? 1.5 : 1;
   if (isTouch && S.missile) { const lx = input.lx || 0, ly = input.ly || 0; if (Math.hypot(lx, ly) > 0.05) look(lx * 2.2 * dt / 0.0058, ly * 2.2 * dt / 0.0058, 0.0058); }
@@ -4132,13 +4138,13 @@ function update(dt) {
     P.assistAds = CFG.autoFire !== false && P.adsHold > 0 && !(P.visT > 0);
   }
   const adsOn = input.ads || input.adsToggle || !!P.assistAds;
-  const speed = 5.4 * sprint * (adsOn ? 0.6 : 1) * (inSwamp(P.x, P.z, P.y) ? 0.6 : 1) * (1 - 0.5 * P.ch) * (P.momT > 0 ? 1.12 : 1) * (GS.move || 1);
+  const speed = 5.4 * sprint * (adsOn ? 0.6 : 1) * (inSwamp(P.x, P.z, P.y) ? 0.6 : 1) * (P.downed ? 0.45 : 1) * (1 - 0.5 * P.ch) * (P.momT > 0 ? 1.12 : 1) * (GS.move || 1);
   const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   const air = P.launch ? 0.25 : 1;
   P.x += (fx * iy + rx * ix) * speed * dt * air; P.z += (fz * iy + rz * ix) * speed * dt * air;
   if (P.launch) { P.x += P.launch.vx * dt; P.z += P.launch.vz * dt; P.launch.t += dt; }
   collide(P, P.r, P.y, 1.75 - 0.55 * P.ch);
-  if (input.jump && P.onGround && !P.dead) { P.vy = 6.6; P.onGround = false; }
+  if (input.jump && P.onGround && !P.dead && !P.downed) { P.vy = 6.6; P.onGround = false; }
   input.jump = false;
   // climbing: facing a ladder and pushing forward (or standing on it) moves you up or down
   P.climbing = false;
@@ -4399,12 +4405,12 @@ function update(dt) {
       } else if (gunModel.userData.sideMag) {
         // Lancer: canted to show its left side; the mag kicks out sideways, the hand pulls it clear and lets it
         // drop, dips out of frame for a fresh one, slides it home and racks the forward lever
-        const RC = [gunModel.userData.magC, -0.02, 0.13], hx0 = (gunModel.userData.magO !== undefined ? gunModel.userData.magO : RC[0] * 2 - 0.024) + 0.033, at = d => [hx0 - d, RC[1], RC[2]], b0 = base.toArray(), low = [b0[0] - 0.05, b0[1] - 0.24, b0[2] + 0.1];
+        const RC = [gunModel.userData.magC, -0.02, 0.13], hx0 = (gunModel.userData.magO !== undefined ? gunModel.userData.magO : RC[0] * 2 - 0.024) + 0.025, at = d => [hx0 - d, RC[1], RC[2]], b0 = base.toArray(), low = [b0[0] - 0.05, b0[1] - 0.24, b0[2] + 0.1];
         const Ph = keyLerp(vr, [[0, ...b0], [0.08, ...b0], [0.18, ...at(0.03)], [0.22, ...at(0.03)], [0.32, ...at(0.13)], [0.35, ...at(0.13)], [0.44, ...low], [0.48, ...low],
           [0.57, ...at(0.11)], [0.61, ...at(0.11)], [0.7, ...at(0)], [0.73, ...at(-0.004)], [0.77, -0.03, 0.03, -0.3], [0.82, -0.03, 0.03, -0.3], [0.9, ...b0], [1, ...b0]]);
         ox = Ph[0] - base.x; oy = Ph[1] - base.y; oz = Ph[2] - base.z;
         // turn the hand side-on so the palm cups the outer end of the magazine and the fingers wrap over and under it
-        { const rk = seg(0.1, 0.18) * (1 - seg(0.72, 0.78)); lh.rotation.z = -Math.PI / 2 * rk; lh.rotation.x = 0.6 * rk; }   // tip the wrist so the forearm drops away below the gun
+        { const rk = seg(0.1, 0.18) * (1 - seg(0.72, 0.78)); lh.rotation.z = -Math.PI / 2 * rk; lh.rotation.x = 0.4 * rk; P.magGrip = rk > 0.5; }   // tip the wrist so the forearm drops away below the gun
         const mg = gunModel.userData.mag, R0 = P.rsnd || (P.rsnd = {});
         const carried = (vr > 0.22 && vr < 0.34) || (vr > 0.48 && vr < 0.7);
         if (carried) mg.position.set(Ph[0] - hx0, Ph[1] - RC[1], Ph[2] - RC[2]);
@@ -4426,8 +4432,9 @@ function update(dt) {
       const r = 1 - P.reloadT / GS.shell, k = Math.sin(Math.PI * Math.min(1, r * 1.15));
       oy = -0.07 * k; oz = 0.42 * k;
     }
-    if (!(smg && gunModel.userData.sideMag)) lh.rotation.z = lh.rotation.x = 0;
+    if (!(smg && gunModel.userData.sideMag)) { lh.rotation.z = lh.rotation.x = 0; P.magGrip = false; }
     lh.position.set(base.x + ox, base.y + oy, base.z + oz);
+    { const mh = gunModel.userData.mh; if (mh) { mh.visible = !!P.magGrip; mh.position.copy(lh.position); mh.rotation.copy(lh.rotation); lh.visible = !P.magGrip; } }
     if (!smg) { P.rsnd = null; lh.visible = true; if (gunModel.userData.rlh) gunModel.userData.rlh.visible = false; if (gunModel.userData.hinge) gunModel.userData.hinge.rotation.x = 0; }
     if (!smg && gunModel.userData.mag) { gunModel.userData.mag.position.set(0, 0, gunModel.userData.cellPistol && P.mag === 0 ? 0.045 : 0); gunModel.userData.mag.visible = true; P.magIn = false; if (gunModel.userData.ch) gunModel.userData.ch.position.z = gunModel.userData.chZ0; }
   }
@@ -4465,11 +4472,10 @@ function update(dt) {
 function addShake(v) { if (S) S.p.shake = Math.min(1, S.p.shake + v); }
 function placeCamera() {
   const P = S.p;
-  if (S.drone) { const d = S.drone; cam.position.set(d.x, d.y + Math.sin(S.t * 2.2) * 0.04, d.z); cam.rotation.set(d.pitch, d.yaw, Math.sin(S.t * 1.3) * 0.02); if (Math.abs(cam.fov - CFG.fov) > 0.05) { cam.fov = CFG.fov; cam.updateProjectionMatrix(); } sky.position.copy(cam.position); return; }
   if (S.missile) { const m = S.missile; scene.fog.near = Math.max(scene.fog.near, 90); scene.fog.far = Math.max(scene.fog.far, 320); const cp_ = Math.cos(m.pitch); cam.position.set(m.x + Math.sin(m.yaw) * cp_ * 7, m.y - Math.sin(m.pitch) * 7, m.z + Math.cos(m.yaw) * cp_ * 7); cam.rotation.set(m.pitch, m.yaw, 0); if (Math.abs(cam.fov - 64) > 0.05) { cam.fov = 64; cam.updateProjectionMatrix(); } sky.position.copy(cam.position); predatorTags(); return; }
   const bob = reduceMotion ? 0 : Math.sin(P.bob * 2) * 0.03 * (1 - P.ads);
   const sh = reduceMotion ? 0 : P.shake * P.shake;
-  cam.position.set(P.x + rnd(-1, 1) * sh * 0.018, P.y + 1.62 - 0.58 * P.ch + bob + rnd(-1, 1) * sh * 0.018, P.z);
+  cam.position.set(P.x + rnd(-1, 1) * sh * 0.018, P.y + 1.62 - 0.58 * P.ch - (P.downed ? 0.6 : 0) + bob + rnd(-1, 1) * sh * 0.018, P.z);
   cam.rotation.set(P.pitch + P.recoil + P.punchP + rnd(-1, 1) * sh * 0.006, P.yaw + P.punchY + rnd(-1, 1) * sh * 0.006, rnd(-1, 1) * sh * 0.012);
   const fov = CFG.fov - (CFG.fov - GS.fov * CFG.fov / 72) * P.ads;
   if (Math.abs(cam.fov - fov) > 0.05) { cam.fov = fov; cam.updateProjectionMatrix(); }
@@ -4641,6 +4647,7 @@ let partyCount = -1;
 function peerStatus(p) {
   if (p.ab) return ['Aboard the dropship', '#5dff96'];
   if (!p.a) return ['Down · waiting for wave end', '#ff4b3a'];
+  if (p.dn) return ['Downed · needs a revive', '#ffb547'];
   if (p.hl) return ['Healing', '#5dff96'];
   if (p.hp < 30) return ['Critical', '#ff4b3a'];
   if (p.sh <= 0) return ['Shields down', '#ffb547'];
@@ -4724,7 +4731,7 @@ function updateTags() {
     }
     const nm = p.tag.children[0], rk = p.tag.children[1];
     if (nm.textContent !== p.name) nm.textContent = p.name;
-    const rt = `Lv ${p.lvl} · ${rankOf(p.lvl).title}`; if (rk.textContent !== rt) rk.textContent = rt;
+    const rt = p.dn ? '✚ DOWNED · revive' : `Lv ${p.lvl} · ${rankOf(p.lvl).title}`; if (rk.textContent !== rt) rk.textContent = rt; rk.style.color = p.dn ? '#ffb547' : '';
     _tv.set(p.x, p.y + 2.2, p.z).project(cam);
     const show = p.a && p.model && _tv.z < 1 && Math.abs(_tv.x) < 1.1 && Math.abs(_tv.y) < 1.1 && mode === 'game';
     p.tag.hidden = !show;
@@ -4770,6 +4777,7 @@ function hud() {
   if (!S.running) { stt = 'Signal lost'; sc = '#ff4b3a'; }
   else if (P.aboard) { stt = 'Aboard the dropship'; sc = '#5dff96'; }
   else if (P.dead) { stt = 'Down · waiting for wave end'; sc = '#ff4b3a'; }
+  else if (P.downed) { stt = 'Downed · needs a revive'; sc = '#ffb547'; }
   else if (P.hp < 30) { stt = 'Critical'; sc = '#ff4b3a'; }
   else if (S.nearStation && S.nearStation.active) { stt = 'Healing'; sc = '#5dff96'; }
   else if (P.shield <= 0.01) { stt = 'Shields down'; sc = '#ffb547'; }
@@ -4780,12 +4788,13 @@ function hud() {
   if (ui.npStatusT.textContent !== stt) { ui.npStatusT.textContent = stt; ui.npStatus.style.setProperty('--c', sc); }
   const st = S.nearStation; let msg = '';
   if (st && S.running) msg = st.active ? 'Healing…' : st.cd > 0 ? `Medical station recharging · ${Math.ceil(st.cd)}s` : P.hp >= 100 ? 'Health full' : (isTouch ? 'Tap USE to heal' : 'Press X to heal');
-  if (S.missile) msg = '';
+  if (S.missile || P.downed) msg = '';
+  else if (!msg && S.revPeer) msg = S.revHold > 0 ? `Reviving ${S.revPeer.name || 'squadmate'}… ${Math.round(S.revHold / REVIVE_T * 100)}%` : `${isTouch ? 'Hold USE' : 'Hold X'} · revive ${S.revPeer.name || 'squadmate'}`;
   else if (!msg && S.nearTerm) msg = `${isTouch ? 'Tap USE' : 'Press X'} · tactical support terminal`;
   if (!msg && !S.missile && S.nearExTerm) msg = exfilReady() ? (S.exHold > 0 ? `Calling the dropship… ${Math.round(S.exHold / EX_HOLD_X * 100)}%` : `${isTouch ? 'Hold USE' : 'Hold X'} · call the exfil dropship`) : S.exfil ? 'Exfil underway' : S.wave < EXFIL_WAVE ? 'Exfil locked · clears after the wave 10 objective' : 'Exfil can be called between waves';
   if (!msg && !S.missile && S.nearAmmo) { const c = ammoCost().toLocaleString(); msg = S.nearAmmo === 'full' ? 'Ammo full' : S.nearAmmo === 'poor' ? `Resupply costs ${c} points` : `${isTouch ? 'Tap USE' : 'Press X'} · resupply ammo for ${c} points`; }
   if (ui.prompt.textContent !== msg) ui.prompt.textContent = msg;
-  ui.prompt.style.backgroundImage = S.exHold > 0 ? `linear-gradient(90deg, rgba(93,255,150,.35) ${S.exHold / EX_HOLD_X * 100}%, transparent 0)` : '';
+  ui.prompt.style.backgroundImage = S.revHold > 0 ? `linear-gradient(90deg, rgba(93,255,150,.35) ${S.revHold / REVIVE_T * 100}%, transparent 0)` : S.exHold > 0 ? `linear-gradient(90deg, rgba(93,255,150,.35) ${S.exHold / EX_HOLD_X * 100}%, transparent 0)` : '';
   ui.prompt.hidden = !msg;
   ui.tUse.hidden = !(S.nearTerm || (S.nearExTerm && exfilReady()) || S.nearAmmo === 'ready' || (st && S.running && !st.active && st.cd <= 0 && P.hp < 100));
   const scoped = S.running && GS.optic === 'acog' && P.ads > 0.85;
@@ -4917,7 +4926,7 @@ function banner(t, sub, secs) {
 }
 
 function gameOver() {
-  stopDrone(); recordRun();
+  recordRun(); $('downed').hidden = true;
   S.running = false; input.fire = false;
   try { reloadVoice && reloadVoice.stop(); } catch (e) {}
   best = Math.max(best, S.score);
@@ -4951,7 +4960,7 @@ addEventListener('keydown', e => {
     return;
   }
   const k = e.key.toLowerCase(); input.keys[k] = true;
-  if (!S || !S.running || paused) return;
+  if (!S || !S.running || paused || (S.p.downed && k !== 'tab')) return;
   if (k === ' ') { e.preventDefault(); input.jump = true; }
   if (k === 'q') fireNade();
   if (k === '1' && curW !== loadout.primary) switchWeapon();
@@ -4969,7 +4978,6 @@ addEventListener('keyup', e => {
 addEventListener('blur', () => { input.keys = {}; input.fire = false; input.ads = false; showScore(false); });
 const SENS = 0.0022;
 function look(dx, dy, sens = SENS) {
-  if (S && S.drone) { const d = S.drone; if (CFG.invertY) dy = -dy; d.yaw -= dx * sens; d.pitch = Math.max(-1.4, Math.min(1.2, d.pitch - dy * sens)); return; }
   if (S && S.missile) { const m = S.missile; if (CFG.invertY) dy = -dy; m.yaw -= dx * sens * 0.6; m.pitch = Math.max(-1.5, Math.min(-0.2, m.pitch - dy * sens * 0.6)); return; }
   const P = S.p; const z = (1 - S.p.ads * GS.sens) * (isTouch && P.aimT > 0 ? 0.7 : 1);   // a little aim friction over a target on touch
   if (CFG.invertY) dy = -dy;
@@ -5097,6 +5105,7 @@ const touches = { move: null, look: [] };
 const stickBase = $('stickBase'), stickKnob = $('stickKnob');
 function act(name, down, el) {
   if (!S || !S.running) return;
+  if (S.p.downed && down && !['menu', 'score', 'use'].includes(name)) return;
   if (name === 'fire') input.fire = down;
   if (name === 'use') input.useHeld = down;
   if (down && name === 'jump') input.jump = true;
@@ -5849,13 +5858,15 @@ function onNet(m) {
     case 'p': {
       const p = NET.peers.get(m.from); if (!p) break;
       p.w = m.w || 'vk9';
-      Object.assign(p, { tx: m.x, ty: m.y, tz: m.z, yw: m.yw, pt: m.pt, a: m.a, f: m.f, ab: m.ab, hp: m.hp ?? 100, sh: m.sh ?? 100, hl: m.hl, c: m.c || 0, kills: m.k || 0, xpRun: m.xr || 0 });
+      Object.assign(p, { tx: m.x, ty: m.y, tz: m.z, yw: m.yw, pt: m.pt, a: m.a, f: m.f, ab: m.ab, hp: m.hp ?? 100, sh: m.sh ?? 100, hl: m.hl, dn: m.dn || 0, c: m.dn ? 1 : m.c || 0, kills: m.k || 0, xpRun: m.xr || 0 });
       if (m.n) p.name = m.n;
       if (m.l) p.lvl = m.l;
       break;
     }
     case 's': if (!NET.host && S && S.running) applySnapshot(m); break;
     case 'b': if (S && S.running) { spawnBolt(m.o[0], m.o[1], m.o[2], m.v[0], m.v[1], m.v[2], !!m.g); const d = Math.hypot(S.p.x - m.o[0], S.p.z - m.o[2]); m.g ? SFX.heavyShot(d) : SFX.enemyShot(d); } break;
+    case 'rev': if (m.to === NET.id && S && S.running) reviveMe(m.n); break;
+    case 'revp': if (m.to === NET.id && S && S.running && S.p.downed) { S.p.revBy = 0.5; S.p.revProg = +m.p || 0; } break;
     case 'hit':
       if (NET.host) { const e = enemies.find(x => x.nid === m.n && !x.dead); if (e) { e.kx += +m.kx || 0; e.kz += +m.kz || 0; hurtEnemy(e, Math.min(150, +m.d || 0), !!m.h, '', m.from); } }
       break;
@@ -5923,9 +5934,9 @@ function updateProxies(dt) {
 // nearest living player for an enemy: the host's own player or a remote peer
 function pickTarget(e) {
   let best = null, bd = Infinity;
-  if (!S.p.dead && !S.p.aboard) { best = S.p; bd = Math.hypot(S.p.x - e.x, S.p.z - e.z); }
+  if (!S.p.dead && !S.p.downed && !S.p.aboard) { best = S.p; bd = Math.hypot(S.p.x - e.x, S.p.z - e.z); }
   if (NET.on) for (const p of NET.peers.values()) {
-    if (!p.a || p.ab) continue;
+    if (!p.a || p.ab || p.dn) continue;
     const d = Math.hypot(p.x - e.x, p.z - e.z);
     if (d < bd) { bd = d; best = p; }
   }
@@ -5938,7 +5949,7 @@ function netTick(dt) {
   if (NET.sendT <= 0) {
     NET.sendT = 1 / 12;
     netSend({ t: 'p', x: r2(P.x), y: r2(P.y), z: r2(P.z), yw: r2(P.yaw), pt: r2(P.pitch), a: P.dead ? 0 : 1,
-      f: (input.fire || P.autoOn) && !P.dead && P.reloadT <= 0 && P.mag > 0 ? 1 : 0, n: callsign, l: prog.level, w: curW,
+      dn: P.downed ? 1 : 0, f: (input.fire || P.autoOn) && !P.dead && !P.downed && P.reloadT <= 0 && P.mag > 0 ? 1 : 0, n: callsign, l: prog.level, w: curW,
       hp: Math.round(Math.max(0, P.hp)), sh: Math.round(P.shield), hl: S.nearStation && S.nearStation.active ? 1 : 0, ab: P.aboard ? 1 : 0, k: S.kills, xr: S.xp, c: r2(P.ch) });
   }
   if (NET.host) {
@@ -7423,7 +7434,7 @@ function frame(now) {
   else if (S) {
     if (S.running && (NET.on || (!paused && !document.hidden))) update(dt);
     placeCamera();
-    const scoped = S.running && GS.optic === 'acog' && S.p.ads > 0.85, showGun = !scoped && S.running && !S.p.dead && !S.missile;
+    const scoped = S.running && GS.optic === 'acog' && S.p.ads > 0.85, showGun = !scoped && S.running && !S.p.dead && !S.p.downed && !S.missile;
     if (GFX && POST) { gfxFrame(dt); POST.render(showGun); if (scoped) renderScopeLens(); }
     else {
       R.clear(); R.render(scene, cam);
