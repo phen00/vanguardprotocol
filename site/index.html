@@ -2798,7 +2798,7 @@ function makeGun(id, att = {}) {
     B(0.062, 0.078, 0.4, 0, 0.016, -0.02, lt);                 // upper receiver
     B(0.058, 0.05, 0.3, 0, -0.046, -0.04, dk);                 // lower / mag well
     B(0.064, 0.012, 0.4, 0, -0.016, -0.02, dk);                // seam band
-    P_([[0.212, -0.0], [0.212, 0.055], [0.3, 0.035], [0.3, -0.0]], 0.06, 0, 0, 0, lt, GFX ? 0.002 : 0);   // sloped nose: a wedge from the receiver down onto the shroud
+    P_([[0.212, -0.0], [0.212, 0.055], [0.3, 0.035], [0.3, -0.0]], 0.06, 0, 0, 0, dk, GFX ? 0.002 : 0);   // sloped nose: a wedge from the receiver down onto the shroud
     B(0.058, 0.062, 0.15, 0, 0.004, -0.29, dk);                // front shroud
     for (let i = 0; i < 3; i++) for (const sx of [-1, 1]) B(0.004, 0.012, 0.026, sx * 0.03, 0.01, -0.25 - i * 0.04, glowCyan);
     const barH = C(0.011, 0.011, 0.1, 0, 0.008, -0.41), tipH = B(0.026, 0.026, 0.05, 0, 0.008, -0.46, dk); muzzle = -0.5;
