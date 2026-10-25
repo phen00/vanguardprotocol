@@ -1749,8 +1749,9 @@ function grassLayer(L) {
   const mat = new T.MeshLambertMaterial({ map: grassTex, alphaTest: 0.35 });
   if (GFX) mat.alphaToCoverage = true;
   const sharpen = R.capabilities.isWebGL2;
-  mat.onBeforeCompile = sh => { sh.uniforms.uTime = { value: 0 }; mat.userData.sh = sh;
-    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+  // fade distances are uniforms: every layer shares one compiled program, so they must not be baked into the source
+  mat.onBeforeCompile = sh => { sh.uniforms.uTime = { value: 0 }; sh.uniforms.uFade = { value: new T.Vector4(L.in0, L.in1, L.out0, L.out1) }; mat.userData.sh = sh;
+    sh.vertexShader = 'uniform float uTime;\nuniform vec4 uFade;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       float gh = clamp(position.y / 0.34, 0.0, 1.0); gh *= gh;
       #ifdef USE_INSTANCING
         vec3 gwp = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -1758,7 +1759,7 @@ function grassLayer(L) {
         vec3 gwp = vec3(0.0);
       #endif
       float gd = distance(gwp.xz, cameraPosition.xz);
-      float gfade = smoothstep(${L.out1.toFixed(2)}, ${L.out0.toFixed(2)}, gd) * smoothstep(${L.in0.toFixed(2)}, ${L.in1.toFixed(2)}, gd);
+      float gfade = smoothstep(uFade.w, uFade.z, gd) * smoothstep(uFade.x, uFade.y, gd);
       transformed *= gfade;
       float gw = sin(uTime * 1.7 + gwp.x * 0.35 + gwp.z * 0.2) + 0.5 * sin(uTime * 2.9 + gwp.x * 0.9);
       transformed.x += gw * 0.035 * gh; transformed.z += cos(uTime * 1.3 + gwp.z * 0.3) * 0.025 * gh;`);
