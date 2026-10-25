@@ -1683,36 +1683,57 @@ function wreckShuttle(x, z) {
 // meadow grass: short, soft, everywhere. A fixed grid of small blade clumps travels with the player (rows and
 // columns that fall behind are moved to the front), so the ground is covered without placing grass map-wide.
 // Clumps fade out with distance in the shader and sway in the wind.
-let grassMat = null, grassReady = false, GR = null;
-const GRASS_N = isTouch ? 84 : 128, GRASS_SP = isTouch ? 0.42 : 0.34;
+let grassReady = false, GRL = null, grassTex = null, grassGeo = null;
+// two layers: a dense near field, and a sparser field of larger clumps that carries the meadow out to the fog,
+// cross-fading with each other so there is never a visible edge where grass begins
+const GRASS_LAYERS = isTouch
+  ? [{ n: 84, sp: 0.42, s: 1, in0: -1, in1: 0, out1: 17.4, out0: 13 }, { n: 60, sp: 1.15, s: 1.6, in0: 10.5, in1: 14.5, out1: 34, out0: 25 }]
+  : [{ n: 128, sp: 0.34, s: 1, in0: -1, in1: 0, out1: 21.6, out0: 16 }, { n: 92, sp: 0.95, s: 1.55, in0: 13, in1: 18, out1: 43, out0: 31 }];
 const gHash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
+// returns [height, edge] where edge thins the grass out gradually toward paths, roads and rock
+const _gE = [0, 1];
 function grassY(x, z) {
   if (!inWorld(x, z)) return null;
-  if (z > 62) { if (Math.abs(x - (regC(z) + Math.sin(z * 0.13) * 1.2)) < 2.3) return null; const y = terrainH(x, z); return y < WATER_Y + 0.05 ? null : y; }
-  if ((Math.abs(x) < 13.6 && Math.abs(z) < 9.6) || (Math.abs(x) < 4.4 && Math.abs(z) > 26) || (Math.abs(z) < 4.4 && x < -12) || (z > -6.4 && z < 0.4 && x > 12)) return null;
-  if (ringDist(x, z) < 2.45 || nearBox(x, z, 0.15)) return null;
-  return 0;
+  if (z > 62) {
+    const dp = Math.abs(x - (regC(z) + Math.sin(z * 0.13) * 1.2)), y = terrainH(x, z);
+    if (dp < 1.8 || y < WATER_Y + 0.05) return null;
+    const sl = Math.hypot(terrainH(x + 0.6, z) - terrainH(x - 0.6, z), terrainH(x, z + 0.6) - terrainH(x, z - 0.6)) / 1.2;
+    _gE[0] = y; _gE[1] = Math.min(1, (dp - 1.8) / 1.8) * Math.min(1, Math.max(0, (0.95 - sl) / 0.35)); return _gE;
+  }
+  if ((Math.abs(x) < 13.6 && Math.abs(z) < 9.6) || (Math.abs(x) < 4.1 && Math.abs(z) > 26) || (Math.abs(z) < 4.1 && x < -12) || (z > -6.2 && z < 0.2 && x > 12)) return null;
+  const rd = ringDist(x, z); if (rd < 2.2 || nearBox(x, z, 0.12)) return null;
+  let e = Math.min(1, (rd - 2.2) / 1.6);
+  if (Math.abs(z) > 26) e = Math.min(e, (Math.abs(x) - 4.1) / 1.4);
+  if (x < -12) e = Math.min(e, (Math.abs(z) - 4.1) / 1.4);
+  _gE[0] = 0; _gE[1] = e; return _gE;
 }
-function initGrassMesh() {
+// the same macro noise the modern ground shader uses, so grass colour follows the lush, dry and worn patches
+const gNoiseJ = (x, y) => { const ix = Math.floor(x), iy = Math.floor(y); let fx = x - ix, fy = y - iy; fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+  const a = gHash(ix, iy), b = gHash(ix + 1, iy), c = gHash(ix, iy + 1), d = gHash(ix + 1, iy + 1); return (a + (b - a) * fx) + ((c + (d - c) * fx) - (a + (b - a) * fx)) * fy; };
+const gFbmJ = (x, y) => gNoiseJ(x, y) * 0.55 + gNoiseJ(x * 2.03 + 3.1, y * 2.03 + 3.1) * 0.3 + gNoiseJ(x * 4.1 + 7.7, y * 4.1 + 7.7) * 0.15;
+const gSm = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+function grassAssets() {
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
   let sd = 4242; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
   g.lineCap = 'round';
   for (let i = 0; i < 90; i++) {
     const x = 4 + r() * 120, h = 46 + r() * 78, bend = (r() - 0.5) * 30, w = 1.6 + r() * 2.2;
-    const gr = g.createLinearGradient(0, 128, 0, 128 - h); gr.addColorStop(0, '#2a4318'); gr.addColorStop(0.5, '#5a8530'); gr.addColorStop(1, '#94bd52');
+    const gr = g.createLinearGradient(0, 128, 0, 128 - h); gr.addColorStop(0, '#44602a'); gr.addColorStop(0.45, '#5f8a34'); gr.addColorStop(1, '#9cc458');
     g.strokeStyle = gr; g.lineWidth = w; g.beginPath(); g.moveTo(x, 128); g.quadraticCurveTo(x + bend * 0.3, 128 - h * 0.6, x + bend, 128 - h); g.stroke();
   }
-  const tex = new T.CanvasTexture(c); tex.magFilter = T.LinearFilter; tex.minFilter = T.LinearMipmapLinearFilter;
+  grassTex = new T.CanvasTexture(c); grassTex.magFilter = T.LinearFilter; grassTex.minFilter = T.LinearMipmapLinearFilter;
   const geos = [];
   for (let k = 0; k < 2; k++) { const pg = new T.PlaneGeometry(0.5, 0.34, 1, 2), pp = pg.attributes.position;
     for (let i = 0; i < pp.count; i++) { const t = (pp.getY(i) + 0.17) / 0.34; pp.setZ(i, t * t * 0.06); }
-    pg.translate(0, 0.17, 0); pg.rotateY(k * Math.PI / 2 + 0.4); geos.push(pg); }
-  const geo = mergeGeos(geos); geo.computeVertexNormals();
-  const nr = geo.attributes.normal; for (let i = 0; i < nr.count; i++) nr.setXYZ(i, 0, 1, 0);
-  grassMat = new T.MeshLambertMaterial({ map: tex, alphaTest: 0.35, side: T.DoubleSide });
-  if (GFX) grassMat.alphaToCoverage = true;   // smooth blade edges with the multisampled buffer
-  const R = GRASS_N * GRASS_SP * 0.5;
-  grassMat.onBeforeCompile = sh => { sh.uniforms.uTime = { value: 0 }; grassMat.userData.sh = sh;
+    pg.translate(0, 0.17, 0); pg.rotateY(k * Math.PI / 2 + 0.4); geos.push(pg); const bk = pg.clone(); bk.rotateY(Math.PI); geos.push(bk); }
+  grassGeo = mergeGeos(geos); grassGeo.computeVertexNormals();
+  const nr = grassGeo.attributes.normal; for (let i = 0; i < nr.count; i++) nr.setXYZ(i, 0, 1, 0);
+}
+function grassLayer(L) {
+  const mat = new T.MeshLambertMaterial({ map: grassTex, alphaTest: 0.35 });
+  if (GFX) mat.alphaToCoverage = true;
+  const sharpen = R.capabilities.isWebGL2;
+  mat.onBeforeCompile = sh => { sh.uniforms.uTime = { value: 0 }; mat.userData.sh = sh;
     sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       float gh = clamp(position.y / 0.34, 0.0, 1.0); gh *= gh;
       #ifdef USE_INSTANCING
@@ -1720,36 +1741,50 @@ function initGrassMesh() {
       #else
         vec3 gwp = vec3(0.0);
       #endif
-      float gfade = smoothstep(${R.toFixed(2)}, ${(R * 0.62).toFixed(2)}, distance(gwp.xz, cameraPosition.xz));
+      float gd = distance(gwp.xz, cameraPosition.xz);
+      float gfade = smoothstep(${L.out1.toFixed(2)}, ${L.out0.toFixed(2)}, gd) * smoothstep(${L.in0.toFixed(2)}, ${L.in1.toFixed(2)}, gd);
       transformed *= gfade;
       float gw = sin(uTime * 1.7 + gwp.x * 0.35 + gwp.z * 0.2) + 0.5 * sin(uTime * 2.9 + gwp.x * 0.9);
-      transformed.x += gw * 0.035 * gh; transformed.z += cos(uTime * 1.3 + gwp.z * 0.3) * 0.025 * gh;`); };
-  const im = new T.InstancedMesh(geo, grassMat, GRASS_N * GRASS_N); im.frustumCulled = false; im.receiveShadow = true;
-  for (let i = 0; i < GRASS_N * GRASS_N; i++) im.setColorAt(i, new T.Color(1, 1, 1));
+      transformed.x += gw * 0.035 * gh; transformed.z += cos(uTime * 1.3 + gwp.z * 0.3) * 0.025 * gh;`);
+    // keep blades solid in the distance: mipmapped alpha would otherwise thin out and vanish under the alpha test
+    if (sharpen) sh.fragmentShader = sh.fragmentShader.replace('#include <alphatest_fragment>', `diffuseColor.a = clamp((diffuseColor.a - ALPHATEST) / max(fwidth(diffuseColor.a), 0.0001) + 0.5, 0.0, 1.0);
+      if (diffuseColor.a < 0.02) discard;`); };
+  const N = L.n, im = new T.InstancedMesh(grassGeo, mat, N * N); im.frustumCulled = false; im.receiveShadow = true;
+  for (let i = 0; i < N * N; i++) im.setColorAt(i, new T.Color(1, 1, 1));
   scene.add(im);
-  GR = { im, colX: new Int32Array(GRASS_N).fill(-1e9), rowZ: new Int32Array(GRASS_N).fill(-1e9), m4: new T.Matrix4(), q: new T.Quaternion(), sc: new T.Vector3(), p: new T.Vector3(), col: new T.Color(), up: new T.Vector3(0, 1, 0) };
+  return Object.assign({}, L, { im, mat, colX: new Int32Array(N).fill(-1e9), rowZ: new Int32Array(N).fill(-1e9) });
 }
-function placeGrass(a, b) {
-  const G = GR, ci = G.colX[a], cj = G.rowZ[b], i = a * GRASS_N + b;
-  const h1 = gHash(ci, cj), h2 = gHash(cj + 17.3, ci - 4.1), x = (ci + h1) * GRASS_SP, z = (cj + h2) * GRASS_SP, y = grassY(x, z);
-  if (y === null || h1 * h2 > 0.82) { G.im.setMatrixAt(i, G.m4.makeScale(0, 0, 0)); return; }
-  G.q.setFromAxisAngle(G.up, h1 * 6.283); const s_ = 0.7 + h2 * 0.65; G.sc.set(s_, s_ * (0.75 + h1 * 0.6), s_); G.p.set(x, y - 0.02, z);
-  G.im.setMatrixAt(i, G.m4.compose(G.p, G.q, G.sc));
-  const k = gHash(ci * 0.07, cj * 0.07); G.col.setRGB(0.72 + 0.22 * k, 0.8 + 0.12 * h1, 0.6 + 0.16 * h2); G.im.setColorAt(i, G.col);
+const _gm4 = new T.Matrix4(), _gq = new T.Quaternion(), _gsc = new T.Vector3(), _gp = new T.Vector3(), _gcol = new T.Color(), _gup = new T.Vector3(0, 1, 0);
+function placeGrass(G, a, b) {
+  const ci = G.colX[a], cj = G.rowZ[b], i = a * G.n + b, sp = G.sp;
+  const h1 = gHash(ci + G.s * 31, cj), h2 = gHash(cj + 17.3, ci - 4.1 + G.s), x = (ci + h1) * sp, z = (cj + h2) * sp, gy = grassY(x, z);
+  // tint from the ground's own patches; worn soil gets little or no grass, edges thin out gradually
+  const nA = gFbmJ(x * 0.05, z * 0.05), nB = gFbmJ(x * 0.19 + 11.3, z * 0.19 + 11.3), nC = gFbmJ(x * 0.08 + 3.7, z * 0.08 + 3.7);
+  const worn = gSm(0.62, 0.78, nC), e = gy ? gy[1] * (1 - worn) : 0;
+  if (!gy || e < 0.12 + h1 * 0.25 || h1 * h2 > 0.82) { G.im.setMatrixAt(i, _gm4.makeScale(0, 0, 0)); return; }
+  const y = gy[0];
+  _gq.setFromAxisAngle(_gup, h1 * 6.283); const s_ = (0.7 + h2 * 0.65) * G.s * (0.45 + 0.55 * e); _gsc.set(s_, s_ * (0.75 + h1 * 0.6) / Math.sqrt(G.s), s_); _gp.set(x, y - 0.02, z);
+  G.im.setMatrixAt(i, _gm4.compose(_gp, _gq, _gsc));
+  let tr = 0.42 + (0.9 - 0.42) * gSm(0.28, 0.5, nA), tg = 0.56 + (1.0 - 0.56) * gSm(0.28, 0.5, nA), tb = 0.36 + (0.78 - 0.36) * gSm(0.28, 0.5, nA); const dry = gSm(0.6, 0.8, nA);
+  tr += (1.2 - tr) * dry; tg += (1.08 - tg) * dry; tb += (0.58 - tb) * dry; const m = (0.72 + 0.5 * nB) * (0.85 + 0.12 * h1);
+  _gcol.setRGB(Math.min(1.25, tr * m * 1.05), Math.min(1.25, tg * m), Math.min(1.25, tb * m * 0.95)); G.im.setColorAt(i, _gcol);
 }
 function updateGrass() {
   if (!grassReady || window.__noGrass) return;
-  if (!GR) initGrassMesh();
-  const N = GRASS_N, h = N >> 1, cc = Math.floor(cam.position.x / GRASS_SP), cr = Math.floor(cam.position.z / GRASS_SP);
-  const want = (c, a) => c - h + (((a - (c - h)) % N) + N) % N;
-  let dirty = false;
-  const dc = [], dr = [];
-  for (let a = 0; a < N; a++) { const w = want(cc, a); if (GR.colX[a] !== w) { GR.colX[a] = w; dc.push(a); } }
-  for (let b = 0; b < N; b++) { const w = want(cr, b); if (GR.rowZ[b] !== w) { GR.rowZ[b] = w; dr.push(b); } }
-  for (const a of dc) for (let b = 0; b < N; b++) placeGrass(a, b);
-  for (const b of dr) for (let a = 0; a < N; a++) if (!dc.includes(a)) placeGrass(a, b);
-  if (dc.length || dr.length) { GR.im.instanceMatrix.needsUpdate = true; if (GR.im.instanceColor) GR.im.instanceColor.needsUpdate = true; }
-  if (grassMat.userData.sh) grassMat.userData.sh.uniforms.uTime.value = performance.now() / 1000;
+  if (!GRL) { grassAssets(); GRL = GRASS_LAYERS.map(grassLayer); }
+  const t = performance.now() / 1000;
+  for (const G of GRL) {
+    const N = G.n, h = N >> 1, cc = Math.floor(cam.position.x / G.sp), cr = Math.floor(cam.position.z / G.sp);
+    const want = (c, a) => c - h + (((a - (c - h)) % N) + N) % N;
+    const dc = [], dr = [];
+    for (let a = 0; a < N; a++) { const w = want(cc, a); if (G.colX[a] !== w) { G.colX[a] = w; dc.push(a); } }
+    for (let b = 0; b < N; b++) { const w = want(cr, b); if (G.rowZ[b] !== w) { G.rowZ[b] = w; dr.push(b); } }
+    const dcs = new Set(dc);
+    for (const a of dc) for (let b = 0; b < N; b++) placeGrass(G, a, b);
+    for (const b of dr) for (let a = 0; a < N; a++) if (!dcs.has(a)) placeGrass(G, a, b);
+    if (dc.length || dr.length) { G.im.instanceMatrix.needsUpdate = true; if (G.im.instanceColor) G.im.instanceColor.needsUpdate = true; }
+    if (G.mat.userData.sh) G.mat.userData.sh.uniforms.uTime.value = t;
+  }
 }
 function mergeGeos(gs) {
   const pos = [], uv = [], idx = []; let off = 0;
