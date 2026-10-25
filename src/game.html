@@ -1043,6 +1043,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
         <label for="sSens">Mouse sensitivity</label><input id="sSens" type="range" min="0.2" max="3" step="0.05"><output id="sSensV"></output>
         <label for="sTouch">Touch look speed</label><input id="sTouch" type="range" min="0.3" max="3" step="0.05"><output id="sTouchV"></output>
         <label for="sFov">Field of view</label><input id="sFov" type="range" min="60" max="100" step="1"><output id="sFovV"></output>
+        <label for="sGrass">Grass distance</label><input id="sGrass" type="range" min="0.5" max="3" step="0.1"><output id="sGrassV"></output>
         <label for="sVol">Volume</label><input id="sVol" type="range" min="0" max="1" step="0.05"><output id="sVolV"></output>
         <label for="sMus">Menu music</label><input id="sMus" type="range" min="0" max="1" step="0.05"><output id="sMusV"></output>
         <label for="sInv">Invert look up/down</label><input id="sInv" type="checkbox"><span></span>
@@ -1092,7 +1093,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (isTouch) $('touchUI').hidden = false;
 
 // ---------------- renderer ----------------
-const CFG = { sens: 1, touchSens: 1, fov: 72, vol: 0.8, music: 0.6, invertY: false, res: 'high', gfx: 'modern', autoFire: true };
+const CFG = { sens: 1, touchSens: 1, fov: 72, vol: 0.8, music: 0.6, invertY: false, res: 'high', gfx: 'modern', autoFire: true, grass: null };
 try { Object.assign(CFG, JSON.parse(localStorage.getItem('vp-settings') || '{}')); } catch (e) {}
 const R = new T.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' });
 R.autoClear = false;
@@ -1321,7 +1322,7 @@ float gFbm(vec2 p) { return gNoise(p) * 0.55 + gNoise(p * 2.03 + 3.1) * 0.3 + gN
   tint *= 0.72 + 0.5 * nB;
   diffuseColor *= texelColor; diffuseColor.rgb *= tint;
   diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, 0.82);
-  float worn = smoothstep(0.64, 0.8, nC);
+  float worn = smoothstep(0.7, 0.86, nC);
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.16, 0.11, 0.065) * (0.75 + 0.5 * nB), worn * 0.8);`);
 }
 
@@ -1686,9 +1687,18 @@ function wreckShuttle(x, z) {
 let grassReady = false, GRL = null, grassTex = null, grassGeo = null;
 // two layers: a dense near field, and a sparser field of larger clumps that carries the meadow out to the fog,
 // cross-fading with each other so there is never a visible edge where grass begins
+const grassK = () => CFG.grass || (isTouch ? 1 : 1.6);
+function grassLayersFor(k) {
+  const out = GRASS_LAYERS.map((L, i) => { if (i === 0) return L; const f = i === 1 ? 1 + (k - 1) * 0.35 : k;
+    return Object.assign({}, L, { sp: L.sp * f, s: L.s * Math.sqrt(f), out0: L.out0 * f, out1: L.out1 * f }); });
+  // each layer fades in while the one before it fades out, so there is never a gap
+  for (let i = 1; i < out.length; i++) { out[i].in0 = out[i - 1].out0 * 0.8; out[i].in1 = out[i - 1].out1 * 0.85; }
+  return out;
+}
+function rebuildGrass() { if (!GRL) return; for (const G of GRL) { scene.remove(G.im); G.im.dispose(); G.mat.dispose(); } GRL = null; }
 const GRASS_LAYERS = isTouch
-  ? [{ n: 84, sp: 0.42, s: 1, in0: -1, in1: 0, out1: 17.4, out0: 13 }, { n: 60, sp: 1.15, s: 1.6, in0: 10.5, in1: 14.5, out1: 34, out0: 25 }]
-  : [{ n: 128, sp: 0.34, s: 1, in0: -1, in1: 0, out1: 21.6, out0: 16 }, { n: 92, sp: 0.95, s: 1.55, in0: 13, in1: 18, out1: 43, out0: 31 }];
+  ? [{ n: 84, sp: 0.42, s: 1, in0: -1, in1: 0, out1: 17.4, out0: 13 }, { n: 60, sp: 1.15, s: 1.6, in0: 10.5, in1: 14.5, out1: 34, out0: 27 }, { n: 48, sp: 2.4, s: 2.4, in0: 24, in1: 31, out1: 57, out0: 44 }]
+  : [{ n: 128, sp: 0.34, s: 1, in0: -1, in1: 0, out1: 21.6, out0: 16 }, { n: 92, sp: 0.95, s: 1.55, in0: 13, in1: 18, out1: 43, out0: 35 }, { n: 80, sp: 2.05, s: 2.3, in0: 30, in1: 38, out1: 82, out0: 64 }];
 const gHash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
 // returns [height, edge] where edge thins the grass out gradually toward paths, roads and rock
 const _gE = [0, 1];
@@ -1760,8 +1770,8 @@ function placeGrass(G, a, b) {
   const h1 = gHash(ci + G.s * 31, cj), h2 = gHash(cj + 17.3, ci - 4.1 + G.s), x = (ci + h1) * sp, z = (cj + h2) * sp, gy = grassY(x, z);
   // tint from the ground's own patches; worn soil gets little or no grass, edges thin out gradually
   const nA = gFbmJ(x * 0.05, z * 0.05), nB = gFbmJ(x * 0.19 + 11.3, z * 0.19 + 11.3), nC = gFbmJ(x * 0.08 + 3.7, z * 0.08 + 3.7);
-  const worn = gSm(0.62, 0.78, nC), e = gy ? gy[1] * (1 - worn) : 0;
-  if (!gy || e < 0.12 + h1 * 0.25 || h1 * h2 > 0.82) { G.im.setMatrixAt(i, _gm4.makeScale(0, 0, 0)); return; }
+  const worn = gSm(0.7, 0.86, nC), e = gy ? gy[1] * (1 - 0.55 * worn) : 0;
+  if (!gy || e < 0.08 + h1 * 0.12 || h1 * h2 > 0.9) { G.im.setMatrixAt(i, _gm4.makeScale(0, 0, 0)); return; }
   const y = gy[0];
   _gq.setFromAxisAngle(_gup, h1 * 6.283); const s_ = (0.7 + h2 * 0.65) * G.s * (0.45 + 0.55 * e); _gsc.set(s_, s_ * (0.75 + h1 * 0.6) / Math.sqrt(G.s), s_); _gp.set(x, y - 0.02, z);
   G.im.setMatrixAt(i, _gm4.compose(_gp, _gq, _gsc));
@@ -1771,7 +1781,7 @@ function placeGrass(G, a, b) {
 }
 function updateGrass() {
   if (!grassReady || window.__noGrass) return;
-  if (!GRL) { grassAssets(); GRL = GRASS_LAYERS.map(grassLayer); }
+  if (!GRL) { if (!grassGeo) grassAssets(); GRL = grassLayersFor(grassK()).map(grassLayer); }
   const t = performance.now() / 1000;
   for (const G of GRL) {
     const N = G.n, h = N >> 1, cc = Math.floor(cam.position.x / G.sp), cr = Math.floor(cam.position.z / G.sp);
@@ -1956,11 +1966,16 @@ function buildRing() {
     if (i > 0) { const a = 2 * (i - 1), b = 2 * i; idx.push(a, b, a + 1, a + 1, b, b + 1); }
   }
   const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uvs, 2)); g.setIndex(idx); g.computeVertexNormals();
-  // packed gravel path with a low stone edging on both sides
-  const gravelTex = ctex(64, (gg, sz) => { gg.fillStyle = '#6e6a62'; gg.fillRect(0, 0, sz, sz); let sd = 777; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < 520; i++) { const v = 70 + r() * 90 | 0; gg.fillStyle = `rgb(${v},${v - 4},${v - 12})`; gg.beginPath(); gg.arc(r() * sz, r() * sz, 0.6 + r() * 1.6, 0, 6.3); gg.fill(); } });
-  const gravel = new T.MeshLambertMaterial({ map: gravelTex, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-  if (gravel.isMeshStandardMaterial) gravel.roughness = 0.9;
+  // paved road: poured concrete slabs with expansion joints, tyre wear down the middle and a low kerb on both sides
+  const roadTex = ctex(64, (gg, sz) => { let sd = 777; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    gg.fillStyle = '#7d7f7c'; gg.fillRect(0, 0, sz, sz);
+    for (let i = 0; i < 700; i++) { const v = 96 + r() * 70 | 0; gg.fillStyle = `rgba(${v},${v + 1},${v - 2},0.35)`; gg.fillRect(r() * sz, r() * sz, 1, 1); }
+    for (const tx of [0.22, 0.78]) { const gr = gg.createLinearGradient((tx - 0.1) * sz, 0, (tx + 0.1) * sz, 0); gr.addColorStop(0, 'rgba(40,40,40,0)'); gr.addColorStop(0.5, 'rgba(40,40,40,0.22)'); gr.addColorStop(1, 'rgba(40,40,40,0)'); gg.fillStyle = gr; gg.fillRect((tx - 0.1) * sz, 0, 0.2 * sz, sz); }
+    gg.fillStyle = 'rgba(30,30,30,0.85)'; gg.fillRect(0, 0, sz, 1.4); gg.fillRect(sz / 2 - 0.6, 0, 1.2, sz);   // joints: across each slab and down the centre
+    for (let i = 0; i < 3; i++) { gg.strokeStyle = 'rgba(30,30,30,0.5)'; gg.lineWidth = 0.6; gg.beginPath(); let x = r() * sz, y = r() * sz; gg.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (r() - 0.5) * 10; y += r() * 8; gg.lineTo(x, y); } gg.stroke(); } });   // hairline cracks
+  const gravel = new T.MeshLambertMaterial({ map: roadTex, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  if (gravel.isMeshStandardMaterial) gravel.roughness = 0.75;
+  { const ua = g.attributes.uv; for (let i = 0; i < ua.count; i++) ua.setXY(i, ua.getX(i) / 1.4, ua.getY(i) * 0.33); }   // one slab ≈ 3 m long across the full width
   scene.add(new T.Mesh(g, gravel));
   { const kp = [], ki = [], kerbH = 0.07;
     for (let i = 0; i <= n; i++) {
@@ -5216,13 +5231,15 @@ function syncSettingsUI() {
   $('sSens').value = CFG.sens; $('sSensV').textContent = CFG.sens.toFixed(2) + '×';
   $('sTouch').value = CFG.touchSens; $('sTouchV').textContent = CFG.touchSens.toFixed(2) + '×';
   $('sFov').value = CFG.fov; $('sFovV').textContent = CFG.fov + '°';
+  $('sGrass').value = grassK(); $('sGrassV').textContent = Math.round(grassLayersFor(grassK()).slice(-1)[0].out1) + ' m';
   $('sVol').value = CFG.vol; $('sVolV').textContent = Math.round(CFG.vol * 100) + '%';
   $('sMus').value = CFG.music; $('sMusV').textContent = Math.round(CFG.music * 100) + '%';
   $('sInv').checked = CFG.invertY; $('sAuto').checked = CFG.autoFire !== false;
   for (const b of document.querySelectorAll('#sRes button')) b.setAttribute('aria-pressed', b.dataset.res === CFG.res ? 'true' : 'false');
 }
 const bindRange = (id, key, parse) => $(id).addEventListener('input', e => { CFG[key] = parse(e.target.value); saveCfg(); syncSettingsUI(); if (key === 'vol' && MASTER) MASTER.gain.value = CFG.vol; if (key === 'music' && music.bus && music.on) { music.bus.gain.cancelScheduledValues(AC.currentTime); music.bus.gain.value = CFG.music * 1.6; } });
-bindRange('sSens', 'sens', parseFloat); bindRange('sTouch', 'touchSens', parseFloat); bindRange('sFov', 'fov', v => parseInt(v, 10)); bindRange('sVol', 'vol', parseFloat); bindRange('sMus', 'music', parseFloat);
+bindRange('sSens', 'sens', parseFloat); bindRange('sTouch', 'touchSens', parseFloat); bindRange('sFov', 'fov', v => parseInt(v, 10)); bindRange('sVol', 'vol', parseFloat); bindRange('sMus', 'music', parseFloat); bindRange('sGrass', 'grass', parseFloat);
+$('sGrass').addEventListener('change', rebuildGrass);
 $('sInv').addEventListener('change', e => { CFG.invertY = e.target.checked; saveCfg(); });
 $('sAuto').addEventListener('change', e => { CFG.autoFire = e.target.checked; saveCfg(); });
 for (const b of document.querySelectorAll('#sRes button')) b.addEventListener('click', () => { CFG.res = b.dataset.res; saveCfg(); syncSettingsUI(); resize(); });
