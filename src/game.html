@@ -1687,18 +1687,20 @@ function wreckShuttle(x, z) {
 let grassReady = false, GRL = null, grassTex = null, grassGeo = null;
 // two layers: a dense near field, and a sparser field of larger clumps that carries the meadow out to the fog,
 // cross-fading with each other so there is never a visible edge where grass begins
-const grassK = () => CFG.grass || (isTouch ? 1 : 1.6);
+const grassK = () => CFG.grass || (isTouch ? 1.2 : 1.6);
 function grassLayersFor(k) {
-  const out = GRASS_LAYERS.map((L, i) => { if (i === 0) return L; const f = i === 1 ? 1 + (k - 1) * 0.35 : k;
-    return Object.assign({}, L, { sp: L.sp * f, s: L.s * Math.sqrt(f), out0: L.out0 * f, out1: L.out1 * f }); });
+  // every layer covers its whole area (card width >= spacing) so distant grass reads as a continuous meadow;
+  // the slider stretches the far layer, which keeps its instance count and just spaces wider cards further apart
+  const out = GRASS_LAYERS.map((L, i) => { const f = i < 2 ? 1 : k, sp = L.sp * f, R = L.n * sp / 2;
+    return Object.assign({}, L, { sp, w: L.cover * sp, out1: R * 0.98, out0: R * 0.78 }); });
   // each layer fades in while the one before it fades out, so there is never a gap
   for (let i = 1; i < out.length; i++) { out[i].in0 = out[i - 1].out0 * 0.8; out[i].in1 = out[i - 1].out1 * 0.85; }
   return out;
 }
 function rebuildGrass() { if (!GRL) return; for (const G of GRL) { scene.remove(G.im); G.im.dispose(); G.mat.dispose(); } GRL = null; }
 const GRASS_LAYERS = isTouch
-  ? [{ n: 84, sp: 0.42, s: 1, in0: -1, in1: 0, out1: 17.4, out0: 13 }, { n: 60, sp: 1.15, s: 1.6, in0: 10.5, in1: 14.5, out1: 34, out0: 27 }, { n: 48, sp: 2.4, s: 2.4, in0: 24, in1: 31, out1: 57, out0: 44 }]
-  : [{ n: 128, sp: 0.34, s: 1, in0: -1, in1: 0, out1: 21.6, out0: 16 }, { n: 92, sp: 0.95, s: 1.55, in0: 13, in1: 18, out1: 43, out0: 35 }, { n: 80, sp: 2.05, s: 2.3, in0: 30, in1: 38, out1: 82, out0: 64 }];
+  ? [{ n: 84, sp: 0.42, cover: 1.4, hs: 1, in0: -1, in1: 0 }, { n: 64, sp: 1.1, cover: 1.5, hs: 1.1 }, { n: 56, sp: 2.8, cover: 1.5, hs: 1.25 }]
+  : [{ n: 128, sp: 0.34, cover: 1.5, hs: 1, in0: -1, in1: 0 }, { n: 96, sp: 0.9, cover: 1.5, hs: 1.1 }, { n: 96, sp: 2.3, cover: 1.5, hs: 1.25 }];
 const gHash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
 // returns [height, edge] where edge thins the grass out gradually toward paths, roads and rock
 const _gE = [0, 1];
@@ -1740,7 +1742,8 @@ function grassAssets() {
   const nr = grassGeo.attributes.normal; for (let i = 0; i < nr.count; i++) nr.setXYZ(i, 0, 1, 0);
 }
 function grassLayer(L) {
-  const mat = new T.MeshLambertMaterial({ map: grassTex, alphaTest: 0.35 });
+  const tex = grassTex.clone(); tex.needsUpdate = true; tex.wrapS = T.RepeatWrapping; tex.repeat.set(Math.max(1, Math.round(L.w / 0.5)), 1);
+  const mat = new T.MeshLambertMaterial({ map: tex, alphaTest: 0.35 });
   if (GFX) mat.alphaToCoverage = true;
   const sharpen = R.capabilities.isWebGL2;
   // fade distances are uniforms: every layer shares one compiled program, so they must not be baked into the source
@@ -1768,13 +1771,13 @@ function grassLayer(L) {
 const _gm4 = new T.Matrix4(), _gq = new T.Quaternion(), _gsc = new T.Vector3(), _gp = new T.Vector3(), _gcol = new T.Color(), _gup = new T.Vector3(0, 1, 0);
 function placeGrass(G, a, b) {
   const ci = G.colX[a], cj = G.rowZ[b], i = a * G.n + b, sp = G.sp;
-  const h1 = gHash(ci + G.s * 31, cj), h2 = gHash(cj + 17.3, ci - 4.1 + G.s), x = (ci + h1) * sp, z = (cj + h2) * sp, gy = grassY(x, z);
+  const h1 = gHash(ci + G.sp * 31, cj), h2 = gHash(cj + 17.3, ci - 4.1 + G.sp), x = (ci + h1) * sp, z = (cj + h2) * sp, gy = grassY(x, z);
   // tint from the ground's own patches; worn soil gets little or no grass, edges thin out gradually
   const nA = gFbmJ(x * 0.05, z * 0.05), nB = gFbmJ(x * 0.19 + 11.3, z * 0.19 + 11.3), nC = gFbmJ(x * 0.08 + 3.7, z * 0.08 + 3.7);
   const worn = gSm(0.7, 0.86, nC), e = gy ? gy[1] * (1 - 0.55 * worn) : 0;
   if (!gy || e < 0.08 + h1 * 0.12 || h1 * h2 > 0.9) { G.im.setMatrixAt(i, _gm4.makeScale(0, 0, 0)); return; }
   const y = gy[0];
-  _gq.setFromAxisAngle(_gup, h1 * 6.283); const s_ = (0.7 + h2 * 0.65) * G.s * (0.45 + 0.55 * e); _gsc.set(s_, s_ * (0.75 + h1 * 0.6) / Math.sqrt(G.s), s_); _gp.set(x, y - 0.02, z);
+  _gq.setFromAxisAngle(_gup, h1 * 6.283); const sw = G.w / 0.5 * (0.85 + 0.3 * h2), sh_ = G.hs * (0.75 + h1 * 0.6) * (0.45 + 0.55 * e); _gsc.set(sw, sh_, sw); _gp.set(x, y - 0.02, z);
   G.im.setMatrixAt(i, _gm4.compose(_gp, _gq, _gsc));
   let tr = 0.42 + (0.9 - 0.42) * gSm(0.28, 0.5, nA), tg = 0.56 + (1.0 - 0.56) * gSm(0.28, 0.5, nA), tb = 0.36 + (0.78 - 0.36) * gSm(0.28, 0.5, nA); const dry = gSm(0.6, 0.8, nA);
   tr += (1.2 - tr) * dry; tg += (1.08 - tg) * dry; tb += (0.58 - tb) * dry; const m = (0.72 + 0.5 * nB) * (0.85 + 0.12 * h1);
@@ -1808,6 +1811,26 @@ const tuftGeo = (() => { const g = new T.PlaneGeometry(0.6, 0.5); g.translate(0,
 function tuft(x, z) {
   const s = srnd(0.6, 1.3), r = srand() * 3;
   for (let i = 0; i < 2; i++) { const m = new T.Mesh(tuftGeo, MX.grass); m.position.set(x, 0, z); m.rotation.set(srnd(-0.1, 0.1), r + i * 1.57, 0); m.scale.set(s, s * srnd(0.7, 1.4), s); build.add(m); }
+}
+// dirt paths with soft, ragged edges: each path vertex carries aEdge (0 at the rim, 1 inside) and the fragment
+// shader breaks that edge up with world-space noise, so paths fade into the grass instead of ending in a straight line
+let _softDirt = null;
+function softDirt() {
+  if (_softDirt) return _softDirt;
+  const m = new T.MeshLambertMaterial({ map: TX.dirt, color: 0xb8a48a, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  m.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aEdge;\nvarying float vEdge;\nvarying vec2 vDW;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvEdge = aEdge; vDW = (modelMatrix * vec4(transformed, 1.0)).xz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+varying float vEdge; varying vec2 vDW;
+float dHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float dNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(dHash(i), dHash(i + vec2(1.0, 0.0)), f.x), mix(dHash(i + vec2(0.0, 1.0)), dHash(i + vec2(1.0, 1.0)), f.x), f.y); }`)
+      .replace('#include <alphatest_fragment>', `float dn = dNoise(vDW * 0.9) * 0.6 + dNoise(vDW * 3.1) * 0.4;
+  diffuseColor.a *= smoothstep(0.08, 0.55, vEdge + (dn - 0.5) * 0.55);
+  #include <alphatest_fragment>`);
+  };
+  _softDirt = m; return m;
 }
 // ---------------- the insertion route (south of the outpost) ----------------
 const ROUTE_SPAWNS = [], VISTA = [], swampMist = [];
@@ -1847,17 +1870,18 @@ function buildRoute(palm, fern) {
     const m = new T.Sprite(new T.SpriteMaterial({ map: steamTex, color: 0xd6dfd2, transparent: true, opacity: 0, depthWrite: false })); m.position.set(x, gy + 0.4, z); m.scale.set(srnd(8, 15), srnd(2.2, 4), 1); m.renderOrder = 3; scene.add(m);
     swampMist.push({ m, x, z, gy, t: Math.random(), sp: srnd(0.05, 0.09), dx: srnd(-0.4, 0.4), a: i < 30 ? 0.2 : 0.16 }); }
   // dirt track following the ground, with a boardwalk across the swamp
-  { const pts = [], idx = []; let n = 0;
-    for (let z = 56; z <= INS_Z - 8; z += 1.5) {
+  { const pts = [], idx = [], ed = [], u2 = [], COLS = [-2.9, -1.6, 0, 1.6, 2.9], EDG = [0, 1, 1, 1, 0], NC = COLS.length; let n = 0;
+    const breaks = [44, 94, 126, INS_Z - 8];
+    for (let z = 44; z <= INS_Z - 8; z += 1.5) {
       if (z > 94 && z < 126) continue;
-      const c = regC(z) + Math.sin(z * 0.13) * 1.2;
-      for (const sx of [-1.9, 0, 1.9]) pts.push(c + sx, Math.max(H(c + sx, z), H(c + sx * 0.5, z)) + 0.07, z);
-      if (n > 0 && !(z - 1.5 > 94 && z - 1.5 < 126) && !(z > 94 && z - 1.5 < 94)) { const a = 3 * (n - 1), b2 = 3 * n; idx.push(a, b2, a + 1, a + 1, b2, b2 + 1, a + 1, b2 + 1, a + 2, a + 2, b2 + 1, b2 + 2); }
+      const c = regC(z) + Math.sin(z * 0.13) * 1.2, endF = Math.min(1, Math.min(...breaks.map(b => Math.abs(z - b))) / 3.5);
+      COLS.forEach((sx, k) => { pts.push(c + sx, Math.max(H(c + sx, z), H(c + sx * 0.5, z)) + 0.07, z); ed.push(EDG[k] * endF); u2.push((sx + 3) * 0.2, z * 0.33); });
+      if (n > 0 && !(z - 1.5 > 94 && z - 1.5 < 126) && !(z > 94 && z - 1.5 < 94)) for (let k = 0; k < NC - 1; k++) { const a = NC * (n - 1) + k, b2 = NC * n + k; idx.push(a, b2, a + 1, a + 1, b2, b2 + 1); }
       n++;
     }
     const pg = new T.BufferGeometry(); pg.setAttribute('position', new T.Float32BufferAttribute(pts, 3)); pg.setIndex(idx); pg.computeVertexNormals();
-    const u2 = []; for (let i = 0; i < pts.length / 3; i++) u2.push((i % 3) * 0.6, Math.floor(i / 3) * 0.5); pg.setAttribute('uv', new T.Float32BufferAttribute(u2, 2));
-    const tr = new T.Mesh(pg, M.dirt); scene.add(tr); }
+    pg.setAttribute('uv', new T.Float32BufferAttribute(u2, 2)); pg.setAttribute('aEdge', new T.Float32BufferAttribute(ed, 1));
+    const tr = new T.Mesh(pg, softDirt()); tr.renderOrder = 1; scene.add(tr); }
   const plankMat = new T.MeshLambertMaterial({ map: TX.crate, color: 0x6e5034 });
   for (let z = 94; z < 126; z += 2.3) {
     if ((z > 103 && z < 106) || (z > 115 && z < 118.5)) continue;   // broken spans: wade through
@@ -2069,9 +2093,11 @@ function buildLevel() {
   const gg = new T.PlaneGeometry(320, 226); gg.rotateX(-Math.PI / 2); gg.translate(0, 0, -47);
   const guv = gg.attributes.uv; for (let i = 0; i < guv.count; i++) guv.setXY(i, guv.getX(i) * 110, guv.getY(i) * 78);
   build.add(new T.Mesh(gg, M.grass));
-  const path = (x, z, w, d) => { const p = new T.PlaneGeometry(w, d); p.rotateX(-Math.PI / 2);
-    const u = p.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * w / 3, u.getY(i) * d / 3);
-    const m = new T.Mesh(p, M.dirt); m.position.set(x, 0.01, z); build.add(m); };
+  const path = (x, z, w, d) => { const W = w + 2.4, D = d + 2.4, p = new T.PlaneGeometry(W, D, Math.ceil(W / 0.6), Math.ceil(D / 0.6)); p.rotateX(-Math.PI / 2);
+    const u = p.attributes.uv, ps = p.attributes.position, ed = new Float32Array(ps.count);
+    for (let i = 0; i < u.count; i++) { u.setXY(i, u.getX(i) * W / 3, u.getY(i) * D / 3); const ex = W / 2 - Math.abs(ps.getX(i)), ez = D / 2 - Math.abs(ps.getZ(i)); ed[i] = Math.min(1, Math.min(ex, ez) / 1.6); }
+    p.setAttribute('aEdge', new T.BufferAttribute(ed, 1));
+    const m = new T.Mesh(p, softDirt()); m.position.set(x, 0.012, z); m.renderOrder = 1; build.add(m); };
   path(0, 26, 6, 34); path(0, -26.6, 5, 33); path(-27, 0, 30, 5); path(38, -3, 16, 5);
   path(0, 52, 5, 20); path(0, -52, 5, 22); path(-52, 0, 22, 5); path(53, -3, 16, 5); path(-30, 30, 4, 26); path(30, 34, 22, 4);
 
@@ -3161,7 +3187,11 @@ function makeGun(id, att = {}) {
     g.userData.mag = magS; g.userData.ch = bolt;
     B(0.044, 0.11, 0.05, 0, -0.1, 0.1, dk, -0.32);               // grip
     B(0.01, 0.01, 0.09, 0, -0.07, 0.02, dk);
-    const stockS = grp([B(0.016, 0.016, 0.26, 0, 0.01, 0.31, dk), B(0.016, 0.016, 0.24, 0, -0.06, 0.3, dk, -0.12), B(0.044, 0.03, 0.12, 0, 0.05, 0.3, lt), B(0.06, 0.15, 0.028, 0, -0.02, 0.45, lt), B(0.016, 0.06, 0.016, 0, -0.1, 0.4, dk)]);
+    // one-piece chassis stock with a thumbhole, cheek riser on top, rubber pad and a folding monopod underneath
+    const stockS = grp([P_([[-0.16, 0.05], [-0.33, 0.05], [-0.34, 0.062], [-0.442, 0.062], [-0.442, -0.1], [-0.405, -0.112], [-0.3, -0.062], [-0.16, -0.062]], 0.03, 0, 0, 0, dk, GFX ? 0.003 : 0, 0, g,
+        [[[-0.2, 0.024], [-0.29, 0.028], [-0.305, -0.03], [-0.215, -0.036]]]),
+      B(0.042, 0.022, 0.11, 0, 0.073, 0.385, lt), B(0.06, 0.17, 0.024, 0, -0.022, 0.452, lt), B(0.016, 0.05, 0.016, 0, -0.13, 0.4, dk), B(0.034, 0.008, 0.03, 0, -0.157, 0.4, lt)]);
+    C(0.024, 0.02, 0.05, 0, 0.012, -0.565, dk);                    // barrel shoulder where it leaves the forend
     const barS = C(0.016, 0.014, 0.6, 0, 0.012, -0.84); muzzle = -1.18;
     for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; B(0.004, 0.004, 0.42, Math.cos(a) * 0.0155, 0.012 + Math.sin(a) * 0.0155, -0.82, lt); }
     const tipS = B(0.04, 0.034, 0.06, 0, 0.012, muzzle + 0.03, dk);
