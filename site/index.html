@@ -2105,7 +2105,7 @@ function updateFires(t) { for (const f of fires) { const k = 0.85 + Math.sin(t *
 // A walled sandstone town built around a central market square. You start in the fortified garrison;
 // buyable gates open the square, the side quarters and the vault. Enemies only climb in over the walls of
 // districts you have opened, and find their way to you through the streets with a flow field.
-const DUNE = { zones: { spawn: true }, doors: [], spawns: [], lanterns: [] };
+const DUNE = { zones: { spawn: true }, doors: [], spawns: [], lanterns: [], buys: [] };
 const NAV = { x0: -64, z0: -48, w: 128, h: 108, ready: false, t: 0 };
 function buildDune() {
   const R_ = (a, b) => a + srand() * (b - a);
@@ -2320,6 +2320,23 @@ function buildDune() {
     [32, -26, 10, 10, 7.2], [28, -10, 16, 6, 5.5], [-8, -42, 26, 8, 8], [16, -41, 22, 8, 7], [50, -43, 18, 8, 7.6], [-38, -32, 24, 8, 6]]) mass(x, z, w, d, h);
   for (const [x, z] of [[-30, 56], [-5, 58], [18, 57], [40, 56], [-63, 10], [63, 12], [-63, -20], [63, -30]]) datePalm(x + R_(-1, 1), z + R_(-1, 1), R_(0.9, 1.25));
 
+  // ---- weapons on the walls: a mounted gun on a plank with its price (ammo for one you own is cheaper) ----
+  const wallBuy = (id, cost, x, z, y, nx, nz) => {
+    const g = new T.Group(); g.position.set(x + nx * 0.42, y + 1.55, z + nz * 0.42); g.rotation.y = Math.atan2(nx, nz); scene.add(g);
+    const board = new T.Mesh(new T.BoxGeometry(1.9, 1.0, 0.06), Mwd); board.position.z = -0.03; g.add(board);
+    try { const gm_ = makeGun(id, {}); gm_.scale.setScalar(1.25); gm_.rotation.y = Math.PI / 2; gm_.position.set(0, 0.08, 0.06); gm_.traverse(o => { o.userData.noFit = true; }); g.add(gm_); } catch (e) {}
+    const sc = document.createElement('canvas'); sc.width = 256; sc.height = 64; const sg = sc.getContext('2d');
+    sg.fillStyle = '#20160c'; sg.fillRect(0, 0, 256, 64); sg.strokeStyle = '#e6b84a'; sg.lineWidth = 3; sg.strokeRect(3, 3, 250, 58);
+    sg.fillStyle = '#ffd36a'; sg.font = 'bold 22px sans-serif'; sg.textAlign = 'center'; sg.fillText(wById(id).name.toUpperCase(), 128, 27); sg.font = '16px sans-serif'; sg.fillText(cost.toLocaleString() + '  ·  ammo ' + Math.round(cost * 0.35 / 50) * 50, 128, 50);
+    const pl = new T.Mesh(new T.PlaneGeometry(1.5, 0.38), new T.MeshBasicMaterial({ map: new T.CanvasTexture(sc) })); pl.position.set(0, -0.68, 0.01); g.add(pl);
+    DUNE.buys.push({ id, cost, ammo: Math.round(cost * 0.35 / 50) * 50, x: x + nx * 1.0, z: z + nz * 1.0, y });
+  };
+  wallBuy('vk9', 6000, -9, 29.6, 0, 0, -1);                       // just past the Market Gate
+  wallBuy('hail', 5500, -41.6, 22, 0, 1, 0);                      // West Houses
+  wallBuy('breaker', 7000, 41.6, 24, 0, -1, 0);                   // East Stores
+  wallBuy('lancer', 9500, -13.6, -16, HY, 1, 0);                  // Elevated Hall
+  wallBuy('longshot', 12000, -59.6, 9, 0, 1, 0);                  // The Colonnade
+
   // ---- buyable gates ----
   const door = (name, cost, axis, c, a, b, y0, opens) => {
     const w = b - a, mid = (a + b) / 2, cx = axis === 'x' ? mid : c, cz = axis === 'x' ? c : mid;
@@ -2411,6 +2428,23 @@ function duneSpawnPoint() {
   const pool = pts.slice(0, 5); const o = pool[(Math.random() * pool.length) | 0];
   return o ? o.s : DUNE.spawns[0];
 }
+function buyWall(b) {
+  const P = S.p, own = curW === b.id || S.runPrimary === b.id, cost = own ? b.ammo : b.cost;
+  if (S.score < cost) { pickNote(`Need ${(cost - Math.floor(S.score)).toLocaleString()} more points`); SFX.empty(); return; }
+  S.score -= cost; spendNote(cost);
+  if (own) {
+    if (curW === b.id) { P.reserve = GS.maxRes; P.mag = GS.mag; P.reloadT = 0; } else { P.store = P.store || {}; P.store[b.id] = { mag: WSTATS[b.id].mag, reserve: WSTATS[b.id].maxRes || WSTATS[b.id].reserve }; }
+    pickNote(`${wById(b.id).name} ammo refilled`); SFX.pickup(); return;
+  }
+  // a new weapon takes the second slot (replacing anything bought before) and comes out straight away
+  P.store = P.store || {}; P.store[curW] = { mag: P.mag, reserve: P.reserve };
+  if (S.runPrimary && S.runPrimary !== b.id) delete P.store[S.runPrimary];
+  S.runPrimary = b.id; delete P.store[b.id];
+  P.reloadT = 0; try { reloadVoice && reloadVoice.stop(); } catch (e) {}
+  curW = b.id; applyLoadout(); P.mag = GS.mag; P.reserve = GS.reserve; P.swapT = 0.5;
+  try { $('hbGun').src = thumb(curW); } catch (e) {} updateWeaponBar(); lastHud = ''; updateAltWidget(true);
+  banner(wById(b.id).name, 'Bought off the wall · 1 / 2 to swap', 1.8); SFX.level();
+}
 function openDoor(d, remote, who) {
   d.open = true; if (!remote) { S.score -= d.cost; spendNote(d.cost); if (NET.on) netSend({ t: 'door', i: DUNE.doors.indexOf(d), n: callsign }); }
   const k = boxes.indexOf(d.box); if (k >= 0) boxes.splice(k, 1);
@@ -2426,6 +2460,13 @@ function updateDoors(dt) {
     const dd = Math.hypot(P.x - d.cx, P.z - d.cz); if (dd < bd && Math.abs(P.y - d.y0) < 1.6) { bd = dd; near = d; }
   }
   S.nearDoor = P.dead || P.downed ? null : near;
+  // wall weapons
+  let nb = null, bb = 1.7;
+  if (!S.nearDoor && !P.dead && !P.downed) for (const b of DUNE.buys) { const dd = Math.hypot(P.x - b.x, P.z - b.z); if (dd < bb && Math.abs(P.y - b.y) < 1.5) { bb = dd; nb = b; } }
+  S.nearBuy = nb;
+  const hb = nb && (input.keys.x || input.useHeld);
+  S.buyHold = hb ? (S.buyHold || 0) + dt : 0;
+  if (hb && S.buyHold >= 0.5) { S.buyHold = -0.8; buyWall(nb); }
   const held = S.nearDoor && (input.keys.x || input.useHeld);
   S.doorHold = held ? (S.doorHold || 0) + dt : 0;
   if (held && S.doorHold >= 0.7) { S.doorHold = -0.8; if (S.score >= near.cost) openDoor(near); else { pickNote(`Need ${(near.cost - S.score).toLocaleString()} more points`); SFX.empty(); } }
@@ -4442,7 +4483,7 @@ function tryFire() {
 // swap between the primary and the sidearm; each keeps its own magazine and reserve
 // top up the weapon that's holstered as well (ammo cans and the ammo box feed both guns)
 function feedOther(full) {
-  const P = S.p, other = curW === loadout.primary ? loadout.sidearm : loadout.primary, w = WSTATS[other];
+  const P = S.p, other = curW === primW() ? sideW() : primW(), w = WSTATS[other];
   if (!w || other === 'none') return 0;
   P.store = P.store || {}; const st = P.store[other] || (P.store[other] = { mag: w.mag, reserve: w.reserve });
   const before = st.reserve; st.reserve = full ? w.maxRes : Math.min(w.maxRes, st.reserve + w.pick); if (full) st.mag = Math.max(st.mag, w.mag);
@@ -4450,20 +4491,23 @@ function feedOther(full) {
 }
 function updateAltWidget(anim) {
   const P = S && S.p, el = $('hbAlt'); if (!el || !P) return;
-  const other = curW === loadout.primary ? loadout.sidearm : loadout.primary;
-  if (MAP === 'dune' || !other || other === 'none' || !WSTATS[other]) { el.hidden = true; return; }
+  const other = curW === primW() ? sideW() : primW();
+  if (!other || other === 'none' || !WSTATS[other]) { el.hidden = true; return; }
   el.hidden = false;
   const st = (P.store && P.store[other]) || { mag: WSTATS[other].mag, reserve: WSTATS[other].reserve };
   if (el.dataset.w !== other) { el.dataset.w = other; try { $('hbAltGun').src = thumb(other); } catch (e) {} $('hbAltName').textContent = wById(other).name; $('hbAltKey').textContent = other === loadout.primary ? '1' : '2'; }
   const txt = `${st.mag} / ${st.reserve}`; if ($('hbAltAmmo').textContent !== txt) $('hbAltAmmo').textContent = txt;
   if (anim) for (const e of [el, el.parentNode]) { e.classList.remove('swap'); void e.offsetWidth; e.classList.add('swap'); }
 }
+// the two weapon slots: on Dunebreak they are your pistol plus whatever you bought off a wall this run
+const primW = () => MAP === 'dune' ? (S && S.runPrimary) || null : loadout.primary;
+const sideW = () => MAP === 'dune' ? (S && S.runSide) || 'wasp' : loadout.sidearm;
 function switchWeapon() {
-  const P = S && S.p; if (!P || P.dead || !S.running || loadout.sidearm === 'none' || P.swapT > 0 || MAP === 'dune') return;
+  const P = S && S.p; if (!P || P.dead || !S.running || !sideW() || sideW() === 'none' || !primW() || primW() === 'none' || P.swapT > 0) return;
   P.store = P.store || {};
   P.store[curW] = { mag: P.mag, reserve: P.reserve };
   P.reloadT = 0; try { reloadVoice && reloadVoice.stop(); } catch (e) {}
-  curW = curW === loadout.primary ? loadout.sidearm : loadout.primary;
+  curW = curW === primW() ? sideW() : primW();
   applyLoadout();
   const st = P.store[curW] || { mag: GS.mag, reserve: GS.reserve };
   P.mag = Math.min(st.mag, GS.mag); P.reserve = st.reserve; P.swapT = 0.32;
@@ -5386,6 +5430,8 @@ function hud() {
   const st = S.nearStation; let msg = '';
   if (st && S.running) msg = st.active ? 'Healing…' : st.cd > 0 ? `Medical station recharging · ${Math.ceil(st.cd)}s` : P.hp >= 100 ? 'Health full' : (isTouch ? 'Tap USE to heal' : 'Press X to heal');
   if (S.missile || P.downed) msg = '';
+  else if (!msg && S.nearBuy) { const b = S.nearBuy, own = curW === b.id || S.runPrimary === b.id, c = own ? b.ammo : b.cost, nm = wById(b.id).name;
+    msg = S.score >= c ? `${isTouch ? 'Hold USE' : 'Hold X'} · ${own ? nm + ' ammo' : 'buy ' + nm} · ${c.toLocaleString()} points` : `${own ? nm + ' ammo' : nm} · ${c.toLocaleString()} points (you have ${Math.floor(S.score).toLocaleString()})`; }
   else if (!msg && S.nearDoor) msg = S.score >= S.nearDoor.cost ? `${isTouch ? 'Hold USE' : 'Hold X'} · open ${S.nearDoor.name} · ${S.nearDoor.cost.toLocaleString()} points` : `${S.nearDoor.name} · ${S.nearDoor.cost.toLocaleString()} points (you have ${Math.floor(S.score).toLocaleString()})`;
   else if (!msg && S.revPeer) msg = S.revHold > 0 ? `Reviving ${S.revPeer.name || 'squadmate'}… ${Math.round(S.revHold / REVIVE_T * 100)}%` : `${isTouch ? 'Hold USE' : 'Hold X'} · revive ${S.revPeer.name || 'squadmate'}`;
   else if (!msg && S.nearTerm) msg = `${isTouch ? 'Tap USE' : 'Press X'} · tactical support terminal`;
@@ -5394,7 +5440,7 @@ function hud() {
   if (ui.prompt.textContent !== msg) ui.prompt.textContent = msg;
   ui.prompt.style.backgroundImage = S.revHold > 0 ? `linear-gradient(90deg, rgba(93,255,150,.35) ${S.revHold / REVIVE_T * 100}%, transparent 0)` : S.exHold > 0 ? `linear-gradient(90deg, rgba(93,255,150,.35) ${S.exHold / EX_HOLD_X * 100}%, transparent 0)` : '';
   ui.prompt.hidden = !msg;
-  ui.tUse.hidden = !(S.nearDoor || S.nearTerm || (S.nearExTerm && exfilReady()) || S.nearAmmo === 'ready' || (st && S.running && !st.active && st.cd <= 0 && P.hp < 100));
+  ui.tUse.hidden = !(S.nearDoor || S.nearBuy || S.nearTerm || (S.nearExTerm && exfilReady()) || S.nearAmmo === 'ready' || (st && S.running && !st.active && st.cd <= 0 && P.hp < 100));
   const scoped = S.running && GS.optic === 'acog' && P.ads > 0.85;
   ui.scope.hidden = !scoped;
   if (scoped) ui.scope.style.setProperty('--d', scopeD() + 'px');
@@ -5571,8 +5617,8 @@ addEventListener('keydown', e => {
   if (!S || !S.running || paused || (S.p.downed && k !== 'tab')) return;
   if (k === ' ') { e.preventDefault(); input.jump = true; }
   if (k === 'q') fireNade();
-  if (k === '1' && curW !== loadout.primary) switchWeapon();
-  if (k === '2' && curW === loadout.primary) switchWeapon();
+  if (k === '1' && curW !== primW()) switchWeapon();
+  if (k === '2' && curW === primW()) switchWeapon();
   if (k === 'x') input.use = true;
   if (k === 'v') voteSkip();
   if (k === '3' || k === '4' || k === '5') useStreak(+k - 3);
@@ -8146,7 +8192,7 @@ function start(tod, seed, wx) {
   input.fire = false; input.adsToggle = false; input.use = false; input.crouchToggle = false; $('tZoom').classList.remove('on'); $('tCrouch').classList.remove('on');
   updateWeaponBar();
   try { $('hbGun').src = thumb(curW); } catch (e) {}
-  curW = MAP === 'dune' ? (loadout.sidearm && loadout.sidearm !== 'none' ? loadout.sidearm : 'wasp') : loadout.primary; applyLoadout();   // Dunebreak: everyone starts with just their pistol
+  curW = MAP === 'dune' ? (loadout.sidearm && loadout.sidearm !== 'none' ? loadout.sidearm : 'wasp') : loadout.primary; if (MAP === 'dune') S.runSide = curW; applyLoadout();   // Dunebreak: everyone starts with just their pistol
   $('npName').textContent = callsign;
   newGame(); lastHud = ''; S.tod = tod; S.seed = seed;
   setWeather(wx, true); env.nextChange = MAP === 'dune' ? 1e9 : rnd(150, 240); env.flash = 0;
