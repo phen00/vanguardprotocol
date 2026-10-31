@@ -313,6 +313,8 @@ h1 em { font-style: normal; color: var(--hull); }
 .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; width: fit-content; max-width: 100%; }
 .seg button { pointer-events: auto; background: rgba(8,12,20,.5); color: var(--muted); border: 0; border-right: 1px solid var(--line); padding: 8px 12px; font: 700 12px var(--display); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
 .seg button:last-child { border-right: 0; }
+.lobmap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 8px; }
+.lobmap small { color: var(--muted); font: 600 11px var(--mono); }
 .seg button[aria-pressed=true] { background: var(--amber); color: var(--void); }
 .seg button:focus-visible { outline: 2px solid var(--shield); outline-offset: -2px; }
 .scoreov { background: rgba(6,8,16,.55); }
@@ -1005,6 +1007,7 @@ details.ctrl .controls { border: 0; padding-top: 10px; }
     <div class="mpanel lob">
       <div class="eyebrow">Multiplayer · Co-op, up to 4 players</div>
       <h2 class="lh">Squad up</h2>
+      <div class="lobmap"><span class="picklbl">Map</span><div class="seg" id="lobMap"><button type="button" data-map="kessa">Kessa</button><button type="button" data-map="dune">Dunebreak</button></div><small id="lobMapNote"></small></div>
       <label class="field"><span>Server</span><input id="srvUrl" placeholder="kessa-relay.yourname.workers.dev" autocomplete="off" spellcheck="false"></label>
       <div class="joinrow">
         <label class="field"><span>Room code</span><input id="roomCode" maxlength="12" autocomplete="off" spellcheck="false" placeholder="e.g. K7QXD"></label>
@@ -2097,7 +2100,7 @@ function updateFires(t) { for (const f of fires) { const k = 0.85 + Math.sin(t *
 // buyable gates open the square, the side quarters and the vault. Enemies only climb in over the walls of
 // districts you have opened, and find their way to you through the streets with a flow field.
 const DUNE = { zones: { spawn: true }, doors: [], spawns: [], lanterns: [] };
-const NAV = { x0: -60, z0: -40, w: 120, h: 90, ready: false, t: 0 };
+const NAV = { x0: -64, z0: -48, w: 128, h: 108, ready: false, t: 0 };
 function buildDune() {
   const R_ = (a, b) => a + srand() * (b - a);
   // ---- desert materials ----
@@ -2119,7 +2122,7 @@ function buildDune() {
   Mleaf.userData.noHit = true; for (const m of Mcl) m.userData.noHit = true;
   // ---- ground: sand everywhere, dunes beyond the town walls ----
   { const g = new T.PlaneGeometry(700, 700, 70, 70); g.rotateX(-Math.PI / 2); const p = g.attributes.position, uv = g.attributes.uv;
-    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), out = Math.max(Math.abs(x) - 62, Math.abs(z + 4) - 50, 0);
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), out = Math.max(Math.abs(x) - 67, z - 61, -z - 49, 0);
       p.setY(i, out > 0 ? Math.min(30, out * 0.25) * (0.6 + 0.4 * Math.sin(x * 0.03 + z * 0.05) * Math.cos(z * 0.021)) + Math.sin(x * 0.07) * Math.cos(z * 0.05) * Math.min(4, out * 0.1) : 0);
       uv.setXY(i, x / 3, z / 3); }
     g.computeVertexNormals(); const m = new T.Mesh(g, Ms); m.receiveShadow = true; scene.add(m); levelMeshes.push(m); }
@@ -2175,129 +2178,141 @@ function buildDune() {
   const roof = (x0, z0, x1, z1, y, mat = Mp) => addBox((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0.35, y, mat, true, 2);
   const mass = (x, z, w, d, h) => { addBox(x, z, w, d, h, 0, Mp, true, 3); addBox(x, z, w + 0.2, d + 0.2, 0.25, h, Mdk, false, 1); };
 
-  // ================= GARRISON (spawn): x -10..10, z 30..46 =================
-  floor(-10, 30, 10, 46);
-  wall('x', 46, -10.4, 10.4);                                         // south
-  wall('z', -10, 30, 46); wall('z', 10, 30, 46);                      // west / east
+  // windows the dead climb in through: an opening in an outside wall (sill 1 m), boarded up badly, with a
+  // player-only barrier so you can shoot through but not climb out. axis/c: the wall; a: centre along it;
+  // side: which way is outside (+1 / -1 along the wall's normal); fy: floor height inside, oy: ground outside
+  const WIN = 1.7;
+  const win = (zone, axis, c, a, side, fy = 0, oy = 0, sill = 1.0) => {
+    const sAbs = fy + sill, top = sAbs + 1.4, nx = axis === 'z' ? side : 0, nz = axis === 'x' ? side : 0;
+    const wx = axis === 'x' ? a : c, wz = axis === 'x' ? c : a;
+    // boards and frame (decor only)
+    const fr = new T.Group(); fr.position.set(wx, 0, wz); if (axis === 'z') fr.rotation.y = Math.PI / 2; build.add(fr);
+    for (const sx of [-1, 1]) { const p = new T.Mesh(new T.BoxGeometry(0.14, 1.5, WT + 0.1), Mwd); p.position.set(sx * (WIN / 2 + 0.02), sAbs + 0.7, 0); fr.add(p); }
+    const tp = new T.Mesh(new T.BoxGeometry(WIN + 0.3, 0.14, WT + 0.1), Mwd); tp.position.set(0, top + 0.02, 0); fr.add(tp);
+    for (const [y, r] of [[sAbs + 0.35, 0.35], [sAbs + 1.05, -0.5]]) { const b = new T.Mesh(new T.BoxGeometry(WIN * 0.9, 0.16, 0.05), Mwd); b.position.set(r > 0 ? -0.15 : 0.2, y, side * 0.1); b.rotation.z = r; fr.add(b); }
+    boxes.push(axis === 'x' ? { x0: a - WIN / 2, x1: a + WIN / 2, z0: c - WT / 2, z1: c + WT / 2, y0: sAbs, y1: top, pOnly: true } : { x0: c - WT / 2, x1: c + WT / 2, z0: a - WIN / 2, z1: a + WIN / 2, y0: sAbs, y1: top, pOnly: true });
+    DUNE.spawns.push({ zone, win: true, x: wx - nx * 1.1, z: wz - nz * 1.1, y: fy, ox: wx + nx * 2.2, oz: wz + nz * 2.2, oy, wx, wz, sill: sAbs });
+    return [a - WIN / 2, a + WIN / 2, sill, sill + 1.4];
+  };
+
+  // ================= GARRISON (spawn): x -14..14, z 30..52 =================
+  floor(-14, 30, 14, 52);
+  wall('x', 52, -14.4, 14.4, [win('spawn', 'x', 52, -8, 1), win('spawn', 'x', 52, 8, 1)]);
+  wall('z', -14, 30, 52, [win('spawn', 'z', -14, 44, -1)]); wall('z', 14, 30, 52, [win('spawn', 'z', 14, 44, 1)]);
   wall('x', 30, -18.4, 18.4, [[-1.75, 1.75]]);                        // north, the main gate
-  sandbags(-5, 33.5, 4, 0.8, 1.1); sandbags(5, 33.5, 4, 0.8, 1.1);
-  crate(-8.4, 44.2, 1.1); crate(-7.2, 44.4, 0.9); crate(-8.3, 43.0, 0.8, 0, 0.3); barrel(8.4, 44.4); barrel(7.6, 44.6); barrel(8.5, 43.5);
-  roof(-10, 41, -5, 46, WH - 0.35); roof(5, 41, 10, 46, WH - 0.35);   // covered corners
-  awning(0, 44.4, 6, 2.6, 3.0, 0);
-  // garrison banner over the gate
+  sandbags(-6, 33.5, 5, 0.8, 1.1); sandbags(6, 33.5, 5, 0.8, 1.1); sandbags(-11, 40, 0.8, 4, 1.1); sandbags(11, 40, 0.8, 4, 1.1);
+  crate(-12.4, 31.6, 1.1); crate(-11.2, 31.8, 0.9); crate(-12.3, 33.0, 0.8, 0, 0.3); barrel(12.4, 31.6); barrel(11.6, 31.9); barrel(12.5, 32.8);
+  roof(-14, 46, -8, 52, WH - 0.35); roof(8, 46, 14, 52, WH - 0.35);   // covered corners
+  awning(0, 50.2, 7, 2.8, 3.0, 0); addBox(-3, 50.8, 2.2, 0.9, 0.9, 0, Mwd, true, 1); crate(3.2, 50.9, 1);
   { const c = document.createElement('canvas'); c.width = 64; c.height = 96; const g = c.getContext('2d'); g.fillStyle = '#7a2a20'; g.fillRect(0, 0, 64, 96); g.fillStyle = '#e6c27a';
     g.beginPath(); g.moveTo(32, 18); g.lineTo(50, 48); g.lineTo(32, 78); g.lineTo(14, 48); g.closePath(); g.fill(); g.fillStyle = '#7a2a20'; g.beginPath(); g.arc(32, 48, 9, 0, 6.3); g.fill();
     for (const x of [-4.5, 4.5]) { const b = new T.Mesh(new T.PlaneGeometry(1.4, 2.2), new T.MeshLambertMaterial({ map: new T.CanvasTexture(c), side: T.DoubleSide })); b.position.set(x, 3.0, 30.45); build.add(b); } }
-  zoneSpawns('spawn', [[-8.8, 36], [8.8, 36], [-8.8, 40], [8.8, 40], [0, 44.8]]);
 
   // ================= MARKET SQUARE (middle defend): x -18..18, z -8..30 =================
   floor(-18, -8, 18, 30);
-  wall('z', -18, -8.4, 30.4, [[4, 7], [20, 23]]);
-  wall('z', 18, -8.4, 30.4, [[4, 7], [20, 23]]);
-  wall('x', -8, -18.4, 18.4, [[-3, 3, 0, 4.3], [11, 15]]);
-  // the well and sundial obelisk in the centre: the spot to defend
+  wall('z', -18, -8.4, 30.4, [[4, 7], [20, 23], win('middle', 'z', -18, 13, -1)]);
+  wall('z', 18, -8.4, 30.4, [[4, 7], [20, 23], win('middle', 'z', 18, 13, 1)]);
+  wall('x', -8, -18.4, 18.4, [[-3, 3, 0, 4.3], [11, 15], win('middle', 'x', -8, -10, -1), win('middle', 'x', -8, 8, -1)]);
   { const m = new T.Mesh(new T.CylinderGeometry(2.0, 2.2, 0.9, 16), Mw); m.position.set(0, 0.45, 11); build.add(m); boxes.push({ x0: -1.7, x1: 1.7, z0: 9.3, z1: 12.7, y0: 0, y1: 0.9 });
     const w = new T.Mesh(new T.CircleGeometry(1.7, 16).rotateX(-Math.PI / 2), new T.MeshLambertMaterial({ color: 0x2a5a6a })); w.position.set(0, 0.8, 11); build.add(w);
     addBox(0, 11, 0.7, 0.7, 4.2, 0.9, Mp, true, 1); addBox(0, 11, 0.3, 0.3, 0.8, 5.1, Mtc, false, 1); }
   for (const [x, z] of [[-11, 2], [11, 2], [-11, 21], [11, 21]]) planterPalm(x, z);
-  stall(-13.5, 12, Math.PI / 2, 0); stall(13.5, 12, -Math.PI / 2, 1); stall(-6, -4.6, 0, 2); stall(7, 27.6, Math.PI, 3);
+  stall(-13.5, 12, Math.PI / 2, 0); stall(13.5, 8.5, -Math.PI / 2, 1); stall(-6, -4.6, 0, 2); stall(7, 27.6, Math.PI, 3);
   for (const [x, z, r] of [[-5, 17, 0.2], [5.5, 6, -0.4], [-6.5, 7.5, 0.6]]) { crate(x, z, 1, 0, r); crate(x + 0.9, z + 0.3, 0.8, 0, r); }
-  barrel(4.4, 18.2); barrel(5.2, 18.7); pot(-3.5, 24); pot(-2.8, 24.6, 0, 0.8); pot(3.4, 2.2); cart: { addBox(-8.5, 26, 2.4, 1.4, 0.9, 0.35, Mwd, true, 1); for (const sx of [-1, 1]) { const wh = new T.Mesh(new T.CylinderGeometry(0.45, 0.45, 0.12, 12), Mwd); wh.rotation.x = Math.PI / 2; wh.position.set(-8.5 + sx * 0.8, 0.45, 26.75); build.add(wh); } }
-  // shaded arcades along the square's east and west sides
-  for (const sx of [-1, 1]) { for (let z = -5; z <= 27; z += 4) if (Math.abs(z - 5.5) > 2.4 && Math.abs(z - 21.5) > 2.4) column(sx * 15.4, z, 3.8); roof(sx > 0 ? 14.8 : -17.6, -7.6, sx > 0 ? 17.6 : -14.8, 29.6, 3.8, Mtc); }
-  zoneSpawns('middle', [[-16.4, -6.6], [16.4, -6.6], [-16.4, 28.6], [16.4, 28.6], [-16.4, 13], [16.4, 13], [-8, -6.6], [8, -6.6]]);
+  barrel(4.4, 18.2); barrel(5.2, 18.7); pot(-3.5, 24); pot(-2.8, 24.6, 0, 0.8); pot(3.4, 2.2);
+  addBox(-8.5, 26, 2.4, 1.4, 0.9, 0.35, Mwd, true, 1); for (const sx of [-1, 1]) { const wh = new T.Mesh(new T.CylinderGeometry(0.45, 0.45, 0.12, 12), Mwd); wh.rotation.x = Math.PI / 2; wh.position.set(-8.5 + sx * 0.8, 0.45, 26.75); build.add(wh); }
+  for (const sx of [-1, 1]) { for (let z = -5; z <= 27; z += 4) if (Math.abs(z - 5.5) > 2.4 && Math.abs(z - 21.5) > 2.4 && Math.abs(z - 13) > 2.2) column(sx * 15.4, z, 3.8); roof(sx > 0 ? 14.8 : -17.6, -7.6, sx > 0 ? 17.6 : -14.8, 29.6, 3.8, Mtc); }
 
-  // ================= WEST HOUSES (intermediate): x -38..-18, z -4..30 =================
-  floor(-38, -4, -18, 30, 0, Mp);
-  wall('x', 30, -38.4, -18); wall('x', -4, -38.4, -18); wall('z', -38, -4.4, 30.4, [[10, 13]]);
-  wall('x', 14, -28, -18, [[-25, -21]]); wall('z', -28, -4, 30, [[0, 3], [24, 27]]);
-  roof(-28, 14, -18, 30, WH - 0.35); roof(-28, -4, -18, 6, WH - 0.35);                 // W1 fully roofed, W2 half roofed
-  rug(-23, 22, 4, 6, 0, 0); rug(-23, 3, 4, 5, 0, 1); pot(-27, 29); pot(-19, 29, 0, 0.8); crate(-27, -3, 1); crate(-19, 8, 0.9, 0, 0.4);
-  addBox(-23, 27.8, 3, 1.1, 0.5, 0, Mwd, true, 1); addBox(-23, 18, 2, 1, 0.75, 0, Mwd, true, 1);                       // bed, table
-  barrel(-36.5, -2.5); barrel(-36.5, 28.5); crate(-36.4, 20, 1.1); crate(-29.5, 6, 1, 0, 0.2);
-  lantern(-23, 3.6, 24); lantern(-23, 3.6, 2);
-  zoneSpawns('west', [[-27, 29], [-19, 29], [-27, -3], [-37, -3], [-37, 29], [-33, 15]]);
+  // ================= WEST HOUSES (intermediate): x -42..-18, z -4..30 =================
+  floor(-42, -4, -18, 30, 0, Mp);
+  wall('x', 30, -42.4, -18, [win('west', 'x', 30, -36, 1), win('west', 'x', 30, -24, 1)]);
+  wall('x', -4, -42.4, -18, [win('west', 'x', -4, -34, -1), win('west', 'x', -4, -24, -1)]);
+  wall('z', -42, -4.4, 30.4, [[10, 13]]);
+  wall('x', 14, -30, -18, [[-25, -21]]); wall('z', -30, -4, 30, [[0, 3], [24, 27]]);
+  roof(-30, 14, -18, 30, WH - 0.35); roof(-30, -4, -18, 6, WH - 0.35);
+  rug(-24, 22, 5, 6, 0, 0); rug(-24, 3, 5, 5, 0, 1); pot(-29, 16); pot(-19, 16, 0, 0.8); crate(-29, -3, 1); crate(-19, 9, 0.9, 0, 0.4);
+  addBox(-24, 28.6, 3, 1.1, 0.5, 0, Mwd, true, 1); addBox(-24, 18, 2, 1, 0.75, 0, Mwd, true, 1);
+  barrel(-40.5, -2.5); barrel(-40.5, 28.5); crate(-40.4, 20, 1.1); crate(-31.5, 6, 1, 0, 0.2); awning(-36, 20, 4, 3, 3.1, 1);
+  lantern(-24, 3.6, 24); lantern(-24, 3.6, 2);
 
-  // ================= WEST QUARTER (long colonnade, locked): x -56..-38, z -8..28 =================
-  floor(-56, -8, -38, 28);
-  wall('x', 28, -56.4, -38); wall('x', -8, -56.4, -38); wall('z', -56, -8.4, 28.4);
-  for (let z = -4; z <= 24; z += 4) { column(-50, z, 4.0); column(-44, z, 4.0); }
-  roof(-56, -8, -50.3, 28, 4.0, Mtc); roof(-43.7, -8, -38, 28, 4.0, Mtc);
-  for (let z = -2; z <= 22; z += 6) awning(-47, z, 5.4, 2.6, 4.4, (z / 6 + 4) | 0);
-  { const m = new T.Mesh(new T.CylinderGeometry(1.6, 1.8, 0.8, 14), Mw); m.position.set(-47, 0.4, 10); build.add(m); boxes.push({ x0: -48.4, x1: -45.6, z0: 8.6, z1: 11.4, y0: 0, y1: 0.8 }); }
-  datePalm(-54, 26, 1.1); datePalm(-54, -6, 1.0); pot(-54.5, 10); pot(-39.5, 1); crate(-40, 25, 1.1); crate(-40, 23.8, 0.9);
-  zoneSpawns('westq', [[-55, -7], [-55, 27], [-47, -7], [-47, 27], [-55, 10]]);
+  // ================= THE COLONNADE (west quarter, locked): x -60..-42, z -8..28 =================
+  floor(-60, -8, -42, 28);
+  wall('x', 28, -60.4, -42, [win('westq', 'x', 28, -51, 1)]); wall('x', -8, -60.4, -42, [win('westq', 'x', -8, -51, -1)]);
+  wall('z', -60, -8.4, 28.4, [win('westq', 'z', -60, 0, -1), win('westq', 'z', -60, 18, -1)]);
+  for (let z = -4; z <= 24; z += 4) { column(-54, z, 4.0); column(-48, z, 4.0); }
+  roof(-60, -8, -54.3, 28, 4.0, Mtc); roof(-47.7, -8, -42, 28, 4.0, Mtc);
+  for (let z = -2; z <= 22; z += 6) awning(-51, z, 5.4, 2.6, 4.4, (z / 6 + 4) | 0);
+  { const m = new T.Mesh(new T.CylinderGeometry(1.6, 1.8, 0.8, 14), Mw); m.position.set(-51, 0.4, 10); build.add(m); boxes.push({ x0: -52.4, x1: -49.6, z0: 8.6, z1: 11.4, y0: 0, y1: 0.8 }); }
+  datePalm(-58, 25, 1.1); datePalm(-58, -5, 1.0); pot(-58.5, 10); pot(-43.5, 1); crate(-44, 25, 1.1); crate(-44, 23.8, 0.9);
 
-  // ================= EAST STORES (intermediate): x 18..38, z -4..30 =================
-  floor(18, -4, 38, 30, 0, Mp);
-  wall('x', 30, 18, 38.4); wall('x', -4, 18, 38.4); wall('z', 38, -4.4, 30.4, [[12, 15]]);
-  wall('x', 14, 18, 28, [[21, 25]]); wall('z', 28, -4, 30, [[6, 9], [17, 20]]);
-  roof(18, -4, 28, 14, WH - 0.35);
-  for (let i = 0; i < 6; i++) crate(R_(19.5, 26.5), R_(-2.5, 12), R_(0.8, 1.2), 0, R_(0, 1));
-  for (let i = 0; i < 4; i++) barrel(R_(29.5, 36.5), R_(-2.5, 28));
-  addBox(23, 28.6, 4, 1, 1.0, 0, Mw, true, 1); pot(20, 28.8); pot(26, 28.8, 0, 0.8); awning(33, 22, 4, 3, 3.2, 2);
-  lantern(23, 3.6, 5); lantern(33, 3.4, 10);
-  zoneSpawns('east', [[27, 29], [19, 29], [27, -3], [37, -3], [37, 29], [33, 4]]);
+  // ================= EAST STORES (intermediate): x 18..42, z -4..30 =================
+  floor(18, -4, 42, 30, 0, Mp);
+  wall('x', 30, 18, 42.4, [win('east', 'x', 30, 24, 1), win('east', 'x', 30, 36, 1)]);
+  wall('x', -4, 18, 42.4, [win('east', 'x', -4, 38, -1)]);
+  wall('z', 42, -4.4, 30.4, [[12, 15]]);
+  wall('x', 14, 18, 30, [[21, 25]]); wall('z', 30, -4, 30, [[6, 9], [17, 20]]);
+  roof(18, -4, 30, 14, WH - 0.35);
+  for (let i = 0; i < 7; i++) crate(R_(19.5, 28.5), R_(-2.5, 12), R_(0.8, 1.2), 0, R_(0, 1));
+  for (let i = 0; i < 5; i++) barrel(R_(31.5, 40.5), R_(-2.5, 28));
+  addBox(24, 21, 4, 1, 1.0, 0, Mw, true, 1); pot(20, 28.8); pot(28, 28.8, 0, 0.8); awning(36, 22, 4, 3, 3.2, 2);
+  lantern(24, 3.6, 5); lantern(36, 3.4, 10);
 
-  // ================= EAST TUNNELS (covered, locked): x 38..56, z -8..30 =================
-  floor(38, -8, 56, 30, 0, Mf);
-  wall('x', 30, 38, 56.4); wall('x', -8, 38, 56.4); wall('z', 56, -8.4, 30.4);
-  wall('z', 44, -8, 24, [[4, 7], [16, 19]], 3.6); wall('z', 50, 2, 30, [[9, 12], [22, 25]], 3.6); wall('x', 2, 50, 56, [], 3.6); wall('x', 24, 44, 50, [], 3.6);
-  roof(38, -8, 56, 30, 3.6, Mw);
-  for (let z = -5; z <= 27; z += 6) { lantern(41, 3.0, z); lantern(53, 3.0, z + 3); }
-  lantern(47, 3.0, 13); crate(54.5, -6.5, 1); barrel(39.5, 28.5); barrel(47, 28.5); pot(54.6, 28.6);
-  zoneSpawns('tunnels', [[55, -7], [55, 29], [47, -7], [39.5, -7], [47, 20]], 0, 1.2);
+  // ================= THE TUNNELS (east quarter, covered, locked): x 42..60, z -8..30 =================
+  floor(42, -8, 60, 30, 0, Mf);
+  wall('x', 30, 42, 60.4, [win('tunnels', 'x', 30, 51, 1)]); wall('x', -8, 42, 60.4);
+  wall('z', 60, -8.4, 30.4, [win('tunnels', 'z', 60, 0, 1), win('tunnels', 'z', 60, 20, 1)]);
+  wall('z', 48, -8, 24, [[4, 7], [16, 19]], 3.6); wall('z', 54, 2, 30, [[9, 12], [22, 25]], 3.6); wall('x', 2, 54, 60, [], 3.6); wall('x', 24, 48, 54, [], 3.6);
+  roof(42, -8, 60, 30, 3.6, Mw);
+  for (let z = -5; z <= 27; z += 6) { lantern(45, 3.0, z); lantern(57, 3.0, z + 3); }
+  lantern(51, 3.0, 13); crate(58.5, -6.5, 1); barrel(43.5, 28.5); barrel(51, 27); pot(58.6, 28.6);
 
   // ================= ELEVATED HALL: x -14..6, z -34..-12, floor at 2.4 =================
   const HY = 2.4;
   addBox(-4, -23, 20, 22, HY, 0, Mw, true, 2); floor(-14, -34, 6, -12, HY, Mf);
   wall('x', -12, -14.4, 6.4, [[-3, 3, 0, HY + 3.2]], WH + HY);
-  wall('x', -34, -14.4, 6.4, [[-10, -8, HY + 1.1, HY + 2.4], [-1, 1, HY + 1.1, HY + 2.4]], WH + HY);
-  wall('z', -14, -34, -12, [[-24, -22, HY + 1.1, HY + 2.4]], WH + HY);
+  wall('x', -34, -14.4, 6.4, [win('hall', 'x', -34, -9, -1, HY, 0), win('hall', 'x', -34, 0, -1, HY, 0)], WH + HY);
+  wall('z', -14, -34, -12, [win('hall', 'z', -14, -23, -1, HY, 0)], WH + HY);
   wall('z', 6, -34, -12, [[-28, -24, HY, HY + 3.2]], WH + HY);
-  wall('x', -23, -14, 6, [[-9, -5], [-1, 3]], WH, HY);                                   // splits the hall into two rooms
+  wall('x', -23, -14, 6, [[-9, -5], [-1, 3]], WH, HY);
   for (const x of [-10, -2, 2]) for (const z of [-30, -16]) column(x, z, WH - 0.4, HY);
   rug(-4, -17.5, 8, 6, HY, 2); rug(-4, -28.5, 10, 7, HY, 0);
-  addBox(-4, -32.6, 6, 1.2, 0.9, HY, Mwd, true, 1);                                      // long table
+  addBox(-4, -31, 6, 1.2, 0.9, HY, Mwd, true, 1);
   for (const x of [-12.8, 4.8]) { addBox(x, -18, 0.6, 0.6, 1.0, HY, Mdk, true, 1); lantern(x, HY + 1.3, -18); }
   roof(-14, -34, 6, -12, HY + WH, Mp);
-  // stairs from the square up into the hall
   for (let i = 0; i < 8; i++) addBox(0, -1.7 - i * 1.3, 6, 1.32, 0.3 * (i + 1), 0, Mw, true, 1);
-  addBox(0, -11.8, 6, 1.0, HY, 0, Mw, true, 1);                                          // landing
+  addBox(0, -11.8, 6, 1.0, HY, 0, Mw, true, 1);
   wall('z', -3.4, -12, -8, [], HY + 2.6); wall('z', 3.4, -12, -8, [], HY + 2.6);
-  zoneSpawns('hall', [[-13, -33], [5, -33], [-13, -13], [5, -13], [-13, -22]], HY);
 
   // ================= GALLERY (elevated): x 9..23, z -34..-20, joined by a bridge =================
   addBox(16, -27, 14, 14, HY, 0, Mw, true, 2); floor(9, -34, 23, -20, HY, Mf);
-  addBox(7.5, -26, 3.2, 4, HY, 0, Mw, true, 1); floor(6, -28, 9, -24, HY, Mf);           // bridge
-  wall('x', -28.4, 6, 9, [], 1.1, HY); wall('x', -23.6, 6, 9, [], 1.1, HY);               // bridge parapets
-  wall('z', 9, -34, -20, [[-28, -24, HY, HY + 3.2]], WH + HY); wall('z', 23, -34, -20, [[-31, -29, HY + 1.1, HY + 2.4], [-25, -23, HY + 1.1, HY + 2.4]], WH + HY);
+  addBox(7.5, -26, 3.2, 4, HY, 0, Mw, true, 1); floor(6, -28, 9, -24, HY, Mf);
+  wall('x', -28.4, 6, 9, [], 1.1, HY); wall('x', -23.6, 6, 9, [], 1.1, HY);
+  wall('z', 9, -34, -20, [[-28, -24, HY, HY + 3.2]], WH + HY);
+  wall('z', 23, -34, -20, [win('gallery', 'z', 23, -30, 1, HY, 0), win('gallery', 'z', 23, -24, 1, HY, 0)], WH + HY);
   wall('x', -34, 9, 23.4, [], WH + HY); wall('x', -20, 9, 23.4, [], WH + HY);
   roof(9, -34, 23, -20, HY + WH, Mp);
   for (const [x, z] of [[12, -31], [16, -31], [20, -31], [12, -23], [20, -23]]) { addBox(x, z, 0.9, 0.9, 1.0, HY, Mp, true, 1); addBox(x, z, 0.4, 0.4, 0.9, HY + 1.0, Mtc, true, 1); }
   rug(16, -27, 6, 8, HY, 3); lantern(16, HY + 3.4, -27);
-  zoneSpawns('gallery', [[22, -33], [22, -21], [10, -33], [10, -21]], HY);
 
   // ================= UNDERPASS (long route): from the square's NE arch to the vault gate =================
-  floor(11, -18, 15, -8, 0, Mf); floor(15, -18, 40, -14, 0, Mf);
-  wall('z', 11, -18.4, -8); wall('z', 15, -14, -8); wall('x', -18, 11, 40); wall('x', -14, 15, 40);
-  roof(11, -18, 40, -14, 3.4, Mw); roof(11, -14, 15, -8.4, 3.4, Mw);
-  for (let x = 18; x <= 36; x += 6) lantern(x, 2.9, -16);
-  zoneSpawns('under', [[13, -17], [24, -17], [33, -15]], 0, 1.2);
+  floor(11, -18, 15, -8, 0, Mf); floor(15, -18, 44, -14, 0, Mf);
+  wall('z', 11, -18.4, -8); wall('z', 15, -14, -8); wall('x', -18, 11, 44, [win('under', 'x', -18, 30, -1)]); wall('x', -14, 15, 44);
+  roof(11, -18, 44, -14, 3.4, Mw); roof(11, -14, 15, -8.4, 3.4, Mw);
+  for (let x = 18; x <= 40; x += 6) lantern(x, 2.9, -16);
 
-  // ================= SUN VAULT (locked): x 40..56, z -34..-12 =================
-  floor(40, -34, 56, -12, 0, Mf);
-  wall('z', 40, -34.4, -11.6, [[-17.5, -14.5]]); wall('z', 56, -34.4, -11.6); wall('x', -34, 40, 56); wall('x', -12, 40, 56);
-  for (const [x, z] of [[44, -30], [52, -30], [44, -16], [52, -16]]) column(x, z, WH - 0.2);
-  { const m = new T.Mesh(new T.CylinderGeometry(1.2, 1.5, 1.0, 12), Mtc); m.position.set(48, 0.5, -23); build.add(m); boxes.push({ x0: 46.8, x1: 49.2, z0: -24.2, z1: -21.8, y0: 0, y1: 1.0 });
-    const relic = new T.Mesh(new T.OctahedronGeometry(0.5), new T.MeshBasicMaterial({ color: 0xffd36a })); relic.position.set(48, 1.9, -23); scene.add(relic); DUNE.relic = relic; }
-  rug(48, -23, 8, 10, 0, 3); lantern(41, 3.6, -33); lantern(55, 3.6, -33); lantern(41, 3.6, -13); lantern(55, 3.6, -13);
-  zoneSpawns('vault', [[55, -33], [55, -13], [48, -33], [41, -33]]);
+  // ================= SUN VAULT (locked): x 44..60, z -34..-12 =================
+  floor(44, -34, 60, -12, 0, Mf);
+  wall('z', 44, -34.4, -11.6, [[-17.5, -14.5]]); wall('z', 60, -34.4, -11.6, [win('vault', 'z', 60, -28, 1), win('vault', 'z', 60, -18, 1)]);
+  wall('x', -34, 44, 60, [win('vault', 'x', -34, 52, -1)]); wall('x', -12, 44, 60);
+  for (const [x, z] of [[48, -30], [56, -30], [48, -16], [56, -16]]) column(x, z, WH - 0.2);
+  { const m = new T.Mesh(new T.CylinderGeometry(1.2, 1.5, 1.0, 12), Mtc); m.position.set(52, 0.5, -23); build.add(m); boxes.push({ x0: 50.8, x1: 53.2, z0: -24.2, z1: -21.8, y0: 0, y1: 1.0 });
+    const relic = new T.Mesh(new T.OctahedronGeometry(0.5), new T.MeshBasicMaterial({ color: 0xffd36a })); relic.position.set(52, 1.9, -23); scene.add(relic); DUNE.relic = relic; }
+  rug(52, -23, 8, 10, 0, 3); lantern(45, 3.6, -33); lantern(59, 3.6, -33); lantern(45, 3.6, -13); lantern(59, 3.6, -13);
 
-  // ---- the rest of the town: rooftops between the districts and an outer wall ----
-  for (const [x, z, w, d, h] of [[-27, -14, 18, 12, 6.5], [-48, -20, 16, 20, 7], [-44, 38, 24, 14, 6], [-22, 38, 20, 12, 7.5], [22, 38, 20, 12, 6.8], [44, 38, 24, 14, 6.2],
-    [30, -26, 12, 10, 7.2], [28, -10, 16, 6, 5.5], [-48, -11, 16, 4, 5.2], [-8, -40, 26, 10, 8], [16, -40, 22, 10, 7], [48, -40, 18, 10, 7.6], [-38, -32, 24, 8, 6]]) mass(x, z, w, d, h);
-  for (const [x, z] of [[-30, 47], [-5, 49], [18, 48], [40, 47], [-58, 10], [58, 12], [-58, -20], [58, -30]]) datePalm(x + R_(-1, 1), z + R_(-1, 1), R_(0.9, 1.25));
+  // ---- the rest of the town: rooftops between the districts (kept clear of the windows) ----
+  for (const [x, z, w, d, h] of [[-27, -14, 18, 12, 6.5], [-48, -21, 16, 18, 7], [-28.5, 40.5, 23, 15, 7], [28.5, 40.5, 23, 15, 6.8], [-51, 40, 16, 14, 6], [51, 40, 16, 14, 6.2],
+    [32, -26, 10, 10, 7.2], [28, -10, 16, 6, 5.5], [-8, -42, 26, 8, 8], [16, -41, 22, 8, 7], [50, -43, 18, 8, 7.6], [-38, -32, 24, 8, 6]]) mass(x, z, w, d, h);
+  for (const [x, z] of [[-30, 56], [-5, 58], [18, 57], [40, 56], [-63, 10], [63, 12], [-63, -20], [63, -30]]) datePalm(x + R_(-1, 1), z + R_(-1, 1), R_(0.9, 1.25));
 
   // ---- buyable gates ----
   const door = (name, cost, axis, c, a, b, y0, opens) => {
@@ -2315,9 +2330,9 @@ function buildDune() {
     boxes.push(box); DUNE.doors.push({ name, cost, cx, cz, y0, g, box, opens, open: false, t: 0 });
   };
   door('Market Gate', 3000, 'x', 30, -1.75, 1.75, 0, ['middle', 'west', 'east', 'hall', 'gallery', 'under']);
-  door('West Quarter', 7500, 'z', -38, 10, 13, 0, ['westq']);
-  door('East Tunnels', 7500, 'z', 38, 12, 15, 0, ['tunnels']);
-  door('Sun Vault', 12000, 'z', 40, -17.5, -14.5, 0, ['vault']);
+  door('The Colonnade', 7500, 'z', -42, 10, 13, 0, ['westq']);
+  door('The Tunnels', 7500, 'z', 42, 12, 15, 0, ['tunnels']);
+  door('Sun Vault', 12000, 'z', 44, -17.5, -14.5, 0, ['vault']);
   // the market gate also seals the square from the garrison side until it is bought; the side arches stay open
 }
 function duneStation(x, z, y0, nx, nz) {
@@ -2366,18 +2381,36 @@ function navDir(x, z) {
   if (bi < 0) return null;
   const tx = NAV.x0 + bi + 0.5 - x, tz = NAV.z0 + bj + 0.5 - z, l = Math.hypot(tx, tz) || 1; return [tx / l, tz / l];
 }
+// climbing in: shuffle up to the window, haul over the sill, drop inside. Hittable the whole time.
+function climbTick(e, dt) {
+  const c = e.climb; c.t += dt / c.dur; const t = Math.min(1, c.t);
+  let x, z, y;
+  if (t < 0.35) { const k = t / 0.35; x = c.ox + (c.wx - c.ox) * k; z = c.oz + (c.wz - c.oz) * k; y = c.oy; e.phase += dt * 4; }
+  else { const k = (t - 0.35) / 0.65, base = c.oy + (c.iy - c.oy) * k, peak = c.sill + 0.3 - (c.oy + c.iy) / 2;
+    x = c.wx + (c.ix - c.wx) * k; z = c.wz + (c.iz - c.wz) * k; y = base + Math.sin(Math.PI * Math.min(1, k * 1.2)) * Math.max(0.2, peak);
+    if (!c.puffed && k > 0.3) { c.puffed = true; spark(c.wx, c.sill + 0.3, c.wz, 0xd8c09a, 8, 1.5, 0.8); sNoise(0.15, 900, Math.max(0, 0.06 - Math.hypot(S.p.x - c.wx, S.p.z - c.wz) * 0.002), 'bandpass'); } }
+  e.x = x; e.z = z; e.y = y; e.g.position.set(x, y, z); e.g.rotation.y = Math.atan2(c.ix - c.ox, c.iz - c.oz);
+  const sw = Math.sin(e.phase) * 0.5; if (e.legs && e.legs.length === 2) { e.legs[0].rotation.x = sw; e.legs[1].rotation.x = -sw; }
+  if (e.arms && e.armBase) { e.arms[0].rotation.x = -2.4; e.arms[1].rotation.x = -2.2; }
+  if (t >= 1) { e.climb = null; e.vy = 0; e.lastX = e.x; e.lastZ = e.z; if (e.armBase) { e.arms[0].rotation.x = e.armBase[0]; e.arms[1].rotation.x = e.armBase[1]; } }
+}
+function hollowGroan(e) {
+  const d = Math.hypot(S.p.x - e.x, S.p.z - e.z); if (d > 30) return;
+  const v = Math.max(0, 0.07 * (1 - d / 30)), big = e.D.zombie === 3, f = big ? 70 : e.D.zombie === 2 ? 140 : 100;
+  sTone(f * (0.9 + Math.random() * 0.2), f * 0.7, big ? 1.1 : 0.8, v, 'sawtooth'); sNoise(big ? 0.9 : 0.6, big ? 300 : 500, v * 0.8, 'bandpass');
+}
 function duneSpawnPoint() {
   const tg = [[S.p.x, S.p.z]]; if (NET.on) for (const p of NET.peers.values()) if (p.a) tg.push([p.x, p.z]);
   const pts = DUNE.spawns.filter(s => DUNE.zones[s.zone]).map(s => ({ s, d: Math.min(...tg.map(([x, z]) => Math.hypot(x - s.x, z - s.z))) })).filter(o => o.d > 10).sort((a, b) => a.d - b.d);
   const pool = pts.slice(0, 5); const o = pool[(Math.random() * pool.length) | 0];
   return o ? o.s : DUNE.spawns[0];
 }
-function openDoor(d) {
-  d.open = true; S.score -= d.cost; spendNote(d.cost);
+function openDoor(d, remote, who) {
+  d.open = true; if (!remote) { S.score -= d.cost; spendNote(d.cost); if (NET.on) netSend({ t: 'door', i: DUNE.doors.indexOf(d), n: callsign }); }
   const k = boxes.indexOf(d.box); if (k >= 0) boxes.splice(k, 1);
   for (const z of d.opens) DUNE.zones[z] = true;
   navBuild(d.box.x0 - 2, d.box.z0 - 2, d.box.x1 + 2, d.box.z1 + 2);
-  banner(d.name, 'Gate opened · new spawns active', 2.2); SFX.level(); sNoise(1.0, 400, 0.12, 'lowpass'); addShake(0.3);
+  banner(d.name, remote && who ? `${who} opened the gate` : 'Gate opened · new spawns active', 2.2); SFX.level(); sNoise(1.0, 400, 0.12, 'lowpass'); addShake(0.3);
 }
 function updateDoors(dt) {
   if (MAP !== 'dune' || !S) return;
@@ -2395,8 +2428,8 @@ function updateDoors(dt) {
 
 function buildLevel() {
   if (MAP === 'dune') {
-    buildDune(); duneStation(-6, 45.2, 0, 0, -1); duneStation(51, -33.2, 0, 0, 1);
-    bake(build); buildAmmoBox(4, 44.7, 0); buildTerminal(-10, -7.3, 0); finalizeLevel(); navBuild(); return;
+    buildDune(); duneStation(-9, 51.2, 0, 0, -1); duneStation(55, -33.2, 0, 0, 1);
+    bake(build); buildAmmoBox(6, 50.9, 0); buildTerminal(-10, -7.3, 0); finalizeLevel(); navBuild(); return;
   }
   // ground + paths
   const gg = new T.PlaneGeometry(320, 226); gg.rotateX(-Math.PI / 2); gg.translate(0, 0, -47);
@@ -2594,7 +2627,9 @@ function groundAt(x, z, feetY) {
   return g;
 }
 function collide(o, r, feetY, h) {
+  const isP = S && o === S.p;
   for (const b of boxes) {
+    if (b.pOnly && !isP) continue;
     if (b.y1 <= feetY + (o.z > 92 && o.z < 128 ? 1.0 : STEP) || b.y0 >= feetY + h) continue;
     const cx = Math.max(b.x0, Math.min(o.x, b.x1)), cz = Math.max(b.z0, Math.min(o.z, b.z1));
     let dx = o.x - cx, dz = o.z - cz; const d = Math.hypot(dx, dz);
@@ -2620,7 +2655,7 @@ function clampWorld(o) {
   } else { o.x = Math.max(-BOUND, Math.min(BOUND, o.x)); o.z = Math.max(-BOUND, o.z); }
   o.lx = o.x; o.lz = o.z;
 }
-const inSolid = (x, y, z) => y < (z > 66 ? terrainH(x, z) : 0) || boxes.some(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && y > b.y0 && y < b.y1);
+const inSolid = (x, y, z) => y < (z > 66 ? terrainH(x, z) : 0) || boxes.some(b => !b.pOnly && x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && y > b.y0 && y < b.y1);
 const ray = new T.Raycaster();
 const _v = new T.Vector3(), _v2 = new T.Vector3();
 // Fast ray test against the collision boxes and the ground (slab method). Shots, sight lines and
@@ -2639,7 +2674,7 @@ function rayBox(o, d, far) {
   }
   const ix = 1 / d.x, iy = 1 / d.y, iz = 1 / d.z;
   for (let i = 0; i < boxes.length; i++) {
-    const b = boxes[i];
+    const b = boxes[i]; if (b.pOnly) continue;
     let t1 = (b.x0 - o.x) * ix, t2 = (b.x1 - o.x) * ix; let tmin = Math.min(t1, t2), tmax = Math.max(t1, t2);
     t1 = (b.y0 - o.y) * iy; t2 = (b.y1 - o.y) * iy; tmin = Math.max(tmin, Math.min(t1, t2)); tmax = Math.min(tmax, Math.max(t1, t2));
     t1 = (b.z0 - o.z) * iz; t2 = (b.z1 - o.z) * iz; tmin = Math.max(tmin, Math.min(t1, t2)); tmax = Math.min(tmax, Math.max(t1, t2));
@@ -3743,7 +3778,11 @@ const ENEMY = {
   stalker: { hp: 42, speed: 7, r: 0.38, scale: 0.92, armor: 0x7d6f8c, visor: 0xff3f8f, pts: 80 },
   heavy:   { hp: 360, speed: 2.1, r: 0.7, scale: 1.45, armor: 0x5c6066, visor: 0xff3020, pts: 400, range: [8, 30] },
   turret:  { hp: 320, speed: 0, r: 0.9, scale: 1, armor: 0x5a5e62, visor: 0xff5020, pts: 300, range: [0, 38] },
-  walker:  { hp: 5200, speed: 1.5, r: 2.6, scale: 1.45, armor: 0x4e5560, visor: 0xff3020, pts: 5000, range: [9, 18] }
+  walker:  { hp: 5200, speed: 1.5, r: 2.6, scale: 1.45, armor: 0x4e5560, visor: 0xff3020, pts: 5000, range: [9, 18] },
+  // the Hollow: dead colonists on Ashara Reach, slow and hard to put down
+  shambler: { hp: 150, speed: 1.9, r: 0.38, scale: 1, armor: 0x7d8a6a, visor: 0xd8ff6a, pts: 110, zombie: 1, melee: 16, mcd: 1.0 },
+  lurcher:  { hp: 95, speed: 3.3, r: 0.36, scale: 0.96, armor: 0x8a7d66, visor: 0xffd25a, pts: 130, zombie: 2, melee: 12, mcd: 0.8 },
+  brute:    { hp: 760, speed: 1.45, r: 0.6, scale: 1.42, armor: 0x5e6a52, visor: 0xff6a3a, pts: 450, zombie: 3, melee: 34, mcd: 1.4 }
 };
 let enemies = [], bolts = [], debris = [], pickups = [];
 const NET = { on: false, ws: null, id: null, host: false, hostId: null, peers: new Map(), room: '', sendT: 0, snapT: 0, lastW: 0, lastI: 0 };
@@ -3805,6 +3844,7 @@ function makeEnemy(type, x, z, nid) {
     spark(x, 2.5, z, D.visor, 30, 4, 6); banner('Crab Walker inbound', 'Hit the turret for extra damage', 2.4);
     return e;
   }
+  if (D.zombie) return makeHollow(e, D, x, z, part, armor);
   const stalk = type === 'stalker', heavy = type === 'heavy';
   const legs = [];
   for (const s of [-1, 1]) {
@@ -3847,7 +3887,49 @@ function makeEnemy(type, x, z, nid) {
   return e;
 }
 
-const ENAMES = { trooper: 'Synth Trooper', stalker: 'Synth Stalker', heavy: 'Synth Heavy', walker: 'Crab Walker', turret: 'Broken Sentry' };
+// The Hollow: the dead of Ashara Reach. Grey-green skin, torn colonist clothes, glowing eyes, arms reaching out.
+const HOLLOW_CLOTH = [0x8a7a5a, 0x5a6a7a, 0x6a4a3a, 0x7a6a4a, 0x4a5a4a, 0x8a5a4a];
+function makeHollow(e, D, x, z, part, skin) {
+  const g = e.g, big = D.zombie === 3, fast = D.zombie === 2;
+  const cloth = new T.MeshLambertMaterial({ map: TX.crate, color: HOLLOW_CLOTH[(Math.random() * HOLLOW_CLOTH.length) | 0], emissive: 0x000000 });
+  const pants = new T.MeshLambertMaterial({ map: TX.concrete, color: 0x4a4038, emissive: 0x000000 });
+  const eye = new T.MeshBasicMaterial({ color: D.visor });
+  e.mats = [skin, cloth, pants];
+  const legs = [];
+  for (const s of [-1, 1]) {
+    const piv = new T.Group(); piv.position.set(s * 0.14, 0.95, 0); g.add(piv);
+    part(0.18, 0.5, 0.2, 0, -0.25, 0, pants, piv); part(0.15, 0.46, 0.16, 0, -0.7, 0.02, s > 0 && Math.random() < 0.5 ? skin : pants, piv);
+    part(0.17, 0.08, 0.26, 0, -0.95, 0.05, skin, piv);
+    legs.push(piv);
+  }
+  const torso = new T.Group(); torso.position.y = 0.95; g.add(torso);
+  torso.rotation.x = fast ? 0.5 : 0.22 + Math.random() * 0.12; torso.rotation.z = (Math.random() - 0.5) * 0.18;
+  part(big ? 0.62 : 0.42, 0.3, big ? 0.38 : 0.24, 0, 0.13, 0, pants, torso);
+  part(big ? 0.78 : 0.5, 0.5, big ? 0.46 : 0.28, 0, 0.5, 0, cloth, torso);
+  part(big ? 0.5 : 0.24, 0.2, 0.06, big ? 0.1 : 0.08, 0.36, big ? 0.24 : 0.15, skin, torso);        // torn shirt showing skin
+  if (big) part(0.7, 0.3, 0.5, 0, 0.32, 0.08, skin, torso);                                            // bloated gut
+  const neck = new T.Group(); neck.position.set(0, 0.8, 0.03); neck.rotation.set(fast ? -0.35 : 0.15, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.5); torso.add(neck);
+  part(0.26, 0.3, 0.27, 0, 0.12, 0.02, skin, neck, true);
+  part(0.2, 0.06, 0.2, 0, 0.29, 0, skin, neck, true);
+  for (const sx of [-1, 1]) { const ey = new T.Mesh(new T.BoxGeometry(0.05, 0.035, 0.02), eye); ey.position.set(sx * 0.065, 0.16, 0.16); neck.add(ey); }
+  const jaw = new T.Mesh(new T.BoxGeometry(0.16, 0.05, 0.04), new T.MeshBasicMaterial({ color: 0x1a0a08 })); jaw.position.set(0, 0.03, 0.155); neck.add(jaw);
+  const arms = [];
+  for (const s of [-1, 1]) {
+    const piv = new T.Group(); piv.position.set(s * (big ? 0.48 : 0.31), 0.68, 0); torso.add(piv);
+    part(big ? 0.22 : 0.13, 0.32, big ? 0.22 : 0.14, 0, -0.15, 0, cloth, piv);
+    part(big ? 0.2 : 0.11, big ? 0.42 : 0.34, big ? 0.2 : 0.12, 0, -0.45, 0, skin, piv);
+    part(big ? 0.24 : 0.12, 0.12, big ? 0.16 : 0.1, 0, -0.66, 0.02, skin, piv);
+    piv.rotation.x = -(fast ? 1.0 : 1.35) + (Math.random() - 0.5) * 0.4; piv.rotation.z = s * (0.08 + Math.random() * 0.15);
+    arms.push(piv);
+  }
+  if (big) { arms[1].scale.setScalar(1.35); }
+  e.armBase = arms.map(a => a.rotation.x);
+  g.scale.setScalar(D.scale * (0.94 + Math.random() * 0.12));
+  e.legs = legs; e.arms = arms; e.torso = torso; e.groanT = 1 + Math.random() * 5;
+  g.position.set(x, 0, z); scene.add(g); enemies.push(e);
+  return e;
+}
+const ENAMES = { trooper: 'Synth Trooper', stalker: 'Synth Stalker', heavy: 'Synth Heavy', walker: 'Crab Walker', turret: 'Broken Sentry', shambler: 'Hollow', lurcher: 'Hollow Lurcher', brute: 'Hollow Brute' };
 let dnums = [];
 function dmgNum(x, y, z, amount, crit) {
   const el = document.createElement('div'); el.className = 'dn' + (crit ? ' crit' : ''); el.textContent = Math.max(1, Math.round(amount));
@@ -3932,6 +4014,13 @@ function dropPickup(x, z, kind, id, fromNet) {
 function removePickup(id) { for (const pk of pickups) if (pk.id === id) pk.t = 0; }
 
 function makeWave(n) {
+  if (MAP === 'dune') {
+    // the Hollow: mostly shamblers, lurchers from wave 3, brutes from wave 5 and in pairs every fifth wave
+    const q = [], total = Math.round((5 + n * 3) * (NET.on && NET.peers.size ? 1.6 : 1));
+    for (let i = 0; i < total; i++) { const r = Math.random(); q.push(n >= 3 && r < Math.min(0.12 + n * 0.025, 0.4) ? 'lurcher' : n >= 5 && r > 1 - Math.min(0.03 + n * 0.008, 0.12) ? 'brute' : 'shambler'); }
+    if (n % 5 === 0) q.push('brute', 'brute');
+    return q;
+  }
   const q = [], total = Math.round((4 + n * 3) * (NET.on && NET.peers.size && !isObjWave(n) ? 2 : 1));
   for (let i = 0; i < total; i++) {
     const r = Math.random(); let t = 'trooper';
@@ -3949,8 +4038,10 @@ function updateEnemies(dt) {
   for (const e of enemies) {
     if (e.dead) continue;
     const D = e.D;
+    if (e.climb) { climbTick(e, dt); continue; }
     const P = pickTarget(e);
     if (!P) continue;
+    if (D.zombie) { e.groanT -= dt; if (e.groanT <= 0) { e.groanT = 3 + Math.random() * 6; hollowGroan(e); } }
     const dx = P.x - e.x, dz = P.z - e.z, dist = Math.hypot(dx, dz) || 0.01, ux = dx / dist, uz = dz / dist;
     e.losT -= dt;
     if (e.losT <= 0) { e.losT = rnd(0.2, 0.35); e.los = lineOfSight(e.x, e.y + 1.6 * D.scale, e.z, P.x, P.y + 1.5, P.z); }
@@ -3976,7 +4067,7 @@ function updateEnemies(dt) {
       if (e.type === 'walker') walkerLaser(e, P, dist, dt);
       if (e.type === 'heavy' && dist < 1.6) meleeHit(e, 28, 1.4, P);
     } else {
-      if (dist < 1.3 + P.r) { sp = 0; meleeHit(e, 12, 0.8, P); }
+      if (dist < 1.3 + P.r) { sp = 0; meleeHit(e, D.melee || 12, D.mcd || 0.8, P); }
       e.cd -= dt;
     }
 
@@ -4051,7 +4142,7 @@ function updateEnemies(dt) {
     e.phase += dt * sp * 2.2;
     const sw = sp > 0.2 ? Math.sin(e.phase) * 0.6 : 0;
     if (e.type === 'walker') walkerLegs(e, sp);
-    else { e.legs[0].rotation.x = sw; e.legs[1].rotation.x = -sw; }
+    else { e.legs[0].rotation.x = sw; e.legs[1].rotation.x = -sw; if (e.armBase) { e.arms[0].rotation.x = e.armBase[0] + Math.sin(e.phase * 0.5) * 0.12; e.arms[1].rotation.x = e.armBase[1] - Math.sin(e.phase * 0.5 + 1) * 0.12; } }
     if (e.flash > 0) { e.flash -= dt; for (const m of e.mats) m.emissive.setHex(e.flash > 0 ? 0xffffff : 0); }
   }
   enemies = enemies.filter(e => !e.dead);
@@ -4185,7 +4276,7 @@ function newGame() {
   for (const st of stations) { st.cd = 0; st.active = false; }
   S = {
     running: true, t: 0, wave: 0, score: 0, kills: 0, xp: 0, streak: 0, lastKill: -9, queue: [], spawnCd: 0, intermission: 0, sweep: 1,
-    p: { dead: false, x: 0, y: MAP === 'dune' ? 0 : 3.4, z: MAP === 'dune' ? 41 : INS_Z - 3, vy: 0, r: 0.4, yaw: 0, pitch: 0, onGround: true, hp: 100, lagHp: 100, lagT: 0, shield: 100, recharging: false, beepT: 0, sinceHit: 9,
+    p: { dead: false, x: 0, y: MAP === 'dune' ? 0 : 3.4, z: MAP === 'dune' ? 44 : INS_Z - 3, vy: 0, r: 0.4, yaw: 0, pitch: 0, onGround: true, hp: 100, lagHp: 100, lagT: 0, shield: 100, recharging: false, beepT: 0, sinceHit: 9,
          mag: GS.mag, reserve: GS.reserve, pumped: false, reloadT: 0, fireCd: 0, pulseCd: 0, recoil: 0, ads: 0, bob: 0, hurt: 0, shake: 0, ch: 0, shFlash: 0, punchP: 0, punchY: 0, nadeCd: 0, glT: -1, glFired: false }
   };
 }
@@ -4354,7 +4445,7 @@ function feedOther(full) {
 function updateAltWidget(anim) {
   const P = S && S.p, el = $('hbAlt'); if (!el || !P) return;
   const other = curW === loadout.primary ? loadout.sidearm : loadout.primary;
-  if (!other || other === 'none' || !WSTATS[other]) { el.hidden = true; return; }
+  if (MAP === 'dune' || !other || other === 'none' || !WSTATS[other]) { el.hidden = true; return; }
   el.hidden = false;
   const st = (P.store && P.store[other]) || { mag: WSTATS[other].mag, reserve: WSTATS[other].reserve };
   if (el.dataset.w !== other) { el.dataset.w = other; try { $('hbAltGun').src = thumb(other); } catch (e) {} $('hbAltName').textContent = wById(other).name; $('hbAltKey').textContent = other === loadout.primary ? '1' : '2'; }
@@ -4362,7 +4453,7 @@ function updateAltWidget(anim) {
   if (anim) for (const e of [el, el.parentNode]) { e.classList.remove('swap'); void e.offsetWidth; e.classList.add('swap'); }
 }
 function switchWeapon() {
-  const P = S && S.p; if (!P || P.dead || !S.running || loadout.sidearm === 'none' || P.swapT > 0) return;
+  const P = S && S.p; if (!P || P.dead || !S.running || loadout.sidearm === 'none' || P.swapT > 0 || MAP === 'dune') return;
   P.store = P.store || {};
   P.store[curW] = { mag: P.mag, reserve: P.reserve };
   P.reloadT = 0; try { reloadVoice && reloadVoice.stop(); } catch (e) {}
@@ -4741,8 +4832,9 @@ function update(dt) {
     if (S.queue.length && S.spawnCd <= 0 && enemies.length < (8 + S.wave) * (NET.on && NET.peers.size && !S.obj ? 2 : 1) + (S.obj && S.obj.ty === 'kills' ? 8 : 0)) {
       // pick a gate not right next to the player
       if (MAP === 'dune') {
-        const sp_ = duneSpawnPoint(), en = makeEnemy(S.queue.shift(), sp_.x + rnd(-0.5, 0.5), sp_.z + rnd(-0.5, 0.5));
-        en.y = sp_.y; en.vy = 0; en.g.position.y = sp_.y; spark(en.x, sp_.y, en.z, 0xe8cfa0, 10, 2.5, 1.2);
+        const sp_ = duneSpawnPoint(), en = makeEnemy(S.queue.shift(), sp_.ox + rnd(-0.4, 0.4), sp_.oz + rnd(-0.4, 0.4));
+        en.y = sp_.oy; en.vy = 0; en.g.position.y = sp_.oy;
+        en.climb = { t: 0, dur: en.D.zombie === 3 ? 2.6 : en.D.zombie === 2 ? 1.5 : 2.1, ox: en.x, oz: en.z, oy: sp_.oy, wx: sp_.wx, wz: sp_.wz, ix: sp_.x, iz: sp_.z, iy: sp_.y, sill: sp_.sill };
       } else {
       const gates = GATES.filter(([x, z]) => Math.hypot(x - P.x, z - P.z) > 18);
       const [gx, gz] = gates[(Math.random() * gates.length) | 0] || GATES[0];
@@ -5391,10 +5483,19 @@ let laserDot = null;
 function aimLaser(beam) {
   if (!laserDot) { laserDot = new T.Sprite(new T.SpriteMaterial({ map: TX.flash, color: 0xff3020, blending: T.AdditiveBlending, depthWrite: false, depthTest: false, transparent: true })); laserDot.position.copy(_laserTgt); laserDot.scale.set(0.09, 0.09, 1); gunScene.add(laserDot); }
   laserDot.visible = true; laserDot.userData.f = (performance.now());
+  // the beam stays fixed to the barrel and moves with the gun; the dot lands where that line meets the far plane
+  beam.rotation.set(0, Math.PI, 0); beam.scale.z = 1;
   gun.updateMatrixWorld(true);
-  beam.lookAt(_laserTgt);
-  _lp.copy(_laserTgt); beam.parent.worldToLocal(_lp);
-  beam.scale.z = _lp.distanceTo(beam.position);
+  const o = beam.getWorldPosition(_lp), d = beam.getWorldDirection(new T.Vector3());
+  const t = d.z < -0.05 ? (_laserTgt.z - o.z) / d.z : 9;
+  const hitP = d.multiplyScalar(t).add(o);
+  // when the gun is settled (not reloading, swapping or sprinting) the dot eases onto the crosshair
+  const P = S && S.p, steady = P && !(P.reloadT > 0) && !(P.swapT > 0) && !(input.keys.shift && (input.keys.w || input.my > 0)) && !(P.glT >= 0);
+  beam.userData.k = Math.max(0, Math.min(1, (beam.userData.k || 0) + (steady ? 0.06 : -0.25)));
+  hitP.lerp(_laserTgt, beam.userData.k * beam.userData.k);
+  laserDot.position.copy(hitP);
+  beam.lookAt(hitP);
+  const loc = beam.parent.worldToLocal(hitP.clone()); beam.scale.z = loc.distanceTo(beam.position);
 }
 // piecewise smooth interpolation through keyframes [t, ...values]
 function keyLerp(t, K) {
@@ -6271,7 +6372,7 @@ function renderScopeLens() {
 // ---------------- multiplayer (co-op) ----------------
 // The host's game runs waves and enemies and sends snapshots; every client simulates its own player,
 // reports hits to the host, and takes damage from bolts and melee on its own machine.
-const ETYPES = ['trooper', 'stalker', 'heavy', 'walker', 'turret'];
+const ETYPES = ['trooper', 'stalker', 'heavy', 'walker', 'turret', 'shambler', 'lurcher', 'brute'];
 const r2 = v => Math.round(v * 100) / 100;
 let serverUrl = '';
 try { serverUrl = localStorage.getItem('kessa-server') || ''; } catch (e) {}
@@ -6353,11 +6454,16 @@ function onNet(m) {
       renderLobby(); break;
     case 'join':
       addPeer(m); setHost(m.host); renderLobby();
+      if (NET.host) { netSend({ t: 'map', to: m.id, map: MAP }); if (MAP === 'dune' && mode === 'game') setTimeout(() => netSend({ t: 'doors', to: m.id, l: DUNE.doors.map((d, i) => d.open ? i : -1).filter(i => i >= 0) }), 1500); }
       if (mode === 'game') feedNote(`${m.name} joined`);
-      if (NET.host && mode === 'game' && S && S.running) netSend({ t: 'start', to: m.id, tod: S.tod, seed: S.seed, wx: env.w });
+      if (NET.host && mode === 'game' && S && S.running) netSend({ t: 'start', to: m.id, tod: S.tod, seed: S.seed, wx: env.w, map: MAP });
       break;
     case 'leave': removePeer(m.id); setHost(m.host); renderLobby(); break;
-    case 'start': if (mode !== 'travel' && (mode !== 'game' || !S || !S.running)) start(m.tod, m.seed, m.wx); break;
+    case 'map': if ((m.map === 'dune' ? 'dune' : 'kessa') !== MAP) { lobbyStatus('Switching to the host\'s map…'); goMap(m.map === 'dune' ? 'dune' : 'kessa', NET.room); } break;
+    case 'door': if (MAP === 'dune' && S && S.running) { const d = DUNE.doors[m.i]; if (d && !d.open) openDoor(d, true, m.n); } break;
+    case 'doors': if (MAP === 'dune' && S && S.running) for (const i of m.l || []) { const d = DUNE.doors[i]; if (d && !d.open) openDoor(d, true); } break;
+    case 'start': if (m.map && m.map !== MAP) { goMap(m.map, NET.room); break; }
+      if (mode !== 'travel' && (mode !== 'game' || !S || !S.running)) start(m.tod, m.seed, m.wx); break;
     case 'p': {
       const p = NET.peers.get(m.from); if (!p) break;
       p.w = m.w || 'vk9';
@@ -6546,7 +6652,23 @@ function updatePeers(dt) {
 }
 
 // lobby
+// switching maps reloads the page (each load builds one map); in a room, everyone reloads and rejoins the same code
+function goMap(map, rejoin) {
+  try { localStorage.setItem('vp-map', map); if (rejoin) sessionStorage.setItem('vp-rejoin', rejoin); } catch (e) {}
+  location.href = location.pathname + '?map=' + map + '#lobby';
+}
+function renderLobbyMap() {
+  for (const b of document.querySelectorAll('#lobMap button')) { b.setAttribute('aria-pressed', b.dataset.map === MAP ? 'true' : 'false'); b.disabled = NET.on && !NET.host && b.dataset.map !== MAP; }
+  $('lobMapNote').textContent = NET.on ? (NET.host ? 'You pick the map. Changing it reloads the squad into the room.' : 'The host picks the map.') : 'Pick the map before you create or join a room.';
+}
+for (const b of document.querySelectorAll('#lobMap button')) b.addEventListener('click', () => {
+  if (b.dataset.map === MAP) return;
+  if (NET.on && !NET.host) return;
+  if (NET.on) { netSend({ t: 'map', map: b.dataset.map }); const code = NET.room; setTimeout(() => goMap(b.dataset.map, code), 250); }
+  else goMap(b.dataset.map);
+});
 function renderLobby() {
+  renderLobbyMap();
   const list = $('roster'); list.innerHTML = '';
   const row = (name, lvl, tags, col) => {
     const li = document.createElement('li'); li.style.borderLeft = `3px solid ${col}`;
@@ -6574,7 +6696,7 @@ $('createBtn').addEventListener('click', () => {
 });
 $('joinBtn').addEventListener('click', () => netConnect($('roomCode').value));
 $('roomCode').addEventListener('keydown', e => { if (e.key === 'Enter') netConnect($('roomCode').value); });
-$('mpStart').addEventListener('click', () => { if (!NET.host) return; const tod = Math.floor(Math.random() * TODS.length), seed = 1 + Math.floor(Math.random() * 100000); const wx = 'downpour'; netSend({ t: 'start', tod, seed, wx }); start(tod, seed, wx); });
+$('mpStart').addEventListener('click', () => { if (!NET.host) return; const tod = Math.floor(Math.random() * TODS.length), seed = 1 + Math.floor(Math.random() * 100000); const wx = 'downpour'; netSend({ t: 'start', tod, seed, wx, map: MAP }); start(tod, seed, wx); });
 let armoryFrom = 'solo';
 $('mpLoadout').addEventListener('click', () => { armoryFrom = 'lobby'; mode = 'loadout'; showOnly('loadout'); $('deployBtn').textContent = 'Back to lobby'; $('deployBtn').hidden = false; showArmory(); });
 $('mpLeave').addEventListener('click', () => { netLeave(); mode = 'menu'; showOnly('playMenu'); });
@@ -8010,15 +8132,15 @@ function refreshRank() {
 function start(tod, seed, wx) {
   initAudio();
   if (wx === undefined) wx = 'downpour';   // every mission starts in a downpour; the weather can turn later
-  if (tod === undefined) tod = MAP === 'dune' ? 4 : Math.floor(Math.random() * 4);
-  if (MAP === 'dune') wx = 'clear';
+  if (tod === undefined) tod = Math.floor(Math.random() * 4);
+  if (MAP === 'dune') { tod = 4; wx = 'clear'; }
   if (seed === undefined) seed = 1 + Math.floor(Math.random() * 100000);
   applyTOD(tod);
   mode = 'travel'; showOnly(null); $('hud').hidden = true; paused = false;
   input.fire = false; input.adsToggle = false; input.use = false; input.crouchToggle = false; $('tZoom').classList.remove('on'); $('tCrouch').classList.remove('on');
   updateWeaponBar();
   try { $('hbGun').src = thumb(curW); } catch (e) {}
-  curW = loadout.primary; applyLoadout();
+  curW = MAP === 'dune' ? (loadout.sidearm && loadout.sidearm !== 'none' ? loadout.sidearm : 'wasp') : loadout.primary; applyLoadout();   // Dunebreak: everyone starts with just their pistol
   $('npName').textContent = callsign;
   newGame(); lastHud = ''; S.tod = tod; S.seed = seed;
   setWeather(wx, true); env.nextChange = MAP === 'dune' ? 1e9 : rnd(150, 240); env.flash = 0;
@@ -8032,7 +8154,7 @@ function start(tod, seed, wx) {
   if (!isTouch && navigator.userActivation && navigator.userActivation.isActive) lockPointer();   // lock now, while the click still counts as a user gesture
   if (MAP === 'dune') startTravel('approach', 'Holdout: Dunebreak', 'Ashara Reach · Kessa system', () => {
     mode = 'game'; lastHud = ''; S.calmT = 3; $('hud').hidden = false;
-    const P = S.p; P.x = NET.on ? P.x : 0; P.y = 0; P.z = 41; P.yaw = 0; P.pitch = 0;
+    const P = S.p; P.x = NET.on ? P.x : 0; P.y = 0; P.z = 44; P.yaw = 0; P.pitch = 0;
     banner('Dunebreak', 'Hold the garrison · buy gates to push into the town', 3); omen('The sun is merciless. Something stirs in the streets..');
     if (!isTouch && lookMode === 'lock' && document.pointerLockElement !== cv) openPause('Click Resume to take control');
   });
@@ -8084,6 +8206,11 @@ setTimeout(() => {
     const on = b.dataset.map === MAP; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
     const im = b.querySelector('img'); if (im && !on) im.alt = '';
     b.addEventListener('click', () => { if (b.dataset.map === MAP) return; try { localStorage.setItem('vp-map', b.dataset.map); } catch (e) {} location.href = location.pathname + '?map=' + b.dataset.map + '#play'; });
+  }
+  if (location.hash === '#lobby') {
+    history.replaceState(null, '', location.pathname + location.search); mode = 'menu'; showOnly('lobby'); renderLobby();
+    let rj = null; try { rj = sessionStorage.getItem('vp-rejoin'); sessionStorage.removeItem('vp-rejoin'); } catch (e) {}
+    if (rj) setTimeout(() => netConnect(rj), 400);
   }
   if (location.hash === '#play') { history.replaceState(null, '', location.pathname + location.search); mode = 'menu'; showOnly('playMenu'); }
   requestAnimationFrame(frame);
